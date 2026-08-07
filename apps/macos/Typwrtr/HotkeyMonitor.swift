@@ -10,36 +10,41 @@ import CoreGraphics
 final class HotkeyMonitor {
     var onPttDown: (() -> Void)?
     var onPttUp: (() -> Void)?
+    var onUndo: (() -> Void)?
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var carbonHandler: EventHandlerRef?
-    private var carbonHotKey: EventHotKeyRef?
+    private var carbonPttHotKey: EventHotKeyRef?
+    private var carbonUndoHotKey: EventHotKeyRef?
     private var dDown = false
     private var didPrompt = false
 
     private let hotKeySignature: OSType = 0x5457_5254 // 'TWRT'
-    private let hotKeyID: UInt32 = 1
+    private let pttHotKeyID: UInt32 = 1
+    private let undoHotKeyID: UInt32 = 2
 
     func start() {
         requestPermissions()
 
         if installTap() {
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap)")
+            _ = installCarbonUndoHotKey()
+            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap) · Undo ⌃⇧Z")
             return
         }
 
-        if installCarbonHotKey() {
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (Carbon)")
+        if installCarbonHotKeys(includePtt: true) {
+            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (Carbon) · Undo ⌃⇧Z")
             showPermissionHelpIfNeeded()
             return
         }
 
         NSLog("Typwrtr: Carbon hotkey failed — NSEvent monitors")
         installEventMonitors()
-        MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (monitor)")
+        _ = installCarbonUndoHotKey()
+        MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (monitor) · Undo ⌃⇧Z")
         showPermissionHelpIfNeeded()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
@@ -51,8 +56,13 @@ final class HotkeyMonitor {
         requestPermissions()
         if installTap() {
             removeEventMonitors()
-            uninstallCarbonHotKey()
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap)")
+            // Keep undo Carbon; drop PTT Carbon if present to avoid double PTT.
+            if let carbonPttHotKey {
+                UnregisterEventHotKey(carbonPttHotKey)
+                self.carbonPttHotKey = nil
+            }
+            _ = installCarbonUndoHotKey()
+            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap) · Undo ⌃⇧Z")
         }
     }
 
@@ -151,52 +161,89 @@ final class HotkeyMonitor {
     // MARK: - Carbon hotkey (press + release)
 
     @discardableResult
-    private func installCarbonHotKey() -> Bool {
-        if carbonHotKey != nil { return true }
+    private func installCarbonUndoHotKey() -> Bool {
+        installCarbonHotKeys(includePtt: false)
+    }
 
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        var eventTypeUp = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
-        var eventTypes = [eventType, eventTypeUp]
-
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-        let status = InstallEventHandler(
-            GetApplicationEventTarget(),
-            { (_, event, userData) -> OSStatus in
-                guard let userData else { return noErr }
-                let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userData).takeUnretainedValue()
-                return monitor.handleCarbonEvent(event)
-            },
-            2,
-            &eventTypes,
-            selfPtr,
-            &carbonHandler
-        )
-        guard status == noErr else {
-            NSLog("Typwrtr: InstallEventHandler failed (%d)", status)
-            return false
+    @discardableResult
+    private func installCarbonHotKeys(includePtt: Bool) -> Bool {
+        if carbonHandler == nil {
+            var eventType = EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard),
+                eventKind: UInt32(kEventHotKeyPressed)
+            )
+            var eventTypeUp = EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard),
+                eventKind: UInt32(kEventHotKeyReleased)
+            )
+            var eventTypes = [eventType, eventTypeUp]
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+            let status = InstallEventHandler(
+                GetApplicationEventTarget(),
+                { (_, event, userData) -> OSStatus in
+                    guard let userData else { return noErr }
+                    let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userData).takeUnretainedValue()
+                    return monitor.handleCarbonEvent(event)
+                },
+                2,
+                &eventTypes,
+                selfPtr,
+                &carbonHandler
+            )
+            guard status == noErr else {
+                NSLog("Typwrtr: InstallEventHandler failed (%d)", status)
+                return false
+            }
         }
 
-        let hotKeyID = EventHotKeyID(signature: hotKeySignature, id: hotKeyID)
-        let reg = RegisterEventHotKey(
-            UInt32(kVK_ANSI_D),
-            UInt32(controlKey | shiftKey),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &carbonHotKey
-        )
-        guard reg == noErr else {
-            NSLog("Typwrtr: RegisterEventHotKey failed (%d)", reg)
-            uninstallCarbonHotKey()
-            return false
+        if includePtt, carbonPttHotKey == nil {
+            let id = EventHotKeyID(signature: hotKeySignature, id: pttHotKeyID)
+            let reg = RegisterEventHotKey(
+                UInt32(kVK_ANSI_D),
+                UInt32(controlKey | shiftKey),
+                id,
+                GetApplicationEventTarget(),
+                0,
+                &carbonPttHotKey
+            )
+            guard reg == noErr else {
+                NSLog("Typwrtr: RegisterEventHotKey PTT failed (%d)", reg)
+                uninstallCarbonHotKeys()
+                return false
+            }
+        }
+
+        if carbonUndoHotKey == nil {
+            let id = EventHotKeyID(signature: hotKeySignature, id: undoHotKeyID)
+            let reg = RegisterEventHotKey(
+                UInt32(kVK_ANSI_Z),
+                UInt32(controlKey | shiftKey),
+                id,
+                GetApplicationEventTarget(),
+                0,
+                &carbonUndoHotKey
+            )
+            guard reg == noErr else {
+                NSLog("Typwrtr: RegisterEventHotKey Undo failed (%d)", reg)
+                if includePtt {
+                    uninstallCarbonHotKeys()
+                    return false
+                }
+                // Undo-only failure is non-fatal when PTT uses the event tap.
+                return carbonPttHotKey != nil || !includePtt
+            }
         }
         return true
     }
 
-    private func uninstallCarbonHotKey() {
-        if let carbonHotKey {
-            UnregisterEventHotKey(carbonHotKey)
-            self.carbonHotKey = nil
+    private func uninstallCarbonHotKeys() {
+        if let carbonPttHotKey {
+            UnregisterEventHotKey(carbonPttHotKey)
+            self.carbonPttHotKey = nil
+        }
+        if let carbonUndoHotKey {
+            UnregisterEventHotKey(carbonUndoHotKey)
+            self.carbonUndoHotKey = nil
         }
         if let carbonHandler {
             RemoveEventHandler(carbonHandler)
@@ -206,7 +253,24 @@ final class HotkeyMonitor {
 
     private func handleCarbonEvent(_ event: EventRef?) -> OSStatus {
         guard let event else { return noErr }
+        var hotKeyID = EventHotKeyID()
+        let err = GetEventParameter(
+            event,
+            EventParamName(kEventParamDirectObject),
+            EventParamType(typeEventHotKeyID),
+            nil,
+            MemoryLayout<EventHotKeyID>.size,
+            nil,
+            &hotKeyID
+        )
         let kind = GetEventKind(event)
+        if err == noErr, hotKeyID.signature == hotKeySignature, hotKeyID.id == undoHotKeyID {
+            if kind == UInt32(kEventHotKeyPressed) {
+                DispatchQueue.main.async { [weak self] in self?.onUndo?() }
+            }
+            return noErr
+        }
+
         if kind == UInt32(kEventHotKeyPressed) {
             if !dDown {
                 dDown = true
@@ -230,6 +294,7 @@ final class HotkeyMonitor {
         ) { [weak self] event in
             self?.handleNSEvent(event)
             if self?.isPttChord(event) == true { return nil }
+            if self?.isUndoChord(event) == true { return nil }
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -251,11 +316,21 @@ final class HotkeyMonitor {
     }
 
     private func isPttChord(_ event: NSEvent) -> Bool {
+        chordMods(event) && event.keyCode == UInt16(kVK_ANSI_D)
+    }
+
+    private func isUndoChord(_ event: NSEvent) -> Bool {
+        event.type == .keyDown
+            && chordMods(event)
+            && event.keyCode == UInt16(kVK_ANSI_Z)
+            && !event.isARepeat
+    }
+
+    private func chordMods(_ event: NSEvent) -> Bool {
         let mods = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)
             .intersection([.control, .option, .command, .shift])
-        return event.keyCode == UInt16(kVK_ANSI_D)
-            && mods.contains(.control)
+        return mods.contains(.control)
             && mods.contains(.shift)
             && !mods.contains(.command)
             && !mods.contains(.option)
@@ -269,8 +344,11 @@ final class HotkeyMonitor {
         let shiftHeld = mods.contains(.shift)
         let chordMods = controlHeld && shiftHeld && !mods.contains(.command) && !mods.contains(.option)
         let isD = event.keyCode == UInt16(kVK_ANSI_D)
+        let isZ = event.keyCode == UInt16(kVK_ANSI_Z)
 
         switch event.type {
+        case .keyDown where isZ && chordMods && !event.isARepeat:
+            onUndo?()
         case .keyDown where isD && chordMods && !event.isARepeat:
             if !dDown {
                 dDown = true
@@ -297,13 +375,14 @@ final class HotkeyMonitor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Ignore our own synthetic ⌘V so a future configurable hotkey can't loop.
+        // Ignore our own synthetic paste/undo keystrokes.
         if event.getIntegerValueField(.eventSourceUserData) == ClipboardInserter.pasteEventTag {
             return Unmanaged.passUnretained(event)
         }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let isD = keyCode == Int64(kVK_ANSI_D)
+        let isZ = keyCode == Int64(kVK_ANSI_Z)
         let mods = event.flags.intersection([.maskControl, .maskAlternate, .maskCommand, .maskShift])
         let controlHeld = mods.contains(.maskControl)
         let shiftHeld = mods.contains(.maskShift)
@@ -311,6 +390,12 @@ final class HotkeyMonitor {
             && !mods.contains(.maskAlternate)
 
         switch type {
+        case .keyDown where isZ && chordMods:
+            let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            if !isRepeat {
+                DispatchQueue.main.async { [weak self] in self?.onUndo?() }
+            }
+            return nil
         case .keyDown where isD && chordMods:
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
             if !isRepeat, !dDown {

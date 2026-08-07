@@ -220,6 +220,19 @@ impl Session {
             self.last_error = None;
         }
     }
+
+    /// Take the undo / preview text buffer (one-shot).
+    ///
+    /// Returns the retained text and clears it. When status was [`SessionStatus::Error`],
+    /// also returns to idle (same cleanup as [`clear_buffer`]).
+    pub fn take_undo_payload(&mut self) -> Option<String> {
+        let text = self.last_text.take()?;
+        if self.status == SessionStatus::Error {
+            self.status = SessionStatus::Idle;
+            self.last_error = None;
+        }
+        Some(text)
+    }
 }
 
 #[cfg(test)]
@@ -293,5 +306,28 @@ mod tests {
         assert!(text.to_lowercase().contains("hello"), "got: {text}");
         assert_eq!(s.status(), SessionStatus::Idle);
         assert_eq!(s.last_text(), Some(text.as_str()));
+    }
+
+    #[test]
+    fn take_undo_payload_is_one_shot() {
+        let mut s = Session::new();
+        s.start_ptt().unwrap();
+        s.stop_ptt_begin_processing().unwrap();
+        s.complete_with_text("dictated phrase").unwrap();
+        assert_eq!(s.take_undo_payload().as_deref(), Some("dictated phrase"));
+        assert_eq!(s.last_text(), None);
+        assert_eq!(s.take_undo_payload(), None);
+    }
+
+    #[test]
+    fn take_undo_payload_clears_error_status() {
+        let mut s = Session::new();
+        s.start_ptt().unwrap();
+        s.stop_ptt_begin_processing().unwrap();
+        s.fail(SessionError::new("x"), Some("kept".into())).unwrap();
+        assert_eq!(s.status(), SessionStatus::Error);
+        assert_eq!(s.take_undo_payload().as_deref(), Some("kept"));
+        assert_eq!(s.status(), SessionStatus::Idle);
+        assert!(s.last_error().is_none());
     }
 }

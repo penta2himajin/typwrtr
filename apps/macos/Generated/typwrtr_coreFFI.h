@@ -321,6 +321,11 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_status(void*_Nonnull ptr, Ru
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_undo_payload(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUSTBUFFER_ALLOC
 #define UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUSTBUFFER_ALLOC
 RustBuffer ffi_typwrtr_core_rustbuffer_alloc(uint64_t size, RustCallStatus *_Nonnull out_status
@@ -640,6 +645,12 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_status(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_PTT
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_stop_ptt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload(void
     
 );
 #endif

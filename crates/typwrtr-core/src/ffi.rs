@@ -194,6 +194,12 @@ impl PttSession {
         self.runtime
             .block_on(async { self.inner.lock().await.clear_buffer() })
     }
+
+    /// Take the undo payload (clears the text buffer).
+    pub fn take_undo_payload(&self) -> Option<String> {
+        self.runtime
+            .block_on(async { self.inner.lock().await.take_undo_payload() })
+    }
 }
 
 fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, FfiError> {

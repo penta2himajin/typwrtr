@@ -47,8 +47,43 @@ final class PttCoordinator {
         hotkey.onPttUp = { [weak self] in
             self?.endPtt()
         }
+        hotkey.onUndo = { [weak self] in
+            self?.undoLast()
+        }
+        menu.onUndoRequested = { [weak self] in
+            self?.undoLast()
+        }
+        menu.setCanUndo(session.lastText() != nil)
         hotkey.start()
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.menuLabel)
+    }
+
+    func undoLast() {
+        guard phase == .idle else { return }
+        guard let text = session.takeUndoPayload() else {
+            menu.setCanUndo(false)
+            return
+        }
+        menu.clearLastText()
+        restoreInsertTargetFocus()
+        if inserter.undoLastInsertion(text) {
+            NSLog("Typwrtr: undo succeeded")
+            refreshStatus()
+            return
+        }
+        // Payload already taken — leave recovery on clipboard and show the text.
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        _ = pasteboard.setString(text, forType: .string)
+        menu.showError(
+            """
+            Could not remove the last insert from the field.
+
+            Text is on the clipboard (and was cleared from Typwrtr’s undo buffer):
+
+            \(text)
+            """
+        )
     }
 
     func confirmQuitIfBusy() -> NSApplication.TerminateReply {
@@ -75,6 +110,7 @@ final class PttCoordinator {
         micAuthorized = true
         phase = .recording
         insertTarget = NSWorkspace.shared.frontmostApplication
+        menu.setCanUndo(false)
         menu.setStatus(.recording)
         do {
             try session.startPtt()
@@ -126,8 +162,9 @@ final class PttCoordinator {
                             "No text recognized. Speak longer, or check that ASR is Parakeet ja / Whisper."
                         )
                     case .pasted:
-                        break
+                        self.menu.setCanUndo(true)
                     case .clipboardOnly:
+                        self.menu.setCanUndo(true)
                         self.showPasteNeedsAccessibility(text: text)
                     }
                 }

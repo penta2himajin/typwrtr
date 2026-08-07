@@ -15,6 +15,23 @@ final class MenuBarModel: ObservableObject {
     @Published var hotkeyReady = false
     @Published var hotkeyStatus = "Hotkey: starting…"
     @Published var lastTextTitle = "Last text: —"
+    @Published var canUndo = false
+
+    /// Set by PttCoordinator.
+    var onUndoRequested: (() -> Void)?
+
+    func setCanUndo(_ enabled: Bool) {
+        DispatchQueue.main.async {
+            self.canUndo = enabled
+        }
+    }
+
+    func clearLastText() {
+        DispatchQueue.main.async {
+            self.lastTextTitle = "Last text: —"
+            self.canUndo = false
+        }
+    }
 
     func setLastText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,6 +39,7 @@ final class MenuBarModel: ObservableObject {
         let short = display.count > 80 ? String(display.prefix(80)) + "…" : display
         DispatchQueue.main.async {
             self.lastTextTitle = "Last text: \(short)"
+            self.canUndo = !trimmed.isEmpty
         }
     }
 

@@ -122,3 +122,4 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-07 | **Swift mic capture locked in:** `MicCapture` (AVAudioEngine → 16 kHz mono f32) → `pushPcmF32`. Still FixedAsr until real ASR lands. |
 | 2026-08-07 | **WhisperLocal wired:** `DictationEngine::with_whisper_local` / `with_whisper_from_env`; FFI constructors; `fetch-models.sh` builds whisper-cli + ggml-tiny; Swift prefers Whisper when present. |
 | 2026-08-07 | **Default PTT hotkey → `⌃⇧D`** (was `⌃⌥V`; D = Dictate). |
+| 2026-08-08 | **Undo last (U9):** `take_undo_payload` + menu / `⌃⇧Z`; Swift AX→Backspace→⌘Z reverse. |

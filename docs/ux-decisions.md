@@ -110,6 +110,7 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 - Backed by the last-success / failure text buffer.  
 - Best-effort removal from the field; if reverse insert is impossible, say so and keep buffer / clipboard restore behaviour clear.  
 - Do not rely only on system Cmd+Z.
+- **Dogfood (2026-08-08):** menu **Undo last insert** + hotkey **⌃⇧Z**; core `take_undo_payload()`; Swift reverses via AX select+delete → Backspace N → ⌘Z.
 
 ## 9. Language runtime (Q14)
 

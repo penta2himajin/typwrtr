@@ -513,6 +513,11 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
      */
     func stopPtt() throws  -> String
     
+    /**
+     * Take the undo payload (clears the text buffer).
+     */
+    func takeUndoPayload()  -> String?
+    
 }
 /**
  * Thread-safe PTT handle for Swift.
@@ -694,6 +699,16 @@ open func status() -> FfiStatus  {
 open func stopPtt()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
     uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Take the undo payload (clears the text buffer).
+     */
+open func takeUndoPayload() -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_pttsession_take_undo_payload(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -1099,6 +1114,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_stop_ptt() != 1751) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload() != 32124) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {

@@ -14,6 +14,12 @@ struct TypwrtrApp: App {
             Text(menu.lastCaptureTitle)
             Text(menu.lastTextTitle)
             Divider()
+            Button("Undo last insert") {
+                menu.onUndoRequested?()
+            }
+            .disabled(!menu.canUndo)
+            .keyboardShortcut("z", modifiers: [.control, .shift])
+            Divider()
             Button("Quit") {
                 NSApp.terminate(nil)
             }
