@@ -4,12 +4,12 @@ import Carbon
 import CoreGraphics
 import Darwin
 
-/// Insert recognized text into the frontmost app.
+/// Insert recognized text into the frontmost (or restored) app.
 ///
 /// Paths (in order):
-/// 1. Accessibility `AXSelectedText` (direct, no keystrokes)
-/// 2. CGEvent unicode typing (direct keystrokes, no clipboard ⌘V)
-/// 3. Clipboard + Maccy-style ⌘V
+/// 1. Accessibility `AXSelectedText` (native fields)
+/// 2. Clipboard + ⌘V (best for Electron / Cursor / browsers)
+/// 3. CGEvent unicode typing
 ///
 /// Text always remains on the pasteboard as a manual recovery path.
 final class ClipboardInserter {
@@ -31,8 +31,13 @@ final class ClipboardInserter {
     /// Apple documents up to 20 UTF-16 units per keyboardSetUnicodeString call.
     private static let unicodeChunkSize = 16
 
+    private static let electronBundleHints = [
+        "cursor", "code", "chrome", "chromium", "edge", "brave", "arc",
+        "slack", "discord", "figma", "notion", "spotify", "electron",
+    ]
+
     @discardableResult
-    func insert(_ text: String) -> Result {
+    func insert(_ text: String, into target: NSRunningApplication? = nil) -> Result {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .emptyText }
 
@@ -44,18 +49,22 @@ final class ClipboardInserter {
         pasteboard.clearContents()
         _ = pasteboard.setString(trimmed, forType: .string)
 
+        activateForInsert(target)
+
         let ax = AXIsProcessTrusted()
         let post = CGPreflightPostEventAccess()
         let secure = IsSecureEventInputEnabled()
         let front = NSWorkspace.shared.frontmostApplication
         let flagsBefore = CGEventSource.flagsState(.combinedSessionState)
+        let electron = isElectronLike(front)
         NSLog(
-            "Typwrtr: insert target frontmost=%@ pid=%d ax=%d post=%d secure=%d flags=0x%llx",
+            "Typwrtr: insert target frontmost=%@ pid=%d ax=%d post=%d secure=%d electron=%d flags=0x%llx",
             front?.bundleIdentifier ?? "(nil)",
             front?.processIdentifier ?? -1,
             ax ? 1 : 0,
             post ? 1 : 0,
             secure ? 1 : 0,
+            electron ? 1 : 0,
             flagsBefore.rawValue
         )
 
@@ -64,10 +73,17 @@ final class ClipboardInserter {
             return .clipboardOnly
         }
 
-        // 1) Direct AX write (native text fields).
-        if ax, insertViaAccessibility(trimmed) {
-            NSLog("Typwrtr: inserted via AXSelectedText")
-            return .pasted
+        let before = focusedFieldSnapshot()
+        let preferPaste = isElectronLike(front)
+
+        // 1) Direct AX write for native fields only. Electron often partially
+        // applies AX then we also ⌘V → doubled text.
+        if ax, !preferPaste, insertViaAccessibility(trimmed) {
+            if verifyWithRetries(before: before, expected: trimmed) {
+                NSLog("Typwrtr: inserted via AXSelectedText")
+                return .pasted
+            }
+            NSLog("Typwrtr: AXSelectedText set but field unchanged")
         }
 
         if !waitForModifiersReleased(timeout: 0.6) {
@@ -75,19 +91,46 @@ final class ClipboardInserter {
             return .clipboardOnly
         }
 
-        // 2) Direct unicode typing (no ⌘V).
-        if typeViaUnicode(trimmed) {
-            NSLog("Typwrtr: typed via CGEvent unicode")
+        // 2) Clipboard + ⌘V (single tap — posting HID+session doubles paste).
+        if synthesizeCommandV(preferHID: true) {
+            if verifyWithRetries(before: before, expected: trimmed) {
+                NSLog("Typwrtr: pasted via ⌘V (verified)")
+            } else {
+                NSLog("Typwrtr: pasted via ⌘V (unverified AX — assuming OK)")
+            }
             return .pasted
         }
 
-        // 3) Clipboard + ⌘V (Maccy recipe).
-        if synthesizeCommandVMaccy() {
-            NSLog("Typwrtr: posted Maccy-style ⌘V")
+        // 3) Direct unicode typing (native apps; skip when we already prefer paste).
+        if !preferPaste, typeViaUnicode(trimmed) {
+            if verifyWithRetries(before: before, expected: trimmed) {
+                NSLog("Typwrtr: typed via CGEvent unicode")
+                return .pasted
+            }
+        }
+
+        // 4) System Events keystroke fallback.
+        if pasteViaSystemEvents() {
+            if verifyWithRetries(before: before, expected: trimmed) {
+                NSLog("Typwrtr: pasted via System Events")
+                return .pasted
+            }
+            NSLog("Typwrtr: System Events paste posted — assuming OK")
             return .pasted
         }
 
+        NSLog("Typwrtr: insert failed — clipboard only")
         return .clipboardOnly
+    }
+
+    private func verifyWithRetries(before: FieldSnapshot, expected: String) -> Bool {
+        for _ in 0..<5 {
+            if verifiedInsert(before: before, expected: expected) {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return false
     }
 
     /// Best-effort removal of the last inserted `text` (ux-decisions Undo).
@@ -119,6 +162,86 @@ final class ClipboardInserter {
         return false
     }
 
+    // MARK: - Focus / verify
+
+    private func activateForInsert(_ target: NSRunningApplication?) {
+        guard let target, !target.isTerminated, target.processIdentifier != getpid() else {
+            return
+        }
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != target.processIdentifier {
+            _ = target.activate(options: [.activateIgnoringOtherApps])
+            Thread.sleep(forTimeInterval: 0.12)
+        }
+        // Nudge the focused window forward via AX when possible.
+        let appEl = AXUIElementCreateApplication(target.processIdentifier)
+        if let window = copyAXElement(appEl, kAXFocusedWindowAttribute as String)
+            ?? copyAXElement(appEl, kAXMainWindowAttribute as String)
+        {
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+            Thread.sleep(forTimeInterval: 0.04)
+        }
+    }
+
+    private func isElectronLike(_ app: NSRunningApplication?) -> Bool {
+        let id = (app?.bundleIdentifier ?? "").lowercased()
+        let name = (app?.localizedName ?? "").lowercased()
+        return Self.electronBundleHints.contains { id.contains($0) || name.contains($0) }
+    }
+
+    private struct FieldSnapshot {
+        var value: String?
+        var selected: String?
+    }
+
+    private func focusedElement() -> AXUIElement? {
+        let systemWide = AXUIElementCreateSystemWide()
+        if let el = copyAXElement(systemWide, kAXFocusedUIElementAttribute as String) {
+            return el
+        }
+        guard let front = NSWorkspace.shared.frontmostApplication,
+              front.processIdentifier != getpid()
+        else { return nil }
+        let appEl = AXUIElementCreateApplication(front.processIdentifier)
+        return copyAXElement(appEl, kAXFocusedUIElementAttribute as String)
+            ?? {
+                guard let window = copyAXElement(appEl, kAXFocusedWindowAttribute as String)
+                    ?? copyAXElement(appEl, kAXMainWindowAttribute as String)
+                else { return nil }
+                return copyAXElement(window, kAXFocusedUIElementAttribute as String)
+            }()
+    }
+
+    private func focusedFieldSnapshot() -> FieldSnapshot {
+        guard let el = focusedElement() else {
+            return FieldSnapshot(value: nil, selected: nil)
+        }
+        return FieldSnapshot(
+            value: stringAttribute(el, kAXValueAttribute as String),
+            selected: stringAttribute(el, kAXSelectedTextAttribute as String)
+        )
+    }
+
+    private func canVerifyInsert() -> Bool {
+        focusedFieldSnapshot().value != nil
+    }
+
+    private func verifiedInsert(before: FieldSnapshot, expected: String) -> Bool {
+        let after = focusedFieldSnapshot()
+        if let afterValue = after.value {
+            if afterValue.contains(expected) { return true }
+            if let beforeValue = before.value, afterValue != beforeValue,
+               afterValue.count >= beforeValue.count
+            {
+                return true
+            }
+        }
+        if let afterSel = after.selected, afterSel.contains(expected) {
+            return true
+        }
+        return false
+    }
+
     @discardableResult
     private func waitForModifiersReleased(timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -132,48 +255,47 @@ final class ClipboardInserter {
         return false
     }
 
+    // MARK: - AX insert
+
     private func insertViaAccessibility(_ text: String) -> Bool {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedRef
-        ) == .success, let focusedRef else {
-            return false
-        }
-        let focused = focusedRef as! AXUIElement
+        guard let focused = focusedElement() else { return false }
 
         var settable: DarwinBoolean = false
         if AXUIElementIsAttributeSettable(
             focused,
             kAXSelectedTextAttribute as CFString,
             &settable
-        ) != .success || !settable.boolValue {
-            return false
+        ) == .success, settable.boolValue {
+            if AXUIElementSetAttributeValue(
+                focused,
+                kAXSelectedTextAttribute as CFString,
+                text as CFTypeRef
+            ) == .success {
+                return true
+            }
         }
 
-        return AXUIElementSetAttributeValue(
+        // Fallback: replace entire AXValue when settable (some Electron fields).
+        settable = false
+        if AXUIElementIsAttributeSettable(
             focused,
-            kAXSelectedTextAttribute as CFString,
-            text as CFTypeRef
-        ) == .success
+            kAXValueAttribute as CFString,
+            &settable
+        ) == .success, settable.boolValue {
+            let existing = stringAttribute(focused, kAXValueAttribute as String) ?? ""
+            let combined = existing + text
+            return AXUIElementSetAttributeValue(
+                focused,
+                kAXValueAttribute as CFString,
+                combined as CFTypeRef
+            ) == .success
+        }
+        return false
     }
 
     /// Select the trailing UTF-16 span matching `text` and delete it via AX.
     private func undoViaAccessibility(_ text: String) -> Bool {
-        guard AXIsProcessTrusted() else { return false }
-
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedRef
-        ) == .success, let focusedRef else {
-            return false
-        }
-        let focused = focusedRef as! AXUIElement
+        guard AXIsProcessTrusted(), let focused = focusedElement() else { return false }
 
         var valueRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
@@ -190,7 +312,6 @@ final class ClipboardInserter {
         let hay = Array(value.utf16)
         guard !needle.isEmpty, hay.count >= needle.count else { return false }
 
-        // Prefer a match ending at the current caret / selection start.
         var rangeRef: CFTypeRef?
         var caret = hay.count
         if AXUIElementCopyAttributeValue(
@@ -210,7 +331,6 @@ final class ClipboardInserter {
         guard end >= needle.count else { return false }
         let start = end - needle.count
         if Array(hay[start..<end]) != needle {
-            // Fallback: last occurrence in the whole string.
             guard let found = value.range(of: text, options: .backwards) else {
                 return false
             }
@@ -237,6 +357,8 @@ final class ClipboardInserter {
         ) == .success
     }
 
+    // MARK: - Key synthesis
+
     private func undoViaBackspace(utf16Count: Int) -> Bool {
         guard CGPreflightPostEventAccess() || AXIsProcessTrusted() else { return false }
         let n = min(utf16Count, 500)
@@ -247,7 +369,7 @@ final class ClipboardInserter {
             state: .eventSuppressionStateSuppressionInterval
         )
 
-        let keyDelete: CGKeyCode = 0x33 // kVK_Delete (backward delete / Backspace)
+        let keyDelete: CGKeyCode = 0x33
         var ts = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
         for _ in 0..<n {
             guard let down = CGEvent(keyboardEventSource: source, virtualKey: keyDelete, keyDown: true),
@@ -261,15 +383,13 @@ final class ClipboardInserter {
             up.timestamp = ts &+ 400_000
             down.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
             up.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
-            down.post(tap: .cgSessionEventTap)
-            up.post(tap: .cgSessionEventTap)
+            postKeyboard(down, up)
             ts &+= 1_500_000
             usleep(1_500)
         }
         return true
     }
 
-    /// Type text with `keyboardSetUnicodeString` — no clipboard, no ⌘V.
     private func typeViaUnicode(_ text: String) -> Bool {
         guard CGPreflightPostEventAccess() || AXIsProcessTrusted() else {
             NSLog("Typwrtr: skip unicode type — AX/PostEvent not granted")
@@ -304,8 +424,7 @@ final class ClipboardInserter {
             up.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
             down.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: &chunk)
             up.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: &chunk)
-            down.post(tap: .cgSessionEventTap)
-            up.post(tap: .cgSessionEventTap)
+            postKeyboard(down, up)
             offset = end
             baseTs &+= 2_000_000
             usleep(2_000)
@@ -313,7 +432,7 @@ final class ClipboardInserter {
         return true
     }
 
-    private func synthesizeCommandVMaccy() -> Bool {
+    private func synthesizeCommandV(preferHID: Bool) -> Bool {
         guard CGPreflightPostEventAccess() || AXIsProcessTrusted() else {
             return false
         }
@@ -340,8 +459,7 @@ final class ClipboardInserter {
         keyVUp.flags = cmdFlag
         keyVDown.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
         keyVUp.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
-        keyVDown.post(tap: .cgSessionEventTap)
-        keyVUp.post(tap: .cgSessionEventTap)
+        postKeyboard(keyVDown, keyVUp, preferHID: preferHID)
         return true
     }
 
@@ -369,8 +487,54 @@ final class ClipboardInserter {
         keyZUp.flags = cmdFlag
         keyZDown.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
         keyZUp.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
-        keyZDown.post(tap: .cgSessionEventTap)
-        keyZUp.post(tap: .cgSessionEventTap)
+        postKeyboard(keyZDown, keyZUp, preferHID: true)
         return true
+    }
+
+    private func pasteViaSystemEvents() -> Bool {
+        let script = """
+            tell application "System Events" to keystroke "v" using command down
+            """
+        var error: NSDictionary?
+        let result = NSAppleScript(source: script)?.executeAndReturnError(&error)
+        if let error {
+            NSLog("Typwrtr: System Events paste failed: %@", error)
+            return false
+        }
+        return result != nil
+    }
+
+    private func postKeyboard(
+        _ down: CGEvent,
+        _ up: CGEvent,
+        preferHID: Bool = true
+    ) {
+        // Post to exactly one tap. HID + session both deliver → doubled characters / paste.
+        if preferHID {
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+        } else {
+            down.post(tap: .cgSessionEventTap)
+            up.post(tap: .cgSessionEventTap)
+        }
+    }
+
+    // MARK: - AX helpers
+
+    private func copyAXElement(_ element: AXUIElement, _ name: String) -> AXUIElement? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &ref) == .success,
+              let ref,
+              CFGetTypeID(ref) == AXUIElementGetTypeID()
+        else { return nil }
+        return (ref as! AXUIElement)
+    }
+
+    private func stringAttribute(_ element: AXUIElement, _ name: String) -> String? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &ref) == .success,
+              let ref
+        else { return nil }
+        return ref as? String
     }
 }

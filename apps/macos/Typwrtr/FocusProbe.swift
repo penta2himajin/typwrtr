@@ -1,12 +1,15 @@
 import AppKit
 import ApplicationServices
+import Darwin
 import Foundation
 
 /// Strict AX role probe for Free focus gate (ux-decisions Q4).
 ///
-/// Menu-bar accessory agents must resolve focus via the focused/frontmost
-/// application. TextEdit often reports `AXList` as the focused element while
-/// the document `AXTextArea` is the real edit target — we then search the window.
+/// Intentionally **does not** walk the full window tree. Deep AX walks make
+/// macOS treat us like a screen reader (focus “pip” sounds) and are unnecessary
+/// for Free — we only need the focused element (plus a short parent climb).
+///
+/// Typwrtr needs **Accessibility** permission, not VoiceOver / Screen Reader.
 enum FocusProbe {
     private static var lastFingerprint: String?
     private static let debugURL: URL = {
@@ -65,36 +68,18 @@ enum FocusProbe {
         return result
     }
 
-    /// Prefer a true text field; if focus is chrome (e.g. AXList), search the window.
+    /// Focused element only — no window-wide AXChildren walk.
     private static func resolve(
         from appEl: AXUIElement,
         via: String,
         front: String
     ) -> ProbeResult? {
-        if let el = copyAXElement(appEl, kAXFocusedUIElementAttribute as String)
+        guard let el = copyAXElement(appEl, kAXFocusedUIElementAttribute as String)
             ?? focusedViaWindow(appEl)
-        {
-            let kind = classify(el)
-            if kind == .textField || kind == .secureField {
-                return finish(kind, via: via, element: el, front: front)
-            }
-            if let editable = findEditableInFrontWindow(appEl) {
-                let editKind = classify(editable)
-                if editKind == .textField {
-                    return finish(editKind, via: via + "+search", element: editable, front: front)
-                }
-            }
-            return finish(kind, via: via, element: el, front: front)
+        else {
+            return nil
         }
-        if let editable = findEditableInFrontWindow(appEl) {
-            return finish(
-                classify(editable),
-                via: via + "+searchOnly",
-                element: editable,
-                front: front
-            )
-        }
-        return nil
+        return finish(classify(el), via: via, element: el, front: front)
     }
 
     private static func finish(
@@ -104,9 +89,10 @@ enum FocusProbe {
         front: String
     ) -> ProbeResult {
         let role = stringAttribute(element, kAXRoleAttribute as String) ?? "?"
+        let desc = stringAttribute(element, kAXRoleDescriptionAttribute as String) ?? ""
         let result = ProbeResult(
             kind: kind,
-            detail: "via=\(via) role=\(role) kind=\(label(kind)) front=\(front)"
+            detail: "via=\(via) role=\(role) desc=\(desc) kind=\(label(kind)) front=\(front)"
         )
         writeDebug(result.detail)
         logOnce(result.detail, result.detail)
@@ -127,55 +113,6 @@ enum FocusProbe {
             return copyAXElement(window, kAXFocusedUIElementAttribute as String)
         }
         return nil
-    }
-
-    private static func findEditableInFrontWindow(_ appEl: AXUIElement) -> AXUIElement? {
-        guard let window = copyAXElement(appEl, kAXFocusedWindowAttribute as String)
-            ?? copyAXElement(appEl, kAXMainWindowAttribute as String)
-        else { return nil }
-
-        var focusedEditable: AXUIElement?
-        var textArea: AXUIElement?
-        var anyEditable: AXUIElement?
-        var stop = false
-        walk(window, depth: 0, maxDepth: 12, stop: &stop) { el in
-            let role = stringAttribute(el, kAXRoleAttribute as String) ?? ""
-            guard isTextField(role: role, element: el) else { return true }
-            if boolAttribute(el, "AXFocused") == true {
-                focusedEditable = el
-                return false
-            }
-            if role == "AXTextArea", textArea == nil { textArea = el }
-            if anyEditable == nil { anyEditable = el }
-            return true
-        }
-        return focusedEditable ?? textArea ?? anyEditable
-    }
-
-    private static func walk(
-        _ element: AXUIElement,
-        depth: Int,
-        maxDepth: Int,
-        stop: inout Bool,
-        visit: (AXUIElement) -> Bool
-    ) {
-        guard !stop, depth <= maxDepth else { return }
-        if !visit(element) {
-            stop = true
-            return
-        }
-        var childrenRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            element,
-            kAXChildrenAttribute as CFString,
-            &childrenRef
-        ) == .success,
-            let array = childrenRef as? [AXUIElement]
-        else { return }
-        for child in array {
-            walk(child, depth: depth + 1, maxDepth: maxDepth, stop: &stop, visit: visit)
-            if stop { return }
-        }
     }
 
     private static func copyAXElement(_ element: AXUIElement, _ name: String) -> AXUIElement? {
@@ -208,6 +145,7 @@ enum FocusProbe {
         role == "AXSecureTextField" || subrole.localizedCaseInsensitiveContains("Secure")
     }
 
+    /// Native text roles plus Electron/Chromium composers (Cursor, browsers).
     private static func isTextField(role: String, element: AXUIElement) -> Bool {
         switch role {
         case "AXTextField", "AXTextArea":
@@ -215,7 +153,29 @@ enum FocusProbe {
         case "AXComboBox":
             return boolAttribute(element, "AXEditable") == true
         default:
-            return boolAttribute(element, "AXEditable") == true
+            if boolAttribute(element, "AXEditable") == true {
+                return true
+            }
+            let desc = (stringAttribute(element, kAXRoleDescriptionAttribute as String) ?? "")
+                .lowercased()
+            if desc.contains("text field")
+                || desc.contains("text area")
+                || desc.contains("textarea")
+                || desc.contains("search field")
+                || desc.contains("テキスト")
+                || desc.contains("編集")
+            {
+                return true
+            }
+            var settable: DarwinBoolean = false
+            if AXUIElementIsAttributeSettable(
+                element,
+                kAXSelectedTextAttribute as CFString,
+                &settable
+            ) == .success, settable.boolValue {
+                return true
+            }
+            return false
         }
     }
 

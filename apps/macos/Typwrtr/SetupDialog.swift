@@ -313,6 +313,8 @@ enum SetupDialog {
         private let w = Metrics.bodyWidth
         /// Left-to-right fill drawn under the Download title while fetching.
         private var progressFill: CALayer?
+        private var pttOnlyButton: NSButton!
+        private var freeModeButton: NSButton!
 
         init(
             status: SetupStatus,
@@ -361,6 +363,7 @@ enum SetupDialog {
             pttOnly.state = freeArmed ? .off : .on
             pttOnly.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
             addSubview(pttOnly)
+            pttOnlyButton = pttOnly
 
             y -= Metrics.gap
             y -= Metrics.rowHeight
@@ -373,6 +376,8 @@ enum SetupDialog {
             freeMode.state = freeArmed ? .on : .off
             freeMode.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
             addSubview(freeMode)
+            freeModeButton = freeMode
+            // Standalone NSButtons do not auto-group; keep exclusive state ourselves.
 
             y -= Metrics.sectionGap
             addBlockHeader("General", y: &y)
@@ -608,11 +613,15 @@ enum SetupDialog {
         }
 
         @objc private func modePttOnly() {
+            pttOnlyButton.state = .on
+            freeModeButton.state = .off
             MenuBarModel.freeArmedPreference = false
             SetupDialog.onFreeArmChanged?(false)
         }
 
         @objc private func modeArmFree() {
+            pttOnlyButton.state = .off
+            freeModeButton.state = .on
             MenuBarModel.freeArmedPreference = true
             SetupDialog.onFreeArmChanged?(true)
         }

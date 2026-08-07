@@ -28,7 +28,9 @@ final class PttCoordinator {
     private var freeFinishing = false
     private var freeSegment: [Float] = []
     private var freeVad = SilenceVad()
-    private var focusTimer: Timer?
+    private var focusWatcher = FocusWatcher()
+    /// Drains mic / VAD while Free is listening (independent of AX focus watches).
+    private var freeAudioTimer: Timer?
     /// Latched focus so opening the menu bar does not drop Free listening.
     private var latchedFocus: FocusKind?
     private var latchedFocusPid: pid_t?
@@ -43,7 +45,6 @@ final class PttCoordinator {
     func start() {
         applyBackendToMenu()
         refreshStatus()
-        syncFreeArmFromDefaults()
 
         mic.requestPermission { [weak self] granted in
             DispatchQueue.main.async {
@@ -82,7 +83,10 @@ final class PttCoordinator {
         }
         menu.setCanUndo(session.lastText() != nil)
         hotkey.start()
-        startFocusPolling()
+        focusWatcher.onFocusPossiblyChanged = { [weak self] in
+            self?.pollFreeFocus()
+        }
+        syncFreeArmFromDefaults()
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
     }
 
@@ -115,6 +119,7 @@ final class PttCoordinator {
             freeController.disarm()
         }
         menu.setFreeArmed(armed)
+        updateFocusWatching(armed: armed)
         pollFreeFocus()
     }
 
@@ -129,17 +134,18 @@ final class PttCoordinator {
             NSLog("Typwrtr: Free disarmed")
         }
         menu.setFreeArmed(armed)
+        updateFocusWatching(armed: armed)
         pollFreeFocus()
     }
 
-    private func startFocusPolling() {
-        focusTimer?.invalidate()
-        let timer = Timer(timeInterval: 0.35, repeats: true) { [weak self] _ in
-            self?.pollFreeFocus()
+    /// AX focus watching only while Free is armed — continuous AX polling
+    /// sounds like a screen reader (“pip”) and is unnecessary when disarmed.
+    private func updateFocusWatching(armed: Bool) {
+        if armed {
+            focusWatcher.start()
+        } else {
+            focusWatcher.stop()
         }
-        RunLoop.main.add(timer, forMode: .common)
-        focusTimer = timer
-        pollFreeFocus()
     }
 
     private func pollFreeFocus() {
@@ -147,13 +153,41 @@ final class PttCoordinator {
             return
         }
 
-        if freeController.isArmed(), !AXIsProcessTrusted() {
+        guard freeController.isArmed() else {
+            focusWatcher.quietWhileListening = false
+            menu.setFreeAvailability(.disarmed)
+            menu.setFreeListeningIcon(false)
+            return
+        }
+
+        if !AXIsProcessTrusted() {
+            focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.unavailableExplained)
-            menu.setFreeStatusDetail("Free: needs Accessibility")
+            menu.setFreeStatusDetail("Free: needs Accessibility (not VoiceOver)")
             if freeMicOpen {
                 stopFreeMic(abandon: true)
             }
             return
+        }
+
+        let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+
+        // Already listening in the same app: do not re-probe AX (stops pip spam).
+        if freeMicOpen,
+           latchedFocus == .textField,
+           frontPid != nil,
+           frontPid == latchedFocusPid
+        {
+            focusWatcher.quietWhileListening = true
+            menu.setFreeListeningIcon(true)
+            menu.setFreeAvailability(.listening)
+            return
+        }
+
+        // Left the target app while listening — stop mic without a full probe first.
+        if freeMicOpen, frontPid != latchedFocusPid {
+            stopFreeMic(abandon: true)
+            focusWatcher.quietWhileListening = false
         }
 
         let focus = resolveFocus()
@@ -170,16 +204,19 @@ final class PttCoordinator {
             if !freeMicOpen {
                 startFreeMic()
             }
-            // Menu-bar icon feedback while Free is actively listening.
+            focusWatcher.quietWhileListening = freeMicOpen
             if freeMicOpen {
                 menu.setFreeListeningIcon(true)
             }
-            processFreeAudio()
         } else if freeMicOpen {
             stopFreeMic(abandon: true)
+            focusWatcher.quietWhileListening = false
             menu.setFreeListeningIcon(false)
-        } else if phase == .idle {
-            menu.setFreeListeningIcon(false)
+        } else {
+            focusWatcher.quietWhileListening = false
+            if phase == .idle {
+                menu.setFreeListeningIcon(false)
+            }
         }
     }
 
@@ -221,6 +258,7 @@ final class PttCoordinator {
             freeVad.reset()
             insertTarget = NSWorkspace.shared.frontmostApplication
             menu.setFreeListeningIcon(true)
+            startFreeAudioTimer()
             NSLog("Typwrtr: Free mic open")
         } catch {
             freeMicOpen = false
@@ -231,6 +269,7 @@ final class PttCoordinator {
 
     private func stopFreeMic(abandon: Bool) {
         guard freeMicOpen else { return }
+        stopFreeAudioTimer()
         _ = mic.stop()
         freeMicOpen = false
         if abandon {
@@ -239,6 +278,20 @@ final class PttCoordinator {
         }
         menu.setFreeListeningIcon(false)
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
+    }
+
+    private func startFreeAudioTimer() {
+        stopFreeAudioTimer()
+        let timer = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+            self?.processFreeAudio()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        freeAudioTimer = timer
+    }
+
+    private func stopFreeAudioTimer() {
+        freeAudioTimer?.invalidate()
+        freeAudioTimer = nil
     }
 
     private func processFreeAudio() {
@@ -285,7 +338,7 @@ final class PttCoordinator {
                     self.menu.setLastText(text)
                     NSLog("Typwrtr: Free segment (%d chars): %@", text.count, text)
                     self.restoreInsertTargetFocus()
-                    switch self.inserter.insert(text) {
+                    switch self.inserter.insert(text, into: self.insertTarget) {
                     case .emptyText:
                         break
                     case .pasted:
@@ -420,7 +473,7 @@ final class PttCoordinator {
                     self.menu.setLastText(text)
                     NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
                     self.restoreInsertTargetFocus()
-                    switch self.inserter.insert(text) {
+                    switch self.inserter.insert(text, into: self.insertTarget) {
                     case .emptyText:
                         self.menu.showError(
                             "No text recognized. Speak longer, or check that ASR is Parakeet ja / Whisper."
@@ -453,7 +506,10 @@ final class PttCoordinator {
         let front = NSWorkspace.shared.frontmostApplication
         if front?.processIdentifier != target.processIdentifier {
             _ = target.activate(options: [.activateIgnoringOtherApps])
-            Thread.sleep(forTimeInterval: 0.08)
+            Thread.sleep(forTimeInterval: 0.15)
+        } else {
+            _ = target.activate(options: [.activateIgnoringOtherApps])
+            Thread.sleep(forTimeInterval: 0.05)
         }
     }
 
@@ -461,17 +517,16 @@ final class PttCoordinator {
         Permissions.registerInAccessibilityList()
         menu.setStatus(.error)
         let alert = NSAlert()
-        alert.messageText = "Typwrtr needs Accessibility"
+        alert.messageText = "Couldn’t insert into the field"
         alert.informativeText = """
-            Dictation worked, but auto-paste needs Accessibility.
+            Dictation worked, but auto-insert into the focused app failed.
 
-            1. Open Accessibility settings
-            2. Enable Typwrtr (toggle off→on if it was already listed)
-            3. Quit and reopen Typwrtr
-
-            Text is on the clipboard — you can ⌘V now:
+            Text is on the clipboard — press ⌘V to paste:
 
             \(text)
+
+            If this keeps happening in Cursor / browsers, confirm Typwrtr is enabled under
+            System Settings → Privacy & Security → Accessibility.
             """
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Open Accessibility")
