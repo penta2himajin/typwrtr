@@ -86,6 +86,9 @@ enum SetupDialog {
         private let panel: NSPanel
         /// Host for controls; embedded in Liquid Glass on macOS 26+ (same stack as `NSAlert`).
         private let contentHost: NSView
+        private var pollTimer: Timer?
+        private var lastFingerprint: String?
+        private var activeObserver: NSObjectProtocol?
 
         init(isFirstRun: Bool) {
             self.isFirstRun = isFirstRun
@@ -140,10 +143,12 @@ enum SetupDialog {
         }
 
         func runModal() {
+            startAutoRefresh()
             NSApp.activate(ignoringOtherApps: true)
             panel.level = .modalPanel
             panel.makeKeyAndOrderFront(nil)
             NSApp.runModal(for: panel)
+            stopAutoRefresh()
             panel.orderOut(nil)
             panel.level = .normal
         }
@@ -152,13 +157,58 @@ enum SetupDialog {
             if isFirstRun {
                 ModelLocator.setupDismissed = true
             }
+            stopAutoRefresh()
             NSApp.stopModal()
             return true
+        }
+
+        /// Refresh was mainly for re-reading TCC / pack presence after System Settings.
+        private func startAutoRefresh() {
+            lastFingerprint = statusFingerprint(SetupChecker.current())
+            pollTimer?.invalidate()
+            let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+                self?.refreshIfStatusChanged()
+            }
+            RunLoop.main.add(timer, forMode: .modalPanel)
+            RunLoop.main.add(timer, forMode: .common)
+            pollTimer = timer
+
+            activeObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.refreshIfStatusChanged()
+            }
+        }
+
+        private func stopAutoRefresh() {
+            pollTimer?.invalidate()
+            pollTimer = nil
+            if let activeObserver {
+                NotificationCenter.default.removeObserver(activeObserver)
+                self.activeObserver = nil
+            }
+        }
+
+        private func statusFingerprint(_ status: SetupStatus) -> String {
+            "\(status.microphone)|\(status.accessibility)|\(status.inputMonitoring)|\(status.languagePackReady)|\(status.language.rawValue)|\(status.launchAtLogin)"
+        }
+
+        private func refreshIfStatusChanged() {
+            // Don't tear down the Download progress UI mid-fetch.
+            guard !PackDownloader.isInProgress else { return }
+            let status = SetupChecker.current()
+            let fp = statusFingerprint(status)
+            guard fp != lastFingerprint else { return }
+            lastFingerprint = fp
+            rebuildContent()
         }
 
         private func rebuildContent() {
             contentHost.subviews.forEach { $0.removeFromSuperview() }
             let status = SetupChecker.current()
+            lastFingerprint = statusFingerprint(status)
             var y = contentHost.bounds.height - Metrics.titlebarInset - Metrics.padding
 
             y -= Metrics.headingHeight
@@ -178,7 +228,7 @@ enum SetupDialog {
             let subtitle = NSTextField(
                 wrappingLabelWithString: status.isComplete
                     ? "Ready. You can close this."
-                    : "Open each item that’s missing, then Refresh."
+                    : "Open each missing item in System Settings — this list updates on its own."
             )
             subtitle.font = .systemFont(ofSize: 11)
             subtitle.textColor = .secondaryLabelColor
@@ -224,12 +274,6 @@ enum SetupDialog {
             done.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
             contentHost.addSubview(done)
 
-            bx -= btnGap + btnW
-            let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshTapped))
-            refresh.bezelStyle = .rounded
-            refresh.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
-            contentHost.addSubview(refresh)
-
             if isFirstRun {
                 bx -= btnGap + btnW
                 let later = NSButton(title: "Later", target: self, action: #selector(laterTapped))
@@ -243,15 +287,13 @@ enum SetupDialog {
             if SetupChecker.current().isComplete {
                 ModelLocator.setupDismissed = true
             }
+            stopAutoRefresh()
             NSApp.stopModal()
-        }
-
-        @objc private func refreshTapped() {
-            rebuildContent()
         }
 
         @objc private func laterTapped() {
             ModelLocator.setupDismissed = true
+            stopAutoRefresh()
             NSApp.stopModal()
         }
     }
@@ -263,6 +305,8 @@ enum SetupDialog {
         private let downloadButton: NSButton
         private let onLanguage: (AppLanguage) -> Void
         private let w = Metrics.bodyWidth
+        /// Left-to-right fill drawn under the Download title while fetching.
+        private var progressFill: CALayer?
 
         init(
             status: SetupStatus,
@@ -321,8 +365,11 @@ enum SetupDialog {
             for lang in AppLanguage.allCases {
                 languagePopup.addItem(withTitle: lang.displayName)
                 languagePopup.lastItem?.representedObject = lang.rawValue
+                // Keep WIP languages visible and pickable so Download can show "Soon";
+                // activation is gated in `languageChanged` / `AppLanguage.current`.
             }
-            languagePopup.selectItem(withTitle: language.displayName)
+            let initial = language.isSelectable ? language : AppLanguage.current
+            languagePopup.selectItem(withTitle: initial.displayName)
             languagePopup.target = self
             languagePopup.action = #selector(languageChanged(_:))
             addSubview(languagePopup)
@@ -337,7 +384,7 @@ enum SetupDialog {
             )
             styleOutlineButton(downloadButton)
             addSubview(downloadButton)
-            applyPackUI(for: language)
+            applyPackUI(for: initial)
 
             y -= Metrics.sectionGap
             y -= Metrics.blockTitleHeight
@@ -450,7 +497,48 @@ enum SetupDialog {
             addSubview(button)
         }
 
+        private func clearDownloadProgress() {
+            progressFill?.removeFromSuperlayer()
+            progressFill = nil
+            languagePopup.isEnabled = true
+        }
+
+        /// Determinate fill + live percent so a large ONNX fetch does not look hung.
+        private func setDownloadProgress(_ fraction: Double) {
+            downloadButton.isEnabled = false
+            languagePopup.isEnabled = false
+
+            let f = min(1, max(0, fraction))
+            let pct = Int((f * 100).rounded(.down))
+            setOutlineAppearance(downloadButton, emphasized: true, title: "\(pct)%")
+
+            if progressFill == nil {
+                let layer = CALayer()
+                layer.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.22).cgColor
+                layer.cornerRadius = 5
+                downloadButton.layer?.insertSublayer(layer, at: 0)
+                progressFill = layer
+            }
+
+            let bounds = downloadButton.bounds
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.2)
+            progressFill?.frame = CGRect(
+                x: 0,
+                y: 0,
+                width: max(0, bounds.width * CGFloat(f)),
+                height: bounds.height
+            )
+            CATransaction.commit()
+        }
+
         private func applyPackUI(for language: AppLanguage) {
+            clearDownloadProgress()
+            if !language.isSelectable {
+                downloadButton.isEnabled = false
+                setOutlineAppearance(downloadButton, emphasized: false, title: "Soon")
+                return
+            }
             let ready = SetupChecker.languagePackReady(for: language)
             if ready {
                 downloadButton.isEnabled = false
@@ -466,6 +554,8 @@ enum SetupDialog {
                   let lang = AppLanguage(rawValue: raw)
             else { return }
             applyPackUI(for: lang)
+            // WIP languages (Korean): preview "Soon" only — do not activate ASR.
+            guard lang.isSelectable else { return }
             onLanguage(lang)
         }
 
@@ -512,24 +602,19 @@ enum SetupDialog {
             }
 
             downloadButton.isEnabled = false
-            setOutlineAppearance(downloadButton, emphasized: false, title: "0%")
+            setDownloadProgress(0)
 
             PackDownloader.download(
                 language: lang,
                 progress: { fraction in
                     DispatchQueue.main.async { [weak self] in
-                        guard let self else { return }
-                        let pct = Int((fraction * 100).rounded(.down))
-                        self.setOutlineAppearance(
-                            self.downloadButton,
-                            emphasized: false,
-                            title: "\(pct)%"
-                        )
+                        self?.setDownloadProgress(fraction)
                     }
                 },
                 completion: { [weak self] result in
                     DispatchQueue.main.async {
                         guard let self else { return }
+                        self.clearDownloadProgress()
                         switch result {
                         case .success(let dest):
                             ModelLocator.setModelRoot(ModelLocator.applicationSupportModels)

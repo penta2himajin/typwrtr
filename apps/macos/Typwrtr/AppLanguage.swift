@@ -10,34 +10,43 @@ enum AppLanguage: String, CaseIterable {
 
     static let defaultsKey = "typwrtr.language"
 
-    /// Persisted choice, else OS locale among en/ja/zh/es/ko (else English).
+    /// Persisted choice, else OS locale among en/ja/zh/es (else English).
+    /// Korean locale falls back to English while Korean remains WIP.
     static var current: AppLanguage {
         get {
+            let resolved: AppLanguage
             if let raw = UserDefaults.standard.string(forKey: defaultsKey),
                let value = AppLanguage(rawValue: raw)
             {
-                return value
+                resolved = value
+            } else {
+                let code = Locale.current.language.languageCode?.identifier ?? "en"
+                switch code {
+                case "ja": resolved = .japanese
+                case "zh": resolved = .chinese
+                case "es": resolved = .spanish
+                default: resolved = .english
+                }
             }
-            let code = Locale.current.language.languageCode?.identifier ?? "en"
-            switch code {
-            case "ja": return .japanese
-            case "zh": return .chinese
-            case "es": return .spanish
-            case "ko": return .korean
-            default: return .english
-            }
+            return resolved.isSelectable ? resolved : .english
         }
         set {
+            guard newValue.isSelectable else { return }
             UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey)
         }
     }
 
-    /// Recommended: ja / en. Experimental: zh / es / ko (Q22).
+    /// Recommended: ja / en. Experimental: zh / es (Q22). Korean is WIP (no in-app pack yet).
     var isExperimental: Bool {
         switch self {
-        case .japanese, .english: return false
-        case .chinese, .spanish, .korean: return true
+        case .japanese, .english, .korean: return false
+        case .chinese, .spanish: return true
         }
+    }
+
+    /// Selectable in Setup. Korean stays listed but disabled until SenseVoice is shippable in-app.
+    var isSelectable: Bool {
+        self != .korean
     }
 
     var displayName: String {
@@ -48,6 +57,9 @@ enum AppLanguage: String, CaseIterable {
         case .chinese: base = "Chinese"
         case .spanish: base = "Spanish"
         case .korean: base = "Korean"
+        }
+        if !isSelectable {
+            return "\(base) (work in progress)"
         }
         return isExperimental ? "\(base) (experimental)" : base
     }
