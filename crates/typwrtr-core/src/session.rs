@@ -154,9 +154,7 @@ impl Session {
                 self.status = SessionStatus::Processing;
                 Ok(())
             }
-            other => Err(SessionError::new(format!(
-                "cannot stop PTT from {other:?}"
-            ))),
+            other => Err(SessionError::new(format!("cannot stop PTT from {other:?}"))),
         }
     }
 
@@ -190,9 +188,7 @@ impl Session {
                 self.status = SessionStatus::Idle;
                 Ok(())
             }
-            other => Err(SessionError::new(format!(
-                "cannot complete from {other:?}"
-            ))),
+            other => Err(SessionError::new(format!("cannot complete from {other:?}"))),
         }
     }
 
@@ -265,11 +261,8 @@ mod tests {
         let mut s = Session::new();
         s.start_ptt().unwrap();
         s.stop_ptt_begin_processing().unwrap();
-        s.fail(
-            SessionError::new("insert failed"),
-            Some("retained".into()),
-        )
-        .unwrap();
+        s.fail(SessionError::new("insert failed"), Some("retained".into()))
+            .unwrap();
         assert_eq!(s.status(), SessionStatus::Error);
         assert_eq!(s.last_text(), Some("retained"));
         assert_eq!(s.last_error().unwrap().message(), "insert failed");
@@ -285,11 +278,7 @@ mod tests {
     #[tokio::test]
     async fn stop_ptt_runs_engine_and_returns_cleaned_text() {
         let engine = Arc::new(
-            DictationEngine::new(
-                Language::English,
-                MockAsr::new("um hello world"),
-            )
-            .unwrap(),
+            DictationEngine::new(Language::English, MockAsr::new("um hello world")).unwrap(),
         );
         let mut s = Session::with_engine(engine);
         s.start_ptt().unwrap();

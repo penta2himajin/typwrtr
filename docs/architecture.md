@@ -93,10 +93,13 @@ Default dogfood languages: **`ja` recommended path first**, `en` second; experim
 ## 7. Build & test (target commands)
 
 ```bash
-cargo build -p typwrtr-core
-cargo test  -p typwrtr-core
-# later: xcodebuild for apps/macos
+cargo fmt --all -- --check
+cargo build --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test  --workspace --all-targets --locked
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs these on `main` and pull requests.
 
 Pre-push hook (fmt/clippy) when Rust is present: `git config core.hooksPath git-hooks`.
 

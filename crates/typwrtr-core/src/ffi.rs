@@ -110,13 +110,8 @@ impl PttSession {
 
     /// Last retained text (success or failure preview).
     pub fn last_text(&self) -> Option<String> {
-        self.runtime.block_on(async {
-            self.inner
-                .lock()
-                .await
-                .last_text()
-                .map(str::to_string)
-        })
+        self.runtime
+            .block_on(async { self.inner.lock().await.last_text().map(str::to_string) })
     }
 
     /// Start PTT.
@@ -143,14 +138,8 @@ impl PttSession {
 
     /// Stop PTT and return cleaned text.
     pub fn stop_ptt(&self) -> Result<String, FfiError> {
-        self.runtime.block_on(async {
-            self.inner
-                .lock()
-                .await
-                .stop_ptt()
-                .await
-                .map_err(Into::into)
-        })
+        self.runtime
+            .block_on(async { self.inner.lock().await.stop_ptt().await.map_err(Into::into) })
     }
 
     /// Cancel in-flight capture/processing.
@@ -172,15 +161,11 @@ mod tests {
 
     #[test]
     fn ffi_fixed_transcript_ptt_roundtrip() {
-        let session = PttSession::with_fixed_transcript(
-            FfiLanguage::English,
-            "um hello from ffi".into(),
-        )
-        .unwrap();
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "um hello from ffi".into())
+                .unwrap();
         session.start_ptt().unwrap();
-        session
-            .push_pcm_f32(vec![0.0; 1600], 16_000)
-            .unwrap();
+        session.push_pcm_f32(vec![0.0; 1600], 16_000).unwrap();
         let text = session.stop_ptt().unwrap();
         assert!(!text.to_lowercase().contains("um"), "{text}");
         assert!(text.to_lowercase().contains("hello"), "{text}");

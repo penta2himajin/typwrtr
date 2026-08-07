@@ -31,9 +31,13 @@ AGENTS.md             # This file (CLAUDE.md → symlink)
 ## Build & Test
 
 ```bash
-cargo build -p typwrtr-core
-cargo test  -p typwrtr-core
+cargo fmt --all -- --check
+cargo build -p typwrtr-core --locked
+cargo clippy -p typwrtr-core --all-targets --locked -- -D warnings
+cargo test  -p typwrtr-core --locked
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same four checks on `main` and PRs.
 
 ## Development Principles
 

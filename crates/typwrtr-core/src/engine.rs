@@ -104,11 +104,9 @@ mod tests {
 
     #[tokio::test]
     async fn japanese_mock_pipeline_removes_filler() {
-        let engine = DictationEngine::new(
-            Language::Japanese,
-            MockAsr::new("えーと、今日は天気がいい"),
-        )
-        .unwrap();
+        let engine =
+            DictationEngine::new(Language::Japanese, MockAsr::new("えーと、今日は天気がいい"))
+                .unwrap();
 
         let text = engine.dictate(&[silence_chunk()]).await.unwrap();
         assert!(!text.contains("えーと"), "filler left: {text}");
