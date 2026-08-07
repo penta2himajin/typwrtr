@@ -3,6 +3,7 @@ import AppKit
 final class StatusItemController {
     private var item: NSStatusItem?
     private var quitHandler: (() -> Void)?
+    private var lastCaptureTitle = "Last capture: —"
 
     func install(quitHandler: @escaping () -> Void) {
         self.quitHandler = quitHandler
@@ -12,13 +13,7 @@ final class StatusItemController {
             button.title = "Tw"
             button.toolTip = "Typwrtr"
         }
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Typwrtr (dogfood)", action: nil, keyEquivalent: ""))
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit", action: #selector(quitClicked), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-        item.menu = menu
+        rebuildMenu()
         setStatus(.idle)
     }
 
@@ -40,6 +35,12 @@ final class StatusItemController {
         }
     }
 
+    func setLastCapture(samples: Int, sampleRate: UInt32) {
+        let seconds = sampleRate == 0 ? 0 : Double(samples) / Double(sampleRate)
+        lastCaptureTitle = String(format: "Last capture: %d samples (%.2fs @ %u Hz)", samples, seconds, sampleRate)
+        rebuildMenu()
+    }
+
     func showError(_ message: String) {
         setStatus(.error)
         let alert = NSAlert()
@@ -47,6 +48,18 @@ final class StatusItemController {
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.runModal()
+    }
+
+    private func rebuildMenu() {
+        guard let item else { return }
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Typwrtr (dogfood)", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: lastCaptureTitle, action: nil, keyEquivalent: ""))
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit", action: #selector(quitClicked), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+        item.menu = menu
     }
 
     @objc private func quitClicked() {

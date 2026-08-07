@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D10731484580986A36781A3 /* StatusItemController.swift */; };
 		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
+		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
 		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
 		95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
@@ -21,6 +22,7 @@
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
 		6D10731484580986A36781A3 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
 		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -57,6 +59,7 @@
 				30BE96FA6232566689AD5380 /* AppDelegate.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
+				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
 				515965794E00F3EC78F3479B /* PttCoordinator.swift */,
 				6D10731484580986A36781A3 /* StatusItemController.swift */,
 			);
@@ -144,6 +147,7 @@
 				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
+				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
 				E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */,
 				22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */,
 				7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */,

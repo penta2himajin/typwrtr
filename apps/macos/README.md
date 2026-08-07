@@ -29,8 +29,9 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 ## Dogfood notes
 
 - Uses `PttSession.withFixedTranscript` (no on-disk ASR model yet).
-- Hold **Left Option + V**, release → cleaned text is pasted via clipboard.
-- Grant **Accessibility** when prompted (global hotkey + paste synthesis).
+- **Microphone is real:** hold **Left Option + V** to record; release → samples (16 kHz mono) are pushed into core, cleaned text is pasted.
+- Menu shows **Last capture: N samples** so you can verify the mic path before real ASR.
+- Grant **Microphone** and **Accessibility** when prompted.
 - Menu bar title: `Tw` idle / `●Tw` recording / `…Tw` processing / `!Tw` error.
 
 See `docs/architecture.md` and `docs/ux-decisions.md`.
