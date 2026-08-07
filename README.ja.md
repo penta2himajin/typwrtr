@@ -1,6 +1,6 @@
 # Typwrtr
 
-> Source: README.md @ 9f11d49591f5e952f66a39989b98146383b179a7
+> Source: README.md @ bd87c622ccc91bca03649369c7c14dbb86dacf88
 >
 > [English](./README.md)
 
