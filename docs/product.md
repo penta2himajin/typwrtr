@@ -72,12 +72,10 @@ Aligned with [`use-cases.md`](./use-cases.md) and [`ux-decisions.md`](./ux-decis
 - Free/VAD: after PTT dogfood (or earlier if pulled forward); strict focus gate + visible unavailability.
 - Latency targets: measure before claiming.
 
-## 7. Repo hygiene (pending)
+## 7. Repo hygiene
 
-This tree started as a copy of `templates`. Still to do outside this doc:
-
-- ~~Point `origin` at a dedicated Typwrtr GitHub repo (not `templates.git`).~~ (in progress / done when remote is switched)
-- Add real crate / Xcode layout when implementation starts.
+- Dedicated public GitHub repo: https://github.com/penta2himajin/typwrtr (`origin`). Former `templates` remote kept as `templates` for history only.
+- Still to do: add real crate / Xcode layout when implementation starts.
 
 ## 8. Open follow-ups
 
