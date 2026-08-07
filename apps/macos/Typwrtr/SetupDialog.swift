@@ -1,24 +1,70 @@
 import AppKit
 
 /// Shared Setup UI for first-run and menu → Setup….
+/// Fixed-width `NSPanel` (not `NSAlert`) so content height cannot widen the window.
 enum SetupDialog {
     /// Called when the user changes language inside the dialog (recreate ASR session).
     static var onLanguageChanged: ((AppLanguage) -> Void)?
 
-    private enum Metrics {
-        static let width: CGFloat = 236
+    fileprivate enum Metrics {
+        /// Body content width (Permission / General columns).
+        static let bodyWidth: CGFloat = 236
+        static let padding: CGFloat = 16
+        static var panelWidth: CGFloat { bodyWidth + padding * 2 }
+
+        /// Space under the transparent titlebar (traffic lights).
+        static let titlebarInset: CGFloat = 28
+        static let headingHeight: CGFloat = 22
+        static let subtitleHeight: CGFloat = 34
+        static let buttonRowHeight: CGFloat = 28
+        static let chromeGap: CGFloat = 12
         static let rowHeight: CGFloat = 26
         static let gap: CGFloat = 5
         static let sectionGap: CGFloat = 10
         static let markWidth: CGFloat = 20
         static let downloadWidth: CGFloat = 78
-        static let blockTitleHeight: CGFloat = 16
+        static let blockTitleHeight: CGFloat = 18
         static let ruleHeight: CGFloat = 1
         static let afterRule: CGFloat = 8
+        /// `addBlockHeader` trailing `y -= 2`.
+        static let headerTail: CGFloat = 2
         static let titleToContent: CGFloat = 6
+
+        static var blockHeader: CGFloat {
+            blockTitleHeight + afterRule + ruleHeight + headerTail
+        }
+
+        static var section: CGFloat {
+            blockTitleHeight + titleToContent + rowHeight
+        }
+
+        /// Body height for Permission + General (Language + Auto Launch).
+        static var bodyHeight: CGFloat {
+            blockHeader
+                + rowHeight * 3
+                + gap * 2
+                + sectionGap
+                + blockHeader
+                + section
+                + sectionGap
+                + section
+        }
+
+        static var panelHeight: CGFloat {
+            titlebarInset
+                + padding
+                + headingHeight
+                + 4
+                + subtitleHeight
+                + chromeGap
+                + bodyHeight
+                + chromeGap
+                + buttonRowHeight
+                + padding
+        }
     }
 
-    /// Present the setup dialog. When `isFirstRun`, Dismiss records `setupDismissed`.
+    /// Present the setup dialog. When `isFirstRun`, Later records `setupDismissed`.
     static func present(isFirstRun: Bool = false) {
         if Thread.isMainThread {
             presentOnMain(isFirstRun: isFirstRun)
@@ -30,53 +76,193 @@ enum SetupDialog {
     }
 
     private static func presentOnMain(isFirstRun: Bool) {
-        let status = SetupChecker.current()
-        let alert = NSAlert()
-        alert.messageText = "Setup"
-        alert.informativeText = status.isComplete
-            ? "Ready. You can close this."
-            : "Open each item that’s missing, then Refresh."
-        alert.alertStyle = .informational
+        PanelController(isFirstRun: isFirstRun).runModal()
+    }
 
-        let accessory = AccessoryView(status: status, language: AppLanguage.current) { lang in
-            AppLanguage.current = lang
-            onLanguageChanged?(lang)
-        }
-        let height = accessory.fittingHeight
-        accessory.frame = NSRect(x: 0, y: 0, width: Metrics.width, height: height)
-        alert.accessoryView = accessory
+    // MARK: - Panel controller
 
-        alert.addButton(withTitle: "Done")
-        alert.addButton(withTitle: "Refresh")
-        if isFirstRun {
-            alert.addButton(withTitle: "Later")
-        }
+    fileprivate final class PanelController: NSObject, NSWindowDelegate {
+        private let isFirstRun: Bool
+        private let panel: NSPanel
+        /// Host for controls; embedded in Liquid Glass on macOS 26+ (same stack as `NSAlert`).
+        private let contentHost: NSView
 
-        loop: while true {
-            let response = alert.runModal()
-            switch response {
-            case .alertFirstButtonReturn:
-                if SetupChecker.current().isComplete {
-                    ModelLocator.setupDismissed = true
-                }
-                break loop
-            case .alertSecondButtonReturn:
-                presentOnMain(isFirstRun: isFirstRun)
-                break loop
-            default:
-                if isFirstRun {
-                    ModelLocator.setupDismissed = true
-                }
-                break loop
+        init(isFirstRun: Bool) {
+            self.isFirstRun = isFirstRun
+            let size = NSSize(width: Metrics.panelWidth, height: Metrics.panelHeight)
+
+            panel = NSPanel(
+                contentRect: NSRect(origin: .zero, size: size),
+                styleMask: [.titled, .closable, .fullSizeContentView],
+                backing: .buffered,
+                defer: false
+            )
+            panel.title = "Setup"
+            panel.titleVisibility = .hidden
+            panel.titlebarAppearsTransparent = true
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
+            // Match `_NSAlertPanel`: normal level, not a floating utility.
+            panel.isFloatingPanel = false
+            panel.hidesOnDeactivate = false
+            panel.isReleasedWhenClosed = false
+            panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            panel.standardWindowButton(.zoomButton)?.isHidden = true
+
+            contentHost = NSView(frame: NSRect(origin: .zero, size: size))
+            contentHost.autoresizingMask = [.width, .height]
+
+            if #available(macOS 26.0, *) {
+                // Public API for the Liquid Glass used by system alerts.
+                let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: size))
+                glass.cornerRadius = 12
+                glass.style = .regular
+                glass.contentView = contentHost
+                panel.contentView = glass
+            } else {
+                let effect = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
+                effect.material = .sheet
+                effect.blendingMode = .behindWindow
+                effect.state = .active
+                effect.wantsLayer = true
+                effect.layer?.cornerRadius = 12
+                effect.layer?.masksToBounds = true
+                effect.addSubview(contentHost)
+                panel.contentView = effect
             }
+
+            super.init()
+            panel.delegate = self
+            rebuildContent()
+            panel.setContentSize(size)
+            panel.center()
+        }
+
+        func runModal() {
+            NSApp.activate(ignoringOtherApps: true)
+            panel.level = .modalPanel
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.runModal(for: panel)
+            panel.orderOut(nil)
+            panel.level = .normal
+        }
+
+        func windowShouldClose(_ sender: NSWindow) -> Bool {
+            if isFirstRun {
+                ModelLocator.setupDismissed = true
+            }
+            NSApp.stopModal()
+            return true
+        }
+
+        private func rebuildContent() {
+            contentHost.subviews.forEach { $0.removeFromSuperview() }
+            let status = SetupChecker.current()
+            var y = contentHost.bounds.height - Metrics.titlebarInset - Metrics.padding
+
+            y -= Metrics.headingHeight
+            let heading = NSTextField(labelWithString: "Setup")
+            heading.font = .systemFont(ofSize: 15, weight: .semibold)
+            heading.textColor = .labelColor
+            heading.frame = NSRect(
+                x: Metrics.padding,
+                y: y,
+                width: Metrics.bodyWidth,
+                height: Metrics.headingHeight
+            )
+            contentHost.addSubview(heading)
+
+            y -= 4
+            y -= Metrics.subtitleHeight
+            let subtitle = NSTextField(
+                wrappingLabelWithString: status.isComplete
+                    ? "Ready. You can close this."
+                    : "Open each item that’s missing, then Refresh."
+            )
+            subtitle.font = .systemFont(ofSize: 11)
+            subtitle.textColor = .secondaryLabelColor
+            subtitle.maximumNumberOfLines = 2
+            subtitle.backgroundColor = .clear
+            subtitle.drawsBackground = false
+            subtitle.frame = NSRect(
+                x: Metrics.padding,
+                y: y,
+                width: Metrics.bodyWidth,
+                height: Metrics.subtitleHeight
+            )
+            contentHost.addSubview(subtitle)
+
+            y -= Metrics.chromeGap
+            y -= Metrics.bodyHeight
+            let body = BodyView(
+                status: status,
+                language: AppLanguage.current,
+                onLanguage: { lang in
+                    AppLanguage.current = lang
+                    SetupDialog.onLanguageChanged?(lang)
+                }
+            )
+            body.frame = NSRect(
+                x: Metrics.padding,
+                y: y,
+                width: Metrics.bodyWidth,
+                height: Metrics.bodyHeight
+            )
+            contentHost.addSubview(body)
+
+            y -= Metrics.chromeGap
+            y -= Metrics.buttonRowHeight
+
+            let btnW: CGFloat = 72
+            let btnGap: CGFloat = 8
+            var bx = Metrics.panelWidth - Metrics.padding - btnW
+
+            let done = NSButton(title: "Done", target: self, action: #selector(doneTapped))
+            done.bezelStyle = .rounded
+            done.keyEquivalent = "\r"
+            done.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
+            contentHost.addSubview(done)
+
+            bx -= btnGap + btnW
+            let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshTapped))
+            refresh.bezelStyle = .rounded
+            refresh.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
+            contentHost.addSubview(refresh)
+
+            if isFirstRun {
+                bx -= btnGap + btnW
+                let later = NSButton(title: "Later", target: self, action: #selector(laterTapped))
+                later.bezelStyle = .rounded
+                later.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
+                contentHost.addSubview(later)
+            }
+        }
+
+        @objc private func doneTapped() {
+            if SetupChecker.current().isComplete {
+                ModelLocator.setupDismissed = true
+            }
+            NSApp.stopModal()
+        }
+
+        @objc private func refreshTapped() {
+            rebuildContent()
+        }
+
+        @objc private func laterTapped() {
+            ModelLocator.setupDismissed = true
+            NSApp.stopModal()
         }
     }
 
-    fileprivate final class AccessoryView: NSView {
+    // MARK: - Body
+
+    fileprivate final class BodyView: NSView {
         private let languagePopup: NSPopUpButton
         private let downloadButton: NSButton
         private let onLanguage: (AppLanguage) -> Void
-        let fittingHeight: CGFloat
+        private let w = Metrics.bodyWidth
 
         init(
             status: SetupStatus,
@@ -86,26 +272,9 @@ enum SetupDialog {
             self.onLanguage = onLanguage
             self.languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
             self.downloadButton = NSButton(title: "Download", target: nil, action: nil)
+            super.init(frame: NSRect(x: 0, y: 0, width: w, height: Metrics.bodyHeight))
 
-            // Permission header+rule + 3 rows
-            // General header+rule + Language title + popup row + login
-            let blockHeader =
-                Metrics.blockTitleHeight + Metrics.afterRule + Metrics.ruleHeight
-            let h =
-                blockHeader
-                + Metrics.rowHeight * 3
-                + Metrics.gap * 2
-                + Metrics.sectionGap
-                + blockHeader
-                + Metrics.blockTitleHeight
-                + Metrics.titleToContent
-                + Metrics.rowHeight
-                + Metrics.gap
-                + Metrics.rowHeight
-            self.fittingHeight = h
-            super.init(frame: NSRect(x: 0, y: 0, width: Metrics.width, height: h))
-
-            var y = h
+            var y = Metrics.bodyHeight
 
             addBlockHeader("Permission", y: &y)
             addMarkedButton(
@@ -130,15 +299,13 @@ enum SetupDialog {
             )
 
             y -= Metrics.sectionGap
-
             addBlockHeader("General", y: &y)
 
-            // Language as in-block title (not a side label).
             y -= Metrics.blockTitleHeight
             let langTitle = NSTextField(labelWithString: "Language")
             langTitle.font = .systemFont(ofSize: 11, weight: .semibold)
             langTitle.textColor = .secondaryLabelColor
-            langTitle.frame = NSRect(x: 0, y: y, width: Metrics.width, height: Metrics.blockTitleHeight)
+            langTitle.frame = NSRect(x: 0, y: y, width: w, height: Metrics.blockTitleHeight)
             addSubview(langTitle)
 
             y -= Metrics.titleToContent
@@ -146,7 +313,7 @@ enum SetupDialog {
             languagePopup.frame = NSRect(
                 x: 0,
                 y: y,
-                width: Metrics.width - Metrics.downloadWidth - 6,
+                width: w - Metrics.downloadWidth - 6,
                 height: Metrics.rowHeight
             )
             languagePopup.font = .systemFont(ofSize: 12)
@@ -163,7 +330,7 @@ enum SetupDialog {
             downloadButton.target = self
             downloadButton.action = #selector(installPack)
             downloadButton.frame = NSRect(
-                x: Metrics.width - Metrics.downloadWidth,
+                x: w - Metrics.downloadWidth,
                 y: y,
                 width: Metrics.downloadWidth,
                 height: Metrics.rowHeight
@@ -172,7 +339,15 @@ enum SetupDialog {
             addSubview(downloadButton)
             applyPackUI(for: language)
 
-            y -= Metrics.gap
+            y -= Metrics.sectionGap
+            y -= Metrics.blockTitleHeight
+            let autoTitle = NSTextField(labelWithString: "Auto Launch")
+            autoTitle.font = .systemFont(ofSize: 11, weight: .semibold)
+            autoTitle.textColor = .secondaryLabelColor
+            autoTitle.frame = NSRect(x: 0, y: y, width: w, height: Metrics.blockTitleHeight)
+            addSubview(autoTitle)
+
+            y -= Metrics.titleToContent
             y -= Metrics.rowHeight
             let login = NSButton(
                 checkboxWithTitle: "Launch at Login",
@@ -181,7 +356,7 @@ enum SetupDialog {
             )
             login.font = .systemFont(ofSize: 12)
             login.state = status.launchAtLogin ? .on : .off
-            login.frame = NSRect(x: 0, y: y, width: Metrics.width, height: Metrics.rowHeight)
+            login.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
             addSubview(login)
         }
 
@@ -193,19 +368,19 @@ enum SetupDialog {
         private func addBlockHeader(_ title: String, y: inout CGFloat) {
             y -= Metrics.blockTitleHeight
             let label = NSTextField(labelWithString: title)
-            label.font = .systemFont(ofSize: 11, weight: .bold)
+            label.font = .systemFont(ofSize: 13, weight: .bold)
             label.textColor = .labelColor
-            label.frame = NSRect(x: 0, y: y, width: Metrics.width, height: Metrics.blockTitleHeight)
+            label.frame = NSRect(x: 0, y: y, width: w, height: Metrics.blockTitleHeight)
             addSubview(label)
 
             y -= Metrics.afterRule
             y -= Metrics.ruleHeight
-            let rule = NSBox(frame: NSRect(x: 0, y: y, width: Metrics.width, height: Metrics.ruleHeight))
+            let rule = NSBox(frame: NSRect(x: 0, y: y, width: w, height: Metrics.ruleHeight))
             rule.boxType = .separator
             rule.titlePosition = .noTitle
             addSubview(rule)
 
-            y -= 2
+            y -= Metrics.headerTail
         }
 
         private func styleOutlineButton(_ button: NSButton) {
@@ -243,7 +418,6 @@ enum SetupDialog {
             )
         }
 
-        /// `✓ [Button…]` on one row.
         private func addMarkedButton(
             ok: Bool,
             title: String,
@@ -270,7 +444,7 @@ enum SetupDialog {
             button.frame = NSRect(
                 x: Metrics.markWidth + 4,
                 y: y,
-                width: Metrics.width - Metrics.markWidth - 4,
+                width: w - Metrics.markWidth - 4,
                 height: Metrics.rowHeight
             )
             addSubview(button)
@@ -329,7 +503,7 @@ enum SetupDialog {
             alert.informativeText = """
             Fetch command copied. Finder opened models/.
 
-            Run the command in the repo, put the pack in that folder (or Debug → Use model folder…), then Refresh.
+            Run the command in the repo, put the pack in that folder, then Refresh.
             """
             alert.alertStyle = .informational
             alert.addButton(withTitle: "OK")

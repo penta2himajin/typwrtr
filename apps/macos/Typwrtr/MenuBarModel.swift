@@ -15,7 +15,7 @@ final class MenuBarModel: ObservableObject {
     @Published var toolTip = "Typwrtr — idle (hold ⌃⇧D)"
     @Published var hotkeyReady = false
     @Published var hotkeyStatus = "Hotkey: starting…"
-    @Published var lastTextTitle = "Last text: —"
+    @Published var lastTextTitle = "Last: —"
     @Published var canUndo = false
     @Published var setupComplete = false
 
@@ -31,7 +31,7 @@ final class MenuBarModel: ObservableObject {
 
     func clearLastText() {
         DispatchQueue.main.async {
-            self.lastTextTitle = "Last text: —"
+            self.lastTextTitle = "Last: —"
             self.canUndo = false
         }
     }
@@ -39,9 +39,10 @@ final class MenuBarModel: ObservableObject {
     func setLastText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let display = trimmed.isEmpty ? "(empty)" : trimmed
-        let short = display.count > 80 ? String(display.prefix(80)) + "…" : display
+        let short = display.count > 36 ? String(display.prefix(36)) + "…" : display
         DispatchQueue.main.async {
-            self.lastTextTitle = "Last text: \(short)"
+            // Keep the menu narrow: short preview only.
+            self.lastTextTitle = "Last: \(short)"
             self.canUndo = !trimmed.isEmpty
         }
     }

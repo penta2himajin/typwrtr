@@ -8,9 +8,11 @@ struct TypwrtrApp: App {
     var body: some Scene {
         MenuBarExtra(menu.extraTitle, systemImage: menu.symbolName) {
             Text(menu.statusTitle)
-            Text(menu.hotkeyStatus)
             Text(menu.lastTextTitle)
             Divider()
+            Button("Push to talk") {}
+                .keyboardShortcut("d", modifiers: [.control, .shift])
+                .disabled(true)
             Button("Undo last insert") {
                 menu.onUndoRequested?()
             }
@@ -19,19 +21,6 @@ struct TypwrtrApp: App {
             Divider()
             Button(menu.setupComplete ? "Setup…" : "Setup… (incomplete)") {
                 menu.openSetup(isFirstRun: false)
-            }
-            Divider()
-            Menu("Debug") {
-                Text(menu.languageTitle)
-                Text(menu.backendDebugTitle)
-                Text(menu.lastCaptureTitle)
-                Divider()
-                Button("Use model folder…") {
-                    menu.pickModelFolder()
-                }
-                Button("Copy fetch-models command") {
-                    menu.copyFetchCommand()
-                }
             }
             Divider()
             Button("Quit") {
