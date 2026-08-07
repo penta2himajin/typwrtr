@@ -18,7 +18,7 @@ fetch() {
   fi
   echo "[fetch-models] downloading $url"
   mkdir -p "$(dirname "$out")"
-  curl -sSL --fail --retry 3 --retry-delay 2 --max-time 600 "$url" -o "$out"
+  curl -sSL --fail --retry 3 --retry-delay 2 --max-time 1200 "$url" -o "$out"
 }
 
 build_whisper_cli() {
@@ -62,25 +62,44 @@ case "$KIND" in
   whisper-cli)
     build_whisper_cli
     ;;
+  parakeet-ja)
+    # Same ONNX mirror as euhadra scripts/setup_parakeet_ja.sh (~2.4 GB).
+    dir="${PARAKEET_JA_DIR:-$DEST/parakeet-tdt_ctc-0.6b-ja}"
+    mkdir -p "$dir"
+    base="https://huggingface.co/sunilmahendrakar/parakeet-tdt-0.6b-ja-onnx/resolve/main"
+    for f in vocab.txt config.json encoder-model.onnx decoder_joint-model.onnx \
+             encoder-model.onnx.data decoder_joint-model.onnx.data; do
+      fetch "$base/$f" "$dir/$f"
+    done
+    if [[ ! -s "$dir/encoder-model.onnx" || ! -s "$dir/encoder-model.onnx.data" ]]; then
+      echo "[fetch-models] incomplete Parakeet-ja bundle under $dir" >&2
+      exit 4
+    fi
+    echo "[fetch-models] parakeet-ja ready under $dir"
+    echo "TYPWRTR_PARAKEET_JA_DIR=$dir"
+    echo "PARAKEET_JA_DIR=$dir"
+    echo "TYPWRTR_MODELS_DIR=$DEST"
+    ;;
   help|-h|--help)
     cat <<EOF
-Usage: $0 [whisper-tiny|whisper-cli|help]
+Usage: $0 [whisper-tiny|whisper-cli|parakeet-ja|help]
 
   whisper-tiny  download ggml-tiny(.en) + build whisper-cli (default)
   whisper-cli   build whisper-cli only
+  parakeet-ja   download nvidia/parakeet-tdt_ctc-0.6b-ja ONNX (~2.4 GB)
 
 Env:
   TYPWRTR_MODELS_DIR   model root (default: $ROOT/models)
+  PARAKEET_JA_DIR       override Parakeet-ja output dir
   WHISPER_DIR           whisper.cpp checkout (default: $ROOT/vendor/whisper.cpp)
   WHISPER_REF           git tag/branch (default: v1.7.4)
 
-After whisper-tiny:
-  export TYPWRTR_WHISPER_CLI=...   # printed by the script
-  export TYPWRTR_WHISPER_MODEL_DIR=...
+After parakeet-ja:
+  export TYPWRTR_PARAKEET_JA_DIR=...   # printed by the script
 EOF
     ;;
   *)
-    echo "unknown kind: $KIND (try: whisper-tiny | whisper-cli | help)" >&2
+    echo "unknown kind: $KIND (try: whisper-tiny | whisper-cli | parakeet-ja | help)" >&2
     exit 1
     ;;
 esac

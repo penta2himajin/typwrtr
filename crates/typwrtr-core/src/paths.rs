@@ -1,4 +1,4 @@
-//! Resolve WhisperLocal CLI / model paths for dogfood.
+//! Resolve WhisperLocal / Parakeet model paths for dogfood.
 
 use std::path::{Path, PathBuf};
 
@@ -11,6 +11,9 @@ pub const DEFAULT_WHISPER_MODEL_SUBDIR: &str = "models/whisper";
 
 /// Default relative whisper.cpp install used by `scripts/fetch-models.sh`.
 pub const DEFAULT_WHISPER_CLI_REL: &str = "vendor/whisper.cpp/build/bin/whisper-cli";
+
+/// Default Parakeet-ja ONNX bundle (euhadra `setup_parakeet_ja.sh` layout).
+pub const DEFAULT_PARAKEET_JA_SUBDIR: &str = "models/parakeet-tdt_ctc-0.6b-ja";
 
 /// Pick the ggml file for a language under a model directory.
 pub fn whisper_model_path(model_dir: &Path, language: Language) -> PathBuf {
@@ -88,6 +91,51 @@ pub fn resolve_whisper_from_env(language: Language) -> Result<(PathBuf, PathBuf)
     resolve_whisper_paths(cli, model)
 }
 
+/// Validate a Parakeet TDT ONNX bundle directory.
+pub fn resolve_parakeet_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, EngineError> {
+    let dir = model_dir.as_ref().to_path_buf();
+    if !dir.is_dir() {
+        return Err(EngineError::new(format!(
+            "Parakeet model dir not found at {}",
+            dir.display()
+        )));
+    }
+    for required in [
+        "encoder-model.onnx",
+        "encoder-model.onnx.data",
+        "decoder_joint-model.onnx",
+        "vocab.txt",
+    ] {
+        let p = dir.join(required);
+        if !p.is_file() {
+            return Err(EngineError::new(format!(
+                "Parakeet bundle incomplete: missing {} under {}",
+                required,
+                dir.display()
+            )));
+        }
+    }
+    Ok(dir)
+}
+
+/// Resolve Parakeet-ja dir from env / conventional dogfood locations.
+pub fn resolve_parakeet_ja_from_env() -> Result<PathBuf, EngineError> {
+    let dir = std::env::var_os("TYPWRTR_PARAKEET_JA_DIR")
+        .or_else(|| std::env::var_os("PARAKEET_JA_DIR"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("TYPWRTR_MODELS_DIR")
+                .map(|d| PathBuf::from(d).join("parakeet-tdt_ctc-0.6b-ja"))
+        })
+        .or_else(default_parakeet_ja_candidate)
+        .ok_or_else(|| {
+            EngineError::new(
+                "Parakeet-ja dir not set (TYPWRTR_PARAKEET_JA_DIR) and default models path missing",
+            )
+        })?;
+    resolve_parakeet_dir(dir)
+}
+
 fn default_cli_candidate() -> Option<PathBuf> {
     let p = PathBuf::from(DEFAULT_WHISPER_CLI_REL);
     p.is_file().then_some(p)
@@ -98,9 +146,16 @@ fn default_model_dir_candidate() -> Option<PathBuf> {
     p.is_dir().then_some(p)
 }
 
+fn default_parakeet_ja_candidate() -> Option<PathBuf> {
+    let p = PathBuf::from(DEFAULT_PARAKEET_JA_SUBDIR);
+    p.is_dir().then_some(p)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn english_uses_tiny_en_model() {
@@ -112,5 +167,29 @@ mod tests {
     fn japanese_uses_multilingual_tiny() {
         let p = whisper_model_path(Path::new("/m"), Language::Japanese);
         assert!(p.ends_with("ggml-tiny.bin"));
+    }
+
+    #[test]
+    fn resolve_parakeet_dir_requires_bundle_files() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("typwrtr-parakeet-{stamp}"));
+        fs::create_dir_all(&dir).unwrap();
+        let err = resolve_parakeet_dir(&dir).expect_err("empty dir should fail");
+        assert!(err.message().contains("missing"), "{}", err.message());
+
+        for name in [
+            "encoder-model.onnx",
+            "encoder-model.onnx.data",
+            "decoder_joint-model.onnx",
+            "vocab.txt",
+        ] {
+            fs::write(dir.join(name), b"x").unwrap();
+        }
+        let ok = resolve_parakeet_dir(&dir).expect("complete bundle");
+        assert_eq!(ok, dir);
+        let _ = fs::remove_dir_all(&dir);
     }
 }

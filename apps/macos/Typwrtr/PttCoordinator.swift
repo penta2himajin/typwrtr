@@ -123,7 +123,7 @@ final class PttCoordinator {
                     switch self.inserter.insert(text) {
                     case .emptyText:
                         self.menu.showError(
-                            "No text recognized. Speak longer, or check that ASR is WhisperLocal ja."
+                            "No text recognized. Speak longer, or check that ASR is Parakeet ja / Whisper."
                         )
                     case .pasted:
                         break

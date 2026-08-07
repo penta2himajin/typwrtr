@@ -582,6 +582,29 @@ public static func withFixedTranscript(language: FfiLanguage, fixedTranscript: S
 }
     
     /**
+     * Build a session using euhadra `ParakeetAdapter` (ONNX).
+     */
+public static func withParakeet(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_parakeet(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
+    )
+})
+}
+    
+    /**
+     * Build Parakeet-ja from `TYPWRTR_PARAKEET_JA_DIR` / conventional paths.
+     */
+public static func withParakeetJaFromEnv(language: FfiLanguage)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_parakeet_ja_from_env(
+        FfiConverterTypeFfiLanguage_lower(language),$0
+    )
+})
+}
+    
+    /**
      * Build WhisperLocal from `TYPWRTR_WHISPER_CLI` / `WHISPER_CLI` and model dir env vars.
      */
 public static func withWhisperFromEnv(language: FfiLanguage)throws  -> PttSession  {
@@ -1079,6 +1102,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_parakeet() != 52049) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_parakeet_ja_from_env() != 51186) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_whisper_from_env() != 6381) {

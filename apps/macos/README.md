@@ -1,6 +1,7 @@
 # macOS shell (Swift)
 
-Menu-bar dogfood app: `⌃⇧D` PTT → WhisperLocal (or FixedAsr) + euhadra Tier 1+2 → clipboard paste.
+Menu-bar dogfood app: `⌃⇧D` PTT → Parakeet-ja (or WhisperLocal / FixedAsr) + euhadra Tier 1+2 → insert.
+
 
 ## Prerequisites
 
@@ -28,21 +29,20 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 
 ## Dogfood notes
 
-- **ASR:** uses WhisperLocal when `TYPWRTR_WHISPER_CLI` + model files exist; otherwise FixedAsr fallback.
-- Setup once from repo root:
+- **ASR:** Parakeet-ja ONNX first (`TYPWRTR_PARAKEET_JA_DIR` / `models/parakeet-tdt_ctc-0.6b-ja`), then WhisperLocal, then FixedAsr.
+- Setup from repo root:
 
 ```bash
+./scripts/fetch-models.sh parakeet-ja   # ~2.4 GB; prints TYPWRTR_PARAKEET_JA_DIR
+# optional Whisper fallback:
 ./scripts/fetch-models.sh whisper-tiny
-# exports printed — or:
 export TYPWRTR_ROOT="$PWD"
-export TYPWRTR_WHISPER_CLI="$PWD/vendor/whisper.cpp/build/bin/whisper-cli"
-export TYPWRTR_WHISPER_MODEL_DIR="$PWD/models/whisper"
 ```
 
-- **Microphone is real:** hold **Control + Shift + D**; release → 16 kHz mono PCM → ASR → clipboard paste.
+- **Microphone is real:** hold **Control + Shift + D**; release → 16 kHz mono PCM → ASR → insert (AX / unicode / ⌘V).
 - Chord is swallowed. Needs **Accessibility** for the event tap + paste.
 - Menu shows ASR backend and **Last capture** sample counts.
-- Grant **Microphone** and **Accessibility** when prompted.
+- Grant **Microphone** and **Accessibility** when prompted. Prefer signing with `Typwrtr Dogfood` (`scripts/create-dogfood-cert.sh`) so TCC survives rebuilds.
 
 ## Launch (CLI dogfood)
 

@@ -3,11 +3,15 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use euhadra::parakeet::ParakeetAdapter;
 use euhadra::prelude::*;
 use euhadra::traits::AsrAdapter;
 use euhadra::whisper_local::WhisperLocal;
 
-use crate::paths::{resolve_whisper_from_env, resolve_whisper_paths, whisper_language_tag};
+use crate::paths::{
+    resolve_parakeet_dir, resolve_parakeet_ja_from_env, resolve_whisper_from_env,
+    resolve_whisper_paths, whisper_language_tag,
+};
 
 /// Errors while building or running the dictation pipeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,6 +83,22 @@ impl DictationEngine {
     pub fn with_whisper_from_env(language: Language) -> Result<Self, EngineError> {
         let (cli, model) = resolve_whisper_from_env(language)?;
         Self::with_whisper_local(language, cli, model)
+    }
+
+    /// Build using euhadra [`ParakeetAdapter`] (ONNX Parakeet TDT / Hybrid TDT-CTC).
+    pub fn with_parakeet(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let dir = resolve_parakeet_dir(model_dir)?;
+        let asr = ParakeetAdapter::load(&dir).map_err(|e| EngineError::new(e.to_string()))?;
+        Self::new(language, asr)
+    }
+
+    /// Build Parakeet-ja from env / conventional dogfood paths.
+    pub fn with_parakeet_ja_from_env(language: Language) -> Result<Self, EngineError> {
+        let dir = resolve_parakeet_ja_from_env()?;
+        Self::with_parakeet(language, dir)
     }
 
     /// Active language.

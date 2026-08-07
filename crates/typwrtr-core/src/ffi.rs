@@ -121,6 +121,28 @@ impl PttSession {
         ptt_session_from_engine(engine)
     }
 
+    /// Build a session using euhadra `ParakeetAdapter` (ONNX).
+    #[uniffi::constructor]
+    pub fn with_parakeet(language: FfiLanguage, model_dir: String) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_parakeet(language.into(), model_dir).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build Parakeet-ja from `TYPWRTR_PARAKEET_JA_DIR` / conventional paths.
+    #[uniffi::constructor]
+    pub fn with_parakeet_ja_from_env(language: FfiLanguage) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_parakeet_ja_from_env(language.into()).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
     /// Current status.
     pub fn status(&self) -> FfiStatus {
         self.runtime
