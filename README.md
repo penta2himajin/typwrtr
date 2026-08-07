@@ -23,9 +23,9 @@ Speech recognition and text cleanup are provided by **[euhadra](https://github.c
 
 ```
 docs/                  # Product, UX, architecture
-crates/typwrtr-core/   # Rust session core (euhadra)
-apps/macos/            # Swift menu-bar shell (forthcoming Xcode project)
-scripts/fetch-models.sh
+crates/typwrtr-core/   # Rust session core (euhadra) + UniFFI
+apps/macos/            # Swift menu-bar dogfood (XcodeGen)
+scripts/               # fetch-models, generate-swift
 AGENTS.md
 ```
 

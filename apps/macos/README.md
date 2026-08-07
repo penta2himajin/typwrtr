@@ -1,17 +1,36 @@
 # macOS shell (Swift)
 
-Menu-bar app: hotkeys, Accessibility / clipboard insertion, wizard (later).
+Menu-bar dogfood app: `⌥V` PTT → FixedAsr + euhadra Tier 1+2 → clipboard paste.
 
-## Bindings
+## Prerequisites
 
-`typwrtr-core` exposes UniFFI (`PttSession`, etc.). After:
+- Xcode 15+
+- Rust toolchain
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
+
+## Setup
 
 ```bash
-cargo build -p typwrtr-core
+# From repo root
+cargo build -p typwrtr-core          # writes target/debug/libtypwrtr_core.*
+./scripts/generate-swift.sh          # refreshes apps/macos/Generated
+cd apps/macos
+xcodegen generate
+open Typwrtr.xcodeproj
 ```
 
-generate Swift with library-mode bindgen against the built `libtypwrtr_core.dylib` / `.a` (see [UniFFI foreign bindings](https://mozilla.github.io/uniffi-rs/latest/tutorial/foreign_language_bindings.html)).
+Or build from CLI:
 
-Dogfood without models: `PttSession.with_fixed_transcript(language:fixedTranscript:)`.
+```bash
+cd apps/macos && xcodegen generate
+xcodebuild -scheme Typwrtr -configuration Debug build
+```
 
-See `docs/architecture.md`.
+## Dogfood notes
+
+- Uses `PttSession.withFixedTranscript` (no on-disk ASR model yet).
+- Hold **Left Option + V**, release → cleaned text is pasted via clipboard.
+- Grant **Accessibility** when prompted (global hotkey + paste synthesis).
+- Menu bar title: `Tw` idle / `●Tw` recording / `…Tw` processing / `!Tw` error.
+
+See `docs/architecture.md` and `docs/ux-decisions.md`.

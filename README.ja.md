@@ -25,9 +25,9 @@
 
 ```
 docs/                  # 製品・UX・アーキテクチャ
-crates/typwrtr-core/   # Rust セッションコア（euhadra）
-apps/macos/            # Swift メニューバー（Xcode は後日）
-scripts/fetch-models.sh
+crates/typwrtr-core/   # Rust セッションコア（euhadra）+ UniFFI
+apps/macos/            # Swift メニューバー dogfood（XcodeGen）
+scripts/               # fetch-models, generate-swift
 AGENTS.md
 ```
 

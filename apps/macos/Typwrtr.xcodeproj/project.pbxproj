@@ -1,0 +1,373 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D10731484580986A36781A3 /* StatusItemController.swift */; };
+		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
+		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
+		95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */; };
+		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
+		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = typwrtr_core.swift; sourceTree = "<group>"; };
+		30BE96FA6232566689AD5380 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
+		6D10731484580986A36781A3 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
+		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2E9AFDC3FF57C371360A7AFD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				902701E154429D8D35A938B1 /* Typwrtr.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		511353F10B34C54F387FB09D /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		8DFEE9CB06667614781FBB5C = {
+			isa = PBXGroup;
+			children = (
+				511353F10B34C54F387FB09D /* Generated */,
+				B7965C80591980DF8C6979F7 /* Typwrtr */,
+				2E9AFDC3FF57C371360A7AFD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B7965C80591980DF8C6979F7 /* Typwrtr */ = {
+			isa = PBXGroup;
+			children = (
+				30BE96FA6232566689AD5380 /* AppDelegate.swift */,
+				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
+				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
+				515965794E00F3EC78F3479B /* PttCoordinator.swift */,
+				6D10731484580986A36781A3 /* StatusItemController.swift */,
+			);
+			path = Typwrtr;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5D818C0CFE8CEE3183FA3126 /* Typwrtr */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6D5A6C02951F272237619625 /* Build configuration list for PBXNativeTarget "Typwrtr" */;
+			buildPhases = (
+				3977D05D06F4B855DD37DE6B /* Build typwrtr-core */,
+				DABF74BD9E79D41D94CE36EA /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Typwrtr;
+			packageProductDependencies = (
+			);
+			productName = Typwrtr;
+			productReference = 902701E154429D8D35A938B1 /* Typwrtr.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0D6F995A3B133EBC53F7C97D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = DE1165418DA3E37B912063CD /* Build configuration list for PBXProject "Typwrtr" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8DFEE9CB06667614781FBB5C;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2E9AFDC3FF57C371360A7AFD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5D818C0CFE8CEE3183FA3126 /* Typwrtr */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		3977D05D06F4B855DD37DE6B /* Build typwrtr-core */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build typwrtr-core";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\ncd \"$SRCROOT/../..\"\n# Prefer repo-local target/ so Xcode LIBRARY_SEARCH_PATHS resolve.\nunset CARGO_TARGET_DIR\ncargo build -p typwrtr-core\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DABF74BD9E79D41D94CE36EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
+				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
+				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
+				E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */,
+				22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */,
+				7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		297CEC9E20D77CC26C58154A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TYPWRTR_RUST_LIB_DIR = "$(SRCROOT)/../../target/debug";
+			};
+			name = Debug;
+		};
+		91318E8148BA80718C770A95 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				INFOPLIST_FILE = Typwrtr/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../Frameworks",
+					"$(TYPWRTR_RUST_LIB_DIR)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(TYPWRTR_RUST_LIB_DIR)",
+				);
+				OTHER_LDFLAGS = (
+					"-ltypwrtr_core",
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Security,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_NAME = Typwrtr;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Typwrtr/Bridging-Header.h";
+			};
+			name = Release;
+		};
+		E062562DEF3672A57C3E7B90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				INFOPLIST_FILE = Typwrtr/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../Frameworks",
+					"$(TYPWRTR_RUST_LIB_DIR)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(TYPWRTR_RUST_LIB_DIR)",
+				);
+				OTHER_LDFLAGS = (
+					"-ltypwrtr_core",
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Security,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_NAME = Typwrtr;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Typwrtr/Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		ED520076C097C5BA48ECBDA0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TYPWRTR_RUST_LIB_DIR = "$(SRCROOT)/../../target/debug";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6D5A6C02951F272237619625 /* Build configuration list for PBXNativeTarget "Typwrtr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E062562DEF3672A57C3E7B90 /* Debug */,
+				91318E8148BA80718C770A95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DE1165418DA3E37B912063CD /* Build configuration list for PBXProject "Typwrtr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				297CEC9E20D77CC26C58154A /* Debug */,
+				ED520076C097C5BA48ECBDA0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0D6F995A3B133EBC53F7C97D /* Project object */;
+}

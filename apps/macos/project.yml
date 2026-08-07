@@ -1,0 +1,61 @@
+name: Typwrtr
+options:
+  bundleIdPrefix: app.typwrtr
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos
+    # Dogfood: link the Cargo debug build (run `cargo build -p typwrtr-core` first).
+    TYPWRTR_RUST_LIB_DIR: "$(SRCROOT)/../../target/debug"
+
+targets:
+  Typwrtr:
+    type: application
+    platform: macOS
+    sources:
+      - path: Typwrtr
+        excludes:
+          - Info.plist
+          - Bridging-Header.h
+      - path: Generated
+        excludes:
+          - "*.h"
+          - "*.modulemap"
+    settings:
+      base:
+        INFOPLIST_FILE: Typwrtr/Info.plist
+        PRODUCT_NAME: Typwrtr
+        PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos
+        GENERATE_INFOPLIST_FILE: false
+        SWIFT_OBJC_BRIDGING_HEADER: Typwrtr/Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Generated"
+        LIBRARY_SEARCH_PATHS:
+          - "$(TYPWRTR_RUST_LIB_DIR)"
+        OTHER_LDFLAGS:
+          - "-ltypwrtr_core"
+          - "-framework"
+          - "SystemConfiguration"
+          - "-framework"
+          - "Security"
+        LD_RUNPATH_SEARCH_PATHS:
+          - "@executable_path/../Frameworks"
+          - "$(TYPWRTR_RUST_LIB_DIR)"
+        ENABLE_HARDENED_RUNTIME: false
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_ALLOWED: true
+        CODE_SIGNING_REQUIRED: false
+    preBuildScripts:
+      - name: Build typwrtr-core
+        script: |
+          set -euo pipefail
+          cd "$SRCROOT/../.."
+          # Prefer repo-local target/ so Xcode LIBRARY_SEARCH_PATHS resolve.
+          unset CARGO_TARGET_DIR
+          cargo build -p typwrtr-core
+        basedOnDependencyAnalysis: false
