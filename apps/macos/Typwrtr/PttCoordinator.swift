@@ -1,36 +1,40 @@
 import AppKit
 import AVFoundation
 
-/// Owns menu-bar UI, hotkey, mic capture, FixedAsr PTT session, and clipboard insert.
+/// Owns hotkey, mic capture, ASR session, and clipboard insert.
 final class PttCoordinator {
-    private let statusItem = StatusItemController()
+    private enum Phase {
+        case idle
+        case recording
+        case finishing
+    }
+
+    private let menu: MenuBarModel
     private let hotkey = HotkeyMonitor()
     private let inserter = ClipboardInserter()
     private let mic = MicCapture()
     private var session: PttSession
-    private var isPttHeld = false
+    private let backend: AsrBackend
+    private var phase: Phase = .idle
     private var micAuthorized = false
+    /// Frontmost app at PTT-down — restore focus here before paste (ASR may steal focus).
+    private var insertTarget: NSRunningApplication?
 
-    init() {
-        // Dogfood without models: ASR text is fixed, then euhadra Tier 1+2 runs.
-        // Mic path is real — samples are pushed into the session for the next ASR wiring.
-        session = try! PttSession.withFixedTranscript(
-            language: .english,
-            fixedTranscript: "um hello from typwrtr"
-        )
+    init(menu: MenuBarModel, session: PttSession, backend: AsrBackend) {
+        self.menu = menu
+        self.session = session
+        self.backend = backend
     }
 
     func start() {
-        statusItem.install(quitHandler: { [weak self] in
-            NSApp.terminate(self)
-        })
+        menu.setBackend(backend.menuLabel)
         refreshStatus()
 
         mic.requestPermission { [weak self] granted in
             DispatchQueue.main.async {
                 self?.micAuthorized = granted
                 if !granted {
-                    self?.statusItem.showError(
+                    self?.menu.showError(
                         "Microphone access is required for push-to-talk. Enable it in System Settings → Privacy & Security → Microphone."
                     )
                 }
@@ -44,6 +48,7 @@ final class PttCoordinator {
             self?.endPtt()
         }
         hotkey.start()
+        NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.menuLabel)
     }
 
     func confirmQuitIfBusy() -> NSApplication.TerminateReply {
@@ -61,31 +66,34 @@ final class PttCoordinator {
     }
 
     private func beginPtt() {
-        guard !isPttHeld else { return }
+        // Ignore duplicate Carbon presses while already recording / finishing ASR.
+        guard phase == .idle else { return }
         guard micAuthorized || AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
-            statusItem.showError("Microphone permission is not granted.")
+            menu.showError("Microphone permission is not granted.")
             return
         }
         micAuthorized = true
-        isPttHeld = true
+        phase = .recording
+        insertTarget = NSWorkspace.shared.frontmostApplication
+        menu.setStatus(.recording)
         do {
             try session.startPtt()
             try mic.start()
             refreshStatus()
         } catch {
-            isPttHeld = false
+            phase = .idle
             _ = mic.stop()
             try? session.cancel()
             refreshStatus()
-            statusItem.showError("PTT start failed: \(error.localizedDescription)")
+            menu.showError("PTT start failed: \(error.localizedDescription)")
         }
     }
 
     private func endPtt() {
-        guard isPttHeld else { return }
-        isPttHeld = false
+        guard phase == .recording else { return }
+        phase = .finishing
         let captured = mic.stop()
-        refreshStatus()
+        menu.setStatus(.processing)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -96,7 +104,6 @@ final class PttCoordinator {
                         sampleRate: captured.sampleRate
                     )
                 } else {
-                    // Avoid empty-audio ASR failures once real models land; keep a tiny pad.
                     try self.session.pushPcmF32(
                         samples: [Float](repeating: 0, count: 1600),
                         sampleRate: 16_000
@@ -104,26 +111,75 @@ final class PttCoordinator {
                 }
                 let text = try self.session.stopPtt()
                 DispatchQueue.main.async {
+                    self.phase = .idle
                     self.refreshStatus()
-                    self.statusItem.setLastCapture(
+                    self.menu.setLastCapture(
                         samples: self.mic.lastSampleCount,
                         sampleRate: self.mic.lastSampleRate
                     )
-                    let ok = self.inserter.insert(text)
-                    if !ok {
-                        self.statusItem.showError("Inserted to clipboard only — paste manually (⌘V).")
+                    self.menu.setLastText(text)
+                    NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
+                    self.restoreInsertTargetFocus()
+                    switch self.inserter.insert(text) {
+                    case .emptyText:
+                        self.menu.showError(
+                            "No text recognized. Speak longer, or check that ASR is WhisperLocal ja."
+                        )
+                    case .pasted:
+                        break
+                    case .clipboardOnly:
+                        self.showPasteNeedsAccessibility(text: text)
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
+                    self.phase = .idle
                     self.refreshStatus()
-                    self.statusItem.showError("PTT failed: \(error)")
+                    self.menu.showError("PTT failed: \(error)")
                 }
             }
         }
     }
 
+    private func restoreInsertTargetFocus() {
+        guard let target = insertTarget,
+              target.processIdentifier != getpid(),
+              !target.isTerminated
+        else { return }
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != target.processIdentifier {
+            // Avoid re-activating if already frontmost (Chromium can drop first responder).
+            _ = target.activate(options: [.activateIgnoringOtherApps])
+            Thread.sleep(forTimeInterval: 0.08)
+        }
+    }
+
+    private func showPasteNeedsAccessibility(text: String) {
+        Permissions.registerInAccessibilityList()
+        menu.setStatus(.error)
+        let alert = NSAlert()
+        alert.messageText = "Typwrtr needs Accessibility"
+        alert.informativeText = """
+            Dictation worked, but auto-paste needs Accessibility.
+
+            1. Open Accessibility settings
+            2. Enable Typwrtr (toggle off→on if it was already listed)
+            3. Quit and reopen Typwrtr
+
+            Text is on the clipboard — you can ⌘V now:
+
+            \(text)
+            """
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open Accessibility")
+        alert.addButton(withTitle: "OK")
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            Permissions.openAccessibilitySettings()
+        }
+    }
+
     private func refreshStatus() {
-        statusItem.setStatus(session.status())
+        menu.setStatus(session.status())
     }
 }

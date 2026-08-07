@@ -7,11 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D10731484580986A36781A3 /* StatusItemController.swift */; };
+		3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5372EDEE73516D53C10A5810 /* SessionFactory.swift */; };
 		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
+		78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
 		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
+		8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DB62DEC33DAAF144CF18C9 /* Permissions.swift */; };
 		95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */; };
+		9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
 		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
 /* End PBXBuildFile section */
@@ -19,12 +22,15 @@
 /* Begin PBXFileReference section */
 		0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = typwrtr_core.swift; sourceTree = "<group>"; };
 		30BE96FA6232566689AD5380 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		48DB62DEC33DAAF144CF18C9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
-		6D10731484580986A36781A3 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
+		8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypwrtrApp.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
 		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -59,9 +65,12 @@
 				30BE96FA6232566689AD5380 /* AppDelegate.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
+				E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */,
 				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
+				48DB62DEC33DAAF144CF18C9 /* Permissions.swift */,
 				515965794E00F3EC78F3479B /* PttCoordinator.swift */,
-				6D10731484580986A36781A3 /* StatusItemController.swift */,
+				5372EDEE73516D53C10A5810 /* SessionFactory.swift */,
+				8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */,
 			);
 			path = Typwrtr;
 			sourceTree = "<group>";
@@ -96,6 +105,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					5D818C0CFE8CEE3183FA3126 = {
+						ProvisioningStyle = Manual;
+					};
 				};
 			};
 			buildConfigurationList = DE1165418DA3E37B912063CD /* Build configuration list for PBXProject "Typwrtr" */;
@@ -147,9 +159,12 @@
 				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
+				78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */,
 				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
+				8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */,
 				E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */,
-				22E9BC55988218FB900ACC49 /* StatusItemController.swift in Sources */,
+				3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */,
+				9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */,
 				7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -212,7 +227,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -227,8 +242,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = YES;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "Typwrtr Dogfood";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -249,8 +265,10 @@
 					SystemConfiguration,
 					"-framework",
 					Security,
+					"-framework",
+					IOKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = Typwrtr;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Typwrtr/Bridging-Header.h";
@@ -262,8 +280,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = YES;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "Typwrtr Dogfood";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -284,8 +303,10 @@
 					SystemConfiguration,
 					"-framework",
 					Security,
+					"-framework",
+					IOKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = Typwrtr;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Typwrtr/Bridging-Header.h";
@@ -340,7 +361,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos;
+				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;

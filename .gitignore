@@ -2,8 +2,9 @@
 /target/
 **/*.rs.bk
 
-# Models (fetched by scripts/fetch-models.sh)
+# Models / vendor (fetched by scripts/fetch-models.sh)
 /models/
+/vendor/
 .cache/
 
 # macOS / Xcode

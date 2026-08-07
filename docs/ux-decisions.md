@@ -56,7 +56,9 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 ## 3. Hotkey (Q15)
 
-- Default: **`Left Option + V`** (hold for PTT).  
+- Default: **`Control + Shift + D`** (hold for PTT; D = Dictate).  
+  - Rationale: `Option+letter` inserts macOS special characters (e.g. `⌥V` → √); `Ctrl+V` / `Ctrl+Option+V` can leak control characters when the event tap is unavailable; `⌘⇧D` collides with Finder → Desktop.  
+  - Chord is **swallowed** system-wide via CGEvent tap (needs Accessibility).  
 - Changeable from the **menu bar** (presets may include Right Command alone with “no other key” rules; not the default).  
 - No dedicated “switch mode” hotkey in MVP.
 
@@ -151,7 +153,7 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 | Q12 | Free: 1.5s silence → immediate insert |
 | Q13 | 3b temporary PTT override; Free arming unchanged |
 | Q14 | Single language (+ future dictionary) |
-| Q15 | Default hotkey Left Option+V; changeable in menu bar |
+| Q15 | Default hotkey Control+Shift+D; changeable in menu bar |
 | Q16 | Launch-at-login chosen in wizard |
 | Q17 | Offline-first + update check pull (default on, togglable) |
 | Q18 | Text buffer for fail/undo; no audio on disk |

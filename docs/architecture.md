@@ -7,7 +7,7 @@ Product: [`product.md`](./product.md). UX: [`ux-decisions.md`](./ux-decisions.md
 
 Ship a **dogfoodable PTT path** on macOS Apple Silicon:
 
-1. Hold default hotkey (`Left Option+V`) → record  
+1. Hold default hotkey (`Control+Shift+D`) → record  
 2. Release → euhadra cleanup → insert into focused field (AX, else clipboard+paste)  
 3. Menu-bar icon shows idle / recording / processing / error  
 4. Undo last (buffer-backed)  
@@ -120,3 +120,5 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-07 | UniFFI `PttSession` + `FixedAsr` for shell dogfood without models (`uniffi` 0.29). |
 | 2026-08-07 | macOS menu-bar dogfood: XcodeGen project, ⌥V PTT, clipboard paste, FixedAsr path. Audio capture deferred (silence placeholder). |
 | 2026-08-07 | **Swift mic capture locked in:** `MicCapture` (AVAudioEngine → 16 kHz mono f32) → `pushPcmF32`. Still FixedAsr until real ASR lands. |
+| 2026-08-07 | **WhisperLocal wired:** `DictationEngine::with_whisper_local` / `with_whisper_from_env`; FFI constructors; `fetch-models.sh` builds whisper-cli + ggml-tiny; Swift prefers Whisper when present. |
+| 2026-08-07 | **Default PTT hotkey → `⌃⇧D`** (was `⌃⌥V`; D = Dictate). |

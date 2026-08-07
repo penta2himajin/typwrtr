@@ -9,7 +9,7 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos
+    PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos.menuextra
     # Dogfood: link the Cargo debug build (run `cargo build -p typwrtr-core` first).
     TYPWRTR_RUST_LIB_DIR: "$(SRCROOT)/../../target/debug"
 
@@ -30,7 +30,7 @@ targets:
       base:
         INFOPLIST_FILE: Typwrtr/Info.plist
         PRODUCT_NAME: Typwrtr
-        PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos
+        PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos.menuextra
         GENERATE_INFOPLIST_FILE: false
         SWIFT_OBJC_BRIDGING_HEADER: Typwrtr/Bridging-Header.h
         HEADER_SEARCH_PATHS:
@@ -43,13 +43,18 @@ targets:
           - "SystemConfiguration"
           - "-framework"
           - "Security"
+          - "-framework"
+          - "IOKit"
         LD_RUNPATH_SEARCH_PATHS:
           - "@executable_path/../Frameworks"
           - "$(TYPWRTR_RUST_LIB_DIR)"
         ENABLE_HARDENED_RUNTIME: false
-        CODE_SIGN_IDENTITY: "-"
+        # Stable dogfood identity (see scripts/create-dogfood-cert.sh). Falls back
+        # only if the cert is missing — prefer creating the cert first.
+        CODE_SIGN_IDENTITY: "Typwrtr Dogfood"
+        CODE_SIGN_STYLE: Manual
         CODE_SIGNING_ALLOWED: true
-        CODE_SIGNING_REQUIRED: false
+        CODE_SIGNING_REQUIRED: true
     preBuildScripts:
       - name: Build typwrtr-core
         script: |

@@ -581,6 +581,30 @@ public static func withFixedTranscript(language: FfiLanguage, fixedTranscript: S
 })
 }
     
+    /**
+     * Build WhisperLocal from `TYPWRTR_WHISPER_CLI` / `WHISPER_CLI` and model dir env vars.
+     */
+public static func withWhisperFromEnv(language: FfiLanguage)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_whisper_from_env(
+        FfiConverterTypeFfiLanguage_lower(language),$0
+    )
+})
+}
+    
+    /**
+     * Build a session using whisper.cpp via euhadra `WhisperLocal`.
+     */
+public static func withWhisperLocal(language: FfiLanguage, cliPath: String, modelPath: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_whisper_local(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(cliPath),
+        FfiConverterString.lower(modelPath),$0
+    )
+})
+}
+    
 
     
     /**
@@ -1055,6 +1079,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_whisper_from_env() != 6381) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_whisper_local() != 35713) {
         return InitializationResult.apiChecksumMismatch
     }
 

@@ -93,13 +93,32 @@ impl PttSession {
             .map_err(|e| FfiError::Message {
                 msg: e.message().to_string(),
             })?;
-        let runtime = Runtime::new().map_err(|e| FfiError::Message {
-            msg: format!("tokio runtime: {e}"),
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build a session using whisper.cpp via euhadra `WhisperLocal`.
+    #[uniffi::constructor]
+    pub fn with_whisper_local(
+        language: FfiLanguage,
+        cli_path: String,
+        model_path: String,
+    ) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_whisper_local(language.into(), cli_path, model_path)
+            .map_err(|e| FfiError::Message {
+                msg: e.message().to_string(),
+            })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build WhisperLocal from `TYPWRTR_WHISPER_CLI` / `WHISPER_CLI` and model dir env vars.
+    #[uniffi::constructor]
+    pub fn with_whisper_from_env(language: FfiLanguage) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_whisper_from_env(language.into()).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
         })?;
-        Ok(Arc::new(Self {
-            runtime,
-            inner: Mutex::new(Session::with_engine(Arc::new(engine))),
-        }))
+        ptt_session_from_engine(engine)
     }
 
     /// Current status.
@@ -153,6 +172,16 @@ impl PttSession {
         self.runtime
             .block_on(async { self.inner.lock().await.clear_buffer() })
     }
+}
+
+fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, FfiError> {
+    let runtime = Runtime::new().map_err(|e| FfiError::Message {
+        msg: format!("tokio runtime: {e}"),
+    })?;
+    Ok(Arc::new(PttSession {
+        runtime,
+        inner: Mutex::new(Session::with_engine(Arc::new(engine))),
+    }))
 }
 
 #[cfg(test)]

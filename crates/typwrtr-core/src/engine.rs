@@ -1,9 +1,13 @@
 //! Build an euhadra dictation pipeline for Typwrtr.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use euhadra::prelude::*;
 use euhadra::traits::AsrAdapter;
+use euhadra::whisper_local::WhisperLocal;
+
+use crate::paths::{resolve_whisper_from_env, resolve_whisper_paths, whisper_language_tag};
 
 /// Errors while building or running the dictation pipeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +64,23 @@ impl DictationEngine {
         Ok(Self { pipeline, language })
     }
 
+    /// Build using euhadra [`WhisperLocal`] (whisper.cpp CLI).
+    pub fn with_whisper_local(
+        language: Language,
+        cli_path: impl AsRef<Path>,
+        model_path: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let (cli, model) = resolve_whisper_paths(cli_path, model_path)?;
+        let asr = WhisperLocal::new(cli, model).with_language(whisper_language_tag(language));
+        Self::new(language, asr)
+    }
+
+    /// Build WhisperLocal from env / conventional dogfood paths.
+    pub fn with_whisper_from_env(language: Language) -> Result<Self, EngineError> {
+        let (cli, model) = resolve_whisper_from_env(language)?;
+        Self::with_whisper_local(language, cli, model)
+    }
+
     /// Active language.
     pub fn language(&self) -> Language {
         self.language
@@ -111,5 +132,28 @@ mod tests {
         let text = engine.dictate(&[silence_chunk()]).await.unwrap();
         assert!(!text.contains("えーと"), "filler left: {text}");
         assert!(text.contains("今日は天気がいい"), "content lost: {text}");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires WHISPER_CLI + models from scripts/fetch-models.sh"]
+    async fn whisper_local_from_env_smoke() {
+        let engine = DictationEngine::with_whisper_from_env(Language::English)
+            .expect("configure WHISPER_CLI and models for this test");
+        let chunk = AudioChunk {
+            samples: vec![0.0; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+        };
+        // Silence should reach whisper-cli; empty/no-speech is success for wiring.
+        match engine.dictate(&[chunk]).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg = e.message().to_lowercase();
+                assert!(
+                    msg.contains("no speech") || msg.contains("speech"),
+                    "unexpected whisper error: {e}"
+                );
+            }
+        }
     }
 }
