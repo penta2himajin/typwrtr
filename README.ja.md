@@ -1,53 +1,36 @@
-# templates
+# Typwrtr
 
-> Source: README.md @ e0c3741933be6029765c21caeb84cb2b69966df9
+> Source: README.md @ (pending commit)
 >
 > [English](./README.md)
 
-penta2himajin のリポジトリ群で共通利用する作業規約とテンプレートを集めた中央リポジトリ。
+ローカル優先の macOS 向け音声入力（ディクテーション）アプリ。ホットキーを押している間話し、離すと整形済みテキストがフォーカス中のフィールドに入る。
 
-## このリポジトリの位置付け
+名前は “typewriter” から母音を抜いた綴り。
 
-- **対象読者**: penta2himajin のプロジェクトで作業する AI コーディングエージェント（Claude Code, Cursor, GitHub Copilot, OpenAI Codex）、および人間の作者。
-- **役割**: `AGENTS.md`（または `CLAUDE.md`）、`.rules/`、`.github/ISSUE_TEMPLATE/`、PR テンプレートの正本テキスト供給元。
-- **ライセンス**: MIT — 自由に再利用可。
+## 現状
 
-各テンプレートは出発点であり、消費側リポジトリで自由に上書きしてよい。
+製品定義の初期段階。方針は [`docs/product.md`](./docs/product.md)、ユースケース整理は [`docs/use-cases.md`](./docs/use-cases.md)。
+
+音声認識とテキスト整形は **[euhadra](https://github.com/penta2himajin/euhadra)**（プログラマブル ASR フレームワーク）に任せる。本リポジトリはエンドユーザー向けアプリ（Swift シェル + Rust/UniFFI コア）。
+
+## 方針（要約）
+
+- **デフォルトはローカル** — メイン経路にクラウドアカウント不要  
+- **ソースは無料** — MIT / Apache-2.0（euhadra に合わせる）  
+- **公式ビルドは $5** — 公証済み `.dmg` を Gumroad で配布。再ダウンロード可。アプリ内アカウント・ライセンス認証なし  
+- **ネイティブシェル** — macOS は Swift（将来 Windows は WinUI）
 
 ## レイアウト
 
-| パス | 用途 |
-|---|---|
-| `.github/ISSUE_TEMPLATE/handoff.md` | セッションハンドオフ用 Issue テンプレート。消費側にコピーする。本リポジトリ自身でも採用（ドッグフード）。 |
-| `.github/PULL_REQUEST_TEMPLATE.md` | `Closes #N` での Issue 紐付けを要求する PR テンプレート。 |
-| `AGENTS.md` | 共通開発規約（TDD, コミット規約, PR ワークフロー）。プロジェクトルートに配置。Claude Code 互換のため `CLAUDE.md` からシンボリックリンクされている。 |
-| `CLAUDE.md` | `AGENTS.md` へのシンボリックリンク。Claude Code 後方互換用。 |
-| `.rules/` | パススコープルール（該当ファイル読み込み時にオンデマンドでロード）。 |
-| `.claude/rules/` | `.rules/` へのシンボリックリンク。Claude Code 互換用。 |
-| `claude-rules/` | `.rules/` へのシンボリックリンク。後方互換用のレガシー名。 |
-| `AGENTS-project-skeleton.md` | プロジェクトルート `AGENTS.md` の雛形。 |
-| `git-hooks/pre-push` | フォーマット / リント / clippy を実行する共有 pre-push フック。`git config core.hooksPath git-hooks` で有効化。 |
-| `docs/handoff-protocol.md` | Issue ベースのセッションハンドオフの詳細プロトコル。 |
-| `docs/i18n-policy.md` | サフィックス方式の翻訳ポリシー（`README.ja.md` を `README.md` の隣に置く）。 |
+```
+docs/           # 製品方針・ユースケース・ハンドオフ / i18n
+git-hooks/      # 任意の pre-push フック
+AGENTS.md       # エージェント / 貢献者向け規約
+```
 
-## 使い方
-
-新規リポジトリで使う場合:
-
-1. `AGENTS-project-skeleton.md` をリポジトリ直下に `AGENTS.md` としてコピーし、プレースホルダを埋める。
-2. `.github/ISSUE_TEMPLATE/handoff.md` と `.github/PULL_REQUEST_TEMPLATE.md` をそのままコピーする。
-3. 必要に応じて `.rules/examples/*` を `.rules/` に取り込み、`globs` を調整する。
-4. `git-hooks/pre-push` を消費側リポジトリの `git-hooks/` に置き、`git config core.hooksPath git-hooks` を実行する。
-5. 日本語読者を想定する場合は `docs/i18n-policy.md` に従って `README.ja.md` を追加する。
-
-既存リポジトリに導入する場合:
-
-- 段階的に取り込む。一括置換ではなく、既存 `AGENTS.md`（または `CLAUDE.md`）との差分マージで対応する。
-
-## SSOT 優先順位
-
-このリポジトリのテンプレートと消費側リポジトリのファイルが食い違う場合、**消費側が勝つ**。テンプレートは記述的であって権威的ではない。詳細な優先順位は `docs/handoff-protocol.md` を参照。
+アプリ本体（Rust コア、Swift macOS）は実装開始とともに追加する。
 
 ## ライセンス
 
-MIT。詳細は `LICENSE` を参照。
+MIT。`LICENSE` を参照。euhadra の crates.io 公開時に合わせて Apache-2.0 とのデュアルにする可能性がある。

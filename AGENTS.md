@@ -1,63 +1,67 @@
-# <Project Name>
+# Typwrtr
 
 ## Overview
 
-<!-- One to three paragraphs describing the project's purpose, target domain, and distinguishing characteristics. If detailed specs live under docs/, reference them with @docs/<file>.md. -->
+Typwrtr is a local-first voice dictation **product** (macOS first): hotkey → speak → cleaned text in the focused field. ASR and text cleanup come from **euhadra**; this repo owns the native shell and product UX.
+
+Canonical decisions: @docs/product.md. Use-case backlog: @docs/use-cases.md. Engine details: euhadra `docs/spec.md`.
 
 ## Project Structure
 
-<!-- Directory layout with the role of each. Make explicit the boundary between source code, documentation, and generated artifacts. -->
+```
+docs/                 # Product decisions, use cases, handoff, i18n policy
+git-hooks/            # Optional pre-push format / lint hooks
+AGENTS.md             # This file (CLAUDE.md → symlink)
+# Forthcoming:
+#   crates/ or core/  # Rust + UniFFI
+#   apps/macos/       # Swift menu-bar shell
+```
 
-```
-src/         # ...
-docs/        # ...
-tests/       # ...
-```
+No application source tree yet — product definition phase.
 
 ## Development Setup
 
-<!-- Required toolchain pins, bootstrap commands, external dependencies (DB, MCP servers). -->
-
 ```bash
-# example
-cargo install ...
-
-# Pre-push hook (format / lint / clippy).
-cp git-hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# Pre-push hook (format / lint / clippy) when Rust/Swift lands:
+#   git config core.hooksPath git-hooks
+#
+# Expected later: Rust stable, Xcode (macOS shell), UniFFI toolchain,
+# and a path/git dependency on euhadra until crates.io publish.
 ```
 
 ## Build & Test
 
-<!-- Canonical verification commands. Must be runnable without prior setup so agents can self-verify. -->
-
 ```bash
-cargo build --workspace
-cargo test  --workspace
+# Placeholder until crates exist. Prefer workspace-wide commands when added:
+#   cargo build --workspace
+#   cargo test  --workspace
 ```
+
+Until then, documentation-only changes need no build step.
 
 ## Development Principles
 
-<!-- Project-specific additions only. Do not restate the common rules below. Examples:
-- "All features touching target-adjacent columns must be registered in LEAK_FEATURES."
-- "Public API changes require an ADR in docs/decisions/." -->
+- Product decisions in @docs/product.md are SSOT; update that file when changing licensing, pricing, or shell strategy.
+- Prefer measuring latency and recognition quality over conjecturing (see Common Rules → Measure, Don't Conjecture).
+- Do not require end users to build from source for the happy path.
 
 ## Architectural Boundaries
 
-<!-- Structural invariants that, if violated, break the design. Examples:
-- "core crate stays domain-agnostic."
-- "Generated code under gen/ is never hand-edited."
-- "Layer X must not depend on layer Y." -->
+- **euhadra**: listening accuracy (ASR, filters, processors). Typwrtr must not reimplement that pipeline ad hoc.
+- **Typwrtr shell**: hotkeys, permissions, Accessibility, insertion, onboarding, distribution.
+- **MVP shell**: Swift + UniFFI on macOS. Windows later via WinUI + same UniFFI API surface.
+- No in-app license server, accounts, or device binding (see @docs/product.md §4).
 
 ## Prohibitions
 
-<!-- Numbered list of "do not" rules, written so each is verifiable. Do not duplicate the common prohibitions below. -->
-
-1. ...
-2. ...
+1. Do not add cloud accounts or license checks as requirements for basic dictation.
+2. Do not put product-definition SSOT only in chat; update @docs/product.md / @docs/use-cases.md.
+3. Do not expand MVP to terminal command execution (U7) or heavy structured-note flows (U8) without an explicit decision in @docs/use-cases.md.
 
 ## Git Conventions
 
-<!-- Differences from the common rules below. Examples: scoped Conventional Commits like `feat(phase1d):`, mandatory issue links in PR bodies. -->
+- Conventional Commits as in Common Rules. Suggested scopes: `docs:`, `macos:`, `core:`, `uniffi:`.
+- Branch prefix: `cursor/<topic>`, `claude/<topic>`, or `human/<topic>`.
 
 ## Session Handoff
 
@@ -90,6 +94,10 @@ All implementation work proceeds in this cycle:
 3. **Refactor**: tidy up while keeping tests green.
 
 When a test fails, fix the production code — do not delete, skip, or weaken the test.
+
+### Measure, Don't Conjecture
+
+Base decisions on observed data, not assumptions. Before optimising, claiming a bottleneck, or asserting that something is slow or broken, measure it — profile, benchmark, log, or reproduce. When you report a cause, cite the measurement that supports it.
 
 ### Git Conventions
 
