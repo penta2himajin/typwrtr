@@ -75,11 +75,10 @@ Aligned with [`use-cases.md`](./use-cases.md) and [`ux-decisions.md`](./ux-decis
 ## 7. Repo hygiene
 
 - Dedicated public GitHub repo: https://github.com/penta2himajin/typwrtr (`origin`). Former `templates` remote kept as `templates` for history only.
-- Still to do: add real crate / Xcode layout when implementation starts.
+- Implementation layout: [`architecture.md`](./architecture.md).
 
 ## 8. Open follow-ups
 
-1. UniFFI surface for the PTT slice (record / stop / cancel / emit / undo / settings).
-2. Exact SPDX (MIT vs dual MIT OR Apache-2.0) in repo `LICENSE` files.
-3. Landing-page copy and Gumroad product setup (post-dogfood).
-4. Optional further UX grilling (error copy, icon state table, model install paths) vs jump to implementation design — choose with product owner.
+1. Exact SPDX dual files at repo root if adopting `MIT OR Apache-2.0` everywhere.
+2. Landing-page copy and Gumroad product setup (post-dogfood).
+3. Confirm audio-capture placement (Swift vs euhadra `mic`) during PTT impl — see architecture decision log.

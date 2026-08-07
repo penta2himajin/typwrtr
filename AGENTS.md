@@ -4,46 +4,40 @@
 
 Typwrtr is a local-first voice dictation **product** (macOS first): hotkey → speak → cleaned text in the focused field. ASR and text cleanup come from **euhadra**; this repo owns the native shell and product UX.
 
-Canonical decisions: @docs/product.md. UX/interaction: @docs/ux-decisions.md. Use-case backlog: @docs/use-cases.md. Engine details: euhadra `docs/spec.md` / crates.io `euhadra`.
+Canonical decisions: @docs/product.md. UX/interaction: @docs/ux-decisions.md. Architecture: @docs/architecture.md. Use-case backlog: @docs/use-cases.md. Engine: crates.io `euhadra`.
 
 
 ## Project Structure
 
 ```
-docs/                 # Product decisions, use cases, handoff, i18n policy
+docs/                 # Product, UX, architecture, handoff, i18n
+crates/typwrtr-core/  # Rust + UniFFI (euhadra consumer)
+apps/macos/           # Swift menu-bar shell
+scripts/              # Model fetch for dogfood
 git-hooks/            # Optional pre-push format / lint hooks
 AGENTS.md             # This file (CLAUDE.md → symlink)
-# Forthcoming:
-#   crates/ or core/  # Rust + UniFFI
-#   apps/macos/       # Swift menu-bar shell
 ```
-
-No application source tree yet — product definition phase.
 
 ## Development Setup
 
 ```bash
-# Pre-push hook (format / lint / clippy) when Rust/Swift lands:
-#   git config core.hooksPath git-hooks
+# Rust + Xcode (macOS shell) + UniFFI toolchain as needed.
+# Models for dogfood: ./scripts/fetch-models.sh  (see @docs/architecture.md)
 #
-# Expected later: Rust stable, Xcode (macOS shell), UniFFI toolchain,
-# and crates.io dependency on euhadra (published; pin a version in Cargo.toml).
+# Pre-push hook:
+#   git config core.hooksPath git-hooks
 ```
 
 ## Build & Test
 
 ```bash
-# Placeholder until crates exist. Prefer workspace-wide commands when added:
-#   cargo build --workspace
-#   cargo test  --workspace
+cargo build -p typwrtr-core
+cargo test  -p typwrtr-core
 ```
-
-Until then, documentation-only changes need no build step.
 
 ## Development Principles
 
-- Product decisions in @docs/product.md and @docs/ux-decisions.md are SSOT; update those files when changing licensing, pricing, shell, or interaction behaviour.
-
+- Product / UX / architecture docs (@docs/product.md, @docs/ux-decisions.md, @docs/architecture.md) are SSOT; update them when those decisions change.
 - Prefer measuring latency and recognition quality over conjecturing (see Common Rules → Measure, Don't Conjecture).
 - Do not require end users to build from source for the happy path.
 
@@ -57,7 +51,7 @@ Until then, documentation-only changes need no build step.
 ## Prohibitions
 
 1. Do not add cloud accounts or license checks as requirements for basic dictation.
-2. Do not put product-definition SSOT only in chat; update @docs/product.md / @docs/ux-decisions.md / @docs/use-cases.md.
+2. Do not put product-definition SSOT only in chat; update @docs/product.md / @docs/ux-decisions.md / @docs/architecture.md / @docs/use-cases.md.
 
 3. Do not expand MVP to terminal command execution (U7) or heavy structured-note flows (U8) without an explicit decision in @docs/use-cases.md.
 

@@ -10,7 +10,7 @@
 
 ## 現状
 
-製品定義の初期段階。方針は [`docs/product.md`](./docs/product.md)、UX は [`docs/ux-decisions.md`](./docs/ux-decisions.md)、ユースケースは [`docs/use-cases.md`](./docs/use-cases.md)。
+製品定義 + PTT アーキテクチャ。方針は [`docs/product.md`](./docs/product.md)、UX は [`docs/ux-decisions.md`](./docs/ux-decisions.md)、構成は [`docs/architecture.md`](./docs/architecture.md)、ユースケースは [`docs/use-cases.md`](./docs/use-cases.md)。
 
 音声認識とテキスト整形は **[euhadra](https://github.com/penta2himajin/euhadra)**（プログラマブル ASR フレームワーク）に任せる。本リポジトリはエンドユーザー向けアプリ（Swift シェル + Rust/UniFFI コア）。
 
@@ -24,12 +24,12 @@
 ## レイアウト
 
 ```
-docs/           # 製品方針・ユースケース・ハンドオフ / i18n
-git-hooks/      # 任意の pre-push フック
-AGENTS.md       # エージェント / 貢献者向け規約
+docs/                  # 製品・UX・アーキテクチャ
+crates/typwrtr-core/   # Rust セッションコア（euhadra）
+apps/macos/            # Swift メニューバー（Xcode は後日）
+scripts/fetch-models.sh
+AGENTS.md
 ```
-
-アプリ本体（Rust コア、Swift macOS）は実装開始とともに追加する。
 
 ## ライセンス
 

@@ -1,0 +1,23 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Models (fetched by scripts/fetch-models.sh)
+/models/
+.cache/
+
+# macOS / Xcode
+apps/macos/build/
+apps/macos/DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# OS / editors
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*

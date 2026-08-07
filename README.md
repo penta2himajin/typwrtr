@@ -8,7 +8,7 @@ Named by dropping the vowels from “typewriter”.
 
 ## Status
 
-Early product definition. Decisions: [`docs/product.md`](./docs/product.md). UX: [`docs/ux-decisions.md`](./docs/ux-decisions.md). Use cases: [`docs/use-cases.md`](./docs/use-cases.md).
+Early product definition + PTT architecture. Decisions: [`docs/product.md`](./docs/product.md). UX: [`docs/ux-decisions.md`](./docs/ux-decisions.md). Architecture: [`docs/architecture.md`](./docs/architecture.md). Use cases: [`docs/use-cases.md`](./docs/use-cases.md).
 
 Speech recognition and text cleanup are provided by **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework). This repository is the end-user application (Swift shell + Rust/UniFFI core).
 
@@ -22,12 +22,12 @@ Speech recognition and text cleanup are provided by **[euhadra](https://github.c
 ## Layout
 
 ```
-docs/           # Product decisions, use cases, handoff / i18n policy
-git-hooks/      # Optional pre-push format / lint hooks
-AGENTS.md       # Agent / contributor working rules
+docs/                  # Product, UX, architecture
+crates/typwrtr-core/   # Rust session core (euhadra)
+apps/macos/            # Swift menu-bar shell (forthcoming Xcode project)
+scripts/fetch-models.sh
+AGENTS.md
 ```
-
-Application sources (Rust core, Swift macOS target) will land as implementation starts.
 
 ## License
 
