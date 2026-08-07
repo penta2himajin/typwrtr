@@ -2,6 +2,10 @@
 
 use std::fmt;
 
+use euhadra::types::AudioChunk;
+
+use crate::engine::{EngineError, SharedEngine};
+
 /// Coarse status exposed to the menu-bar shell.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SessionStatus {
@@ -44,21 +48,45 @@ impl fmt::Display for SessionError {
 
 impl std::error::Error for SessionError {}
 
+impl From<EngineError> for SessionError {
+    fn from(value: EngineError) -> Self {
+        Self::new(value.message().to_string())
+    }
+}
+
 /// In-process PTT session.
-///
-/// Audio bytes and euhadra wiring land in later commits; this type first
-/// locks the status transitions required by `docs/ux-decisions.md`.
-#[derive(Debug, Default)]
 pub struct Session {
     status: SessionStatus,
     last_text: Option<String>,
     last_error: Option<SessionError>,
+    chunks: Vec<AudioChunk>,
+    engine: Option<SharedEngine>,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Session {
-    /// Create an idle session.
+    /// Create an idle session without an engine (state-machine tests).
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            status: SessionStatus::Idle,
+            last_text: None,
+            last_error: None,
+            chunks: Vec::new(),
+            engine: None,
+        }
+    }
+
+    /// Create a session bound to a [`DictationEngine`].
+    pub fn with_engine(engine: SharedEngine) -> Self {
+        Self {
+            engine: Some(engine),
+            ..Self::new()
+        }
     }
 
     /// Current status for menu-bar icon mapping.
@@ -82,10 +110,24 @@ impl Session {
             SessionStatus::Idle | SessionStatus::Error => {
                 self.status = SessionStatus::Recording;
                 self.last_error = None;
+                self.chunks.clear();
                 Ok(())
             }
             other => Err(SessionError::new(format!(
                 "cannot start PTT from {other:?}"
+            ))),
+        }
+    }
+
+    /// Append a captured audio chunk while recording.
+    pub fn push_audio(&mut self, chunk: AudioChunk) -> Result<(), SessionError> {
+        match self.status {
+            SessionStatus::Recording => {
+                self.chunks.push(chunk);
+                Ok(())
+            }
+            other => Err(SessionError::new(format!(
+                "cannot push audio from {other:?}"
             ))),
         }
     }
@@ -96,16 +138,16 @@ impl Session {
             SessionStatus::Recording | SessionStatus::Processing => {
                 self.status = SessionStatus::Idle;
                 self.last_error = None;
+                self.chunks.clear();
                 Ok(())
             }
             SessionStatus::Idle | SessionStatus::Error => Ok(()),
         }
     }
 
-    /// Mark processing after PTT release.
+    /// Mark processing after PTT release (without running the engine).
     ///
-    /// Real transcription will replace the placeholder path that leaves
-    /// [`SessionStatus::Error`] until euhadra is wired.
+    /// Prefer [`stop_ptt`](Self::stop_ptt) when an engine is attached.
     pub fn stop_ptt_begin_processing(&mut self) -> Result<(), SessionError> {
         match self.status {
             SessionStatus::Recording => {
@@ -118,12 +160,33 @@ impl Session {
         }
     }
 
+    /// Release PTT: run the dictation engine on buffered audio.
+    pub async fn stop_ptt(&mut self) -> Result<String, SessionError> {
+        self.stop_ptt_begin_processing()?;
+        let engine = self.engine.clone().ok_or_else(|| {
+            SessionError::new("no dictation engine configured; use Session::with_engine")
+        })?;
+        let chunks = std::mem::take(&mut self.chunks);
+        match engine.dictate(&chunks).await {
+            Ok(text) => {
+                self.complete_with_text(text.clone())?;
+                Ok(text)
+            }
+            Err(err) => {
+                let session_err = SessionError::from(err);
+                self.fail(session_err.clone(), None)?;
+                Err(session_err)
+            }
+        }
+    }
+
     /// Record a successful transcript and return to idle.
     pub fn complete_with_text(&mut self, text: impl Into<String>) -> Result<(), SessionError> {
         match self.status {
             SessionStatus::Processing => {
                 self.last_text = Some(text.into());
                 self.last_error = None;
+                self.chunks.clear();
                 self.status = SessionStatus::Idle;
                 Ok(())
             }
@@ -145,6 +208,7 @@ impl Session {
                     self.last_text = Some(text);
                 }
                 self.last_error = Some(error);
+                self.chunks.clear();
                 self.status = SessionStatus::Error;
                 Ok(())
             }
@@ -165,6 +229,12 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    use euhadra::mock::MockAsr;
+    use euhadra::types::Language;
+
+    use crate::engine::DictationEngine;
 
     #[test]
     fn ptt_happy_path_status_transitions() {
@@ -210,5 +280,29 @@ mod tests {
         let mut s = Session::new();
         s.start_ptt().unwrap();
         assert!(s.start_ptt().is_err());
+    }
+
+    #[tokio::test]
+    async fn stop_ptt_runs_engine_and_returns_cleaned_text() {
+        let engine = Arc::new(
+            DictationEngine::new(
+                Language::English,
+                MockAsr::new("um hello world"),
+            )
+            .unwrap(),
+        );
+        let mut s = Session::with_engine(engine);
+        s.start_ptt().unwrap();
+        s.push_audio(AudioChunk {
+            samples: vec![0.0; 800],
+            sample_rate: 16_000,
+            channels: 1,
+        })
+        .unwrap();
+        let text = s.stop_ptt().await.unwrap();
+        assert!(!text.to_lowercase().contains("um"), "got: {text}");
+        assert!(text.to_lowercase().contains("hello"), "got: {text}");
+        assert_eq!(s.status(), SessionStatus::Idle);
+        assert_eq!(s.last_text(), Some(text.as_str()));
     }
 }

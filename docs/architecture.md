@@ -113,3 +113,5 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-07 | Emit (AX/clipboard) stays in Swift; core returns text. |
 | 2026-08-07 | Audio capture placement: bias Swift→core; confirm at impl time. |
 | 2026-08-07 | Scaffold: workspace + `typwrtr-core` PTT state machine tests; `fetch-models.sh` stub. |
+| 2026-08-07 | `DictationEngine` + MockAsr tests (en/ja Tier1+2); `Session::stop_ptt` runs pipeline. `fetch-models.sh whisper-tiny` downloads ggml tiny weights. |
+| 2026-08-07 | UniFFI `PttSession` + `FixedAsr` for shell dogfood without models (`uniffi` 0.29). |

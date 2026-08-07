@@ -8,7 +8,16 @@ rust-version.workspace = true
 description = "Typwrtr session core — euhadra pipeline + PTT state for the macOS shell"
 publish = false
 
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+name = "typwrtr_core"
+
 [dependencies]
+async-trait = "0.1"
 euhadra = { workspace = true }
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+uniffi = "0.29"
 
 [dev-dependencies]
+euhadra = { workspace = true, features = ["testing"] }
