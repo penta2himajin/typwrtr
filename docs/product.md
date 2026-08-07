@@ -76,5 +76,5 @@ This tree started as a copy of `templates`. Still to do outside this doc:
 
 1. Prioritise use cases → [`use-cases.md`](./use-cases.md).
 2. UniFFI surface for MVP (record / stop / cancel / emit / settings).
-3. Exact SPDX choice (MIT vs Apache-2.0 vs dual) once euhadra’s crates.io license is fixed.
+3. Exact SPDX choice (MIT vs Apache-2.0 vs dual) to match published euhadra (`euhadra` **0.2.0** on crates.io as of 2026-08-07).
 4. Landing-page copy and Gumroad product setup (post-MVP dogfood).

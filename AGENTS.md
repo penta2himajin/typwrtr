@@ -26,7 +26,7 @@ No application source tree yet — product definition phase.
 #   git config core.hooksPath git-hooks
 #
 # Expected later: Rust stable, Xcode (macOS shell), UniFFI toolchain,
-# and a path/git dependency on euhadra until crates.io publish.
+# and crates.io dependency on euhadra (published; pin a version in Cargo.toml).
 ```
 
 ## Build & Test

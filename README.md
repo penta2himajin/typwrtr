@@ -31,4 +31,4 @@ Application sources (Rust core, Swift macOS target) will land as implementation 
 
 ## License
 
-MIT. See `LICENSE`. SPDX may gain Apache-2.0 dual-licensing to match euhadra when that crate is published.
+MIT. See `LICENSE`. SPDX may gain Apache-2.0 dual-licensing to match published [euhadra](https://crates.io/crates/euhadra).

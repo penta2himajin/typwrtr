@@ -1,6 +1,6 @@
 # Typwrtr
 
-> Source: README.md @ (pending commit)
+> Source: README.md @ 9f11d49591f5e952f66a39989b98146383b179a7
 >
 > [English](./README.md)
 
@@ -33,4 +33,4 @@ AGENTS.md       # エージェント / 貢献者向け規約
 
 ## ライセンス
 
-MIT。`LICENSE` を参照。euhadra の crates.io 公開時に合わせて Apache-2.0 とのデュアルにする可能性がある。
+MIT。`LICENSE` を参照。公開済みの [euhadra](https://crates.io/crates/euhadra) に合わせて Apache-2.0 とのデュアルにする可能性がある。
