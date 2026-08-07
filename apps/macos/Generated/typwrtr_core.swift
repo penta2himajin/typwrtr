@@ -432,6 +432,30 @@ fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterBool : FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -469,6 +493,225 @@ fileprivate struct FfiConverterString: FfiConverter {
         writeBytes(&buf, value.utf8)
     }
 }
+
+
+
+
+/**
+ * Thread-safe Free arming handle for Swift (UniFFI).
+ */
+public protocol FreeControllerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Arm Free mode.
+     */
+    func arm() 
+    
+    /**
+     * Availability for a known focus kind.
+     */
+    func availability(focus: FocusKind)  -> FreeAvailability
+    
+    /**
+     * Availability when no focused element was found.
+     */
+    func availabilityWithoutFocus()  -> FreeAvailability
+    
+    /**
+     * Disarm Free mode.
+     */
+    func disarm() 
+    
+    /**
+     * Whether Free is armed.
+     */
+    func isArmed()  -> Bool
+    
+    /**
+     * Whether Free should open the mic for this focus.
+     */
+    func shouldListen(focus: FocusKind)  -> Bool
+    
+}
+/**
+ * Thread-safe Free arming handle for Swift (UniFFI).
+ */
+open class FreeController: FreeControllerProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_typwrtr_core_fn_clone_freecontroller(self.pointer, $0) }
+    }
+    /**
+     * Disarmed controller.
+     */
+public convenience init() {
+    let pointer =
+        try! rustCall() {
+    uniffi_typwrtr_core_fn_constructor_freecontroller_new($0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_typwrtr_core_fn_free_freecontroller(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Arm Free mode.
+     */
+open func arm()  {try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_arm(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Availability for a known focus kind.
+     */
+open func availability(focus: FocusKind) -> FreeAvailability  {
+    return try!  FfiConverterTypeFreeAvailability_lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_availability(self.uniffiClonePointer(),
+        FfiConverterTypeFocusKind_lower(focus),$0
+    )
+})
+}
+    
+    /**
+     * Availability when no focused element was found.
+     */
+open func availabilityWithoutFocus() -> FreeAvailability  {
+    return try!  FfiConverterTypeFreeAvailability_lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_availability_without_focus(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Disarm Free mode.
+     */
+open func disarm()  {try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_disarm(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Whether Free is armed.
+     */
+open func isArmed() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_is_armed(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Whether Free should open the mic for this focus.
+     */
+open func shouldListen(focus: FocusKind) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_freecontroller_should_listen(self.uniffiClonePointer(),
+        FfiConverterTypeFocusKind_lower(focus),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFreeController: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FreeController
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FreeController {
+        return FreeController(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FreeController) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FreeController {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FreeController, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFreeController_lift(_ pointer: UnsafeMutableRawPointer) throws -> FreeController {
+    return try FfiConverterTypeFreeController.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFreeController_lower(_ value: FreeController) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFreeController.lower(value)
+}
+
+
 
 
 
@@ -1097,6 +1340,194 @@ extension FfiStatus: Equatable, Hashable {}
 
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Accessibility focus classification supplied by the shell (stub inputs in tests).
+ */
+
+public enum FocusKind {
+    
+    /**
+     * Clear text-field role (AXTextField / AXTextArea / editable combo text).
+     */
+    case textField
+    /**
+     * Password / secure text field — Free is always blocked.
+     */
+    case secureField
+    /**
+     * Focused element that is not a Free-eligible text field (or unknown).
+     */
+    case other
+}
+
+
+#if compiler(>=6)
+extension FocusKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFocusKind: FfiConverterRustBuffer {
+    typealias SwiftType = FocusKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FocusKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .textField
+        
+        case 2: return .secureField
+        
+        case 3: return .other
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FocusKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .textField:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .secureField:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .other:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFocusKind_lift(_ buf: RustBuffer) throws -> FocusKind {
+    return try FfiConverterTypeFocusKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFocusKind_lower(_ value: FocusKind) -> RustBuffer {
+    return FfiConverterTypeFocusKind.lower(value)
+}
+
+
+extension FocusKind: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Coarse Free availability for menu-bar feedback (Q4: no silent failure).
+ */
+
+public enum FreeAvailability {
+    
+    /**
+     * Disarmed — Free will not listen.
+     */
+    case disarmed
+    /**
+     * Armed and currently allowed to open the mic.
+     */
+    case listening
+    /**
+     * Armed, but no eligible text field is focused yet.
+     */
+    case armedWaitingFocus
+    /**
+     * Armed, focus exists but is not classified as a Free text field (or is secure).
+     */
+    case unavailableExplained
+}
+
+
+#if compiler(>=6)
+extension FreeAvailability: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFreeAvailability: FfiConverterRustBuffer {
+    typealias SwiftType = FreeAvailability
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FreeAvailability {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .disarmed
+        
+        case 2: return .listening
+        
+        case 3: return .armedWaitingFocus
+        
+        case 4: return .unavailableExplained
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FreeAvailability, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .disarmed:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .listening:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .armedWaitingFocus:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .unavailableExplained:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFreeAvailability_lift(_ buf: RustBuffer) throws -> FreeAvailability {
+    return try FfiConverterTypeFreeAvailability.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFreeAvailability_lower(_ value: FreeAvailability) -> RustBuffer {
+    return FfiConverterTypeFreeAvailability.lower(value)
+}
+
+
+extension FreeAvailability: Equatable, Hashable {}
+
+
+
+
+
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -1161,6 +1592,24 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_arm() != 27330) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_availability() != 28752) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_availability_without_focus() != 59831) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_disarm() != 62704) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_is_armed() != 58837) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_freecontroller_should_listen() != 10329) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_method_pttsession_cancel() != 10077) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1183,6 +1632,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload() != 32124) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_freecontroller_new() != 28764) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_canary() != 35209) {

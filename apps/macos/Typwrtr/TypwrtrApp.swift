@@ -8,11 +8,15 @@ struct TypwrtrApp: App {
     var body: some Scene {
         MenuBarExtra(menu.extraTitle, systemImage: menu.symbolName) {
             Text(menu.statusTitle)
+            Text(menu.freeStatusTitle)
             Text(menu.lastTextTitle)
             Divider()
             Button("Push to talk") {}
                 .keyboardShortcut("d", modifiers: [.control, .shift])
                 .disabled(true)
+            Button(menu.freeArmed ? "Disarm Free" : "Arm Free") {
+                menu.toggleFreeArmed()
+            }
             Button("Undo last insert") {
                 menu.onUndoRequested?()
             }

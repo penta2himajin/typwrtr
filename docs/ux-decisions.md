@@ -80,7 +80,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 **Model download:** tied to language choice; start in-wizard with progress; do not pretend ready until required model is present (disable or block start).
 
-**Dogfood (2026-08-08):** until the full wizard ships, a shared **Setup** dialog (first-run + menu **Setup…**) covers language, permissions, language-pack install hint, and launch-at-login. Users pick **Language**; the app selects the matching ASR model. Backend / Last capture / model folder live under **Debug**. Full wizard UI still deferred for Free + in-app fetch.
+**Dogfood (2026-08-08):** shared **Setup** dialog covers permissions, **mode** (PTT-only vs Arm Free), language + in-app pack download, and launch-at-login. Free/VAD (F3): menu **Arm Free** / **Disarm Free**, AX focus gate, 1.5s silence end, PTT temporarily suspends Free. Korean remains WIP (no in-app SenseVoice export).
 
 **Settings window:** not required while the surface stays small; menu bar is the primary control surface. Add a settings window when complexity demands it.
 

@@ -18,11 +18,98 @@ final class MenuBarModel: ObservableObject {
     @Published var lastTextTitle = "Last: —"
     @Published var canUndo = false
     @Published var setupComplete = false
+    @Published var freeArmed = false
+    @Published var freeStatusTitle = "Free: off"
+
+    static let freeArmedKey = "typwrtr.freeArmed"
+
+    static var freeArmedPreference: Bool {
+        get { UserDefaults.standard.bool(forKey: freeArmedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: freeArmedKey) }
+    }
 
     /// Set by PttCoordinator.
     var onUndoRequested: (() -> Void)?
     var onLanguageSelected: ((AppLanguage) -> Void)?
+    var onFreeArmChanged: ((Bool) -> Void)?
 
+    func setFreeArmed(_ armed: Bool) {
+        let apply = {
+            self.freeArmed = armed
+            if !armed {
+                self.freeStatusTitle = "Free: off"
+                // Restore idle chrome if we were showing Free listening.
+                if self.statusTitle == "Status: free listening" {
+                    self.symbolName = "mic"
+                    self.extraTitle = "Tw"
+                    self.statusTitle = "Status: idle"
+                    self.toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+                }
+            }
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func setFreeAvailability(_ availability: FreeAvailability) {
+        let title: String
+        switch availability {
+        case .disarmed:
+            title = "Free: off"
+        case .listening:
+            title = "Free: listening"
+        case .armedWaitingFocus:
+            title = "Free: waiting for text field"
+        case .unavailableExplained:
+            title = "Free: unavailable here"
+        }
+        DispatchQueue.main.async {
+            self.freeStatusTitle = title
+        }
+    }
+
+    /// Override Free status line (mic / Accessibility failures).
+    func setFreeStatusDetail(_ title: String) {
+        DispatchQueue.main.async {
+            self.freeStatusTitle = title
+        }
+    }
+
+    /// Menu-bar icon while Free mic is open (distinct from PTT recording).
+    func setFreeListeningIcon(_ listening: Bool) {
+        let apply = {
+            // Do not clobber PTT recording / processing chrome.
+            if self.statusTitle == "Status: recording" || self.statusTitle == "Status: processing" {
+                return
+            }
+            if listening {
+                self.symbolName = "mic.fill"
+                self.extraTitle = "○Tw"
+                self.statusTitle = "Status: free listening"
+                self.toolTip = "Typwrtr — Free listening"
+            } else if self.statusTitle == "Status: free listening" {
+                self.symbolName = "mic"
+                self.extraTitle = "Tw"
+                self.statusTitle = "Status: idle"
+                self.toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+            }
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func toggleFreeArmed() {
+        let next = !Self.freeArmedPreference
+        Self.freeArmedPreference = next
+        setFreeArmed(next)
+        onFreeArmChanged?(next)
+    }
     func setCanUndo(_ enabled: Bool) {
         DispatchQueue.main.async {
             self.canUndo = enabled

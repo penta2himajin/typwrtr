@@ -5,6 +5,8 @@ import AppKit
 enum SetupDialog {
     /// Called when the user changes language inside the dialog (recreate ASR session).
     static var onLanguageChanged: ((AppLanguage) -> Void)?
+    /// Called when Setup toggles Free arming (F3 / wizard mode choice).
+    static var onFreeArmChanged: ((Bool) -> Void)?
 
     fileprivate enum Metrics {
         /// Body content width (Permission / General columns).
@@ -38,11 +40,15 @@ enum SetupDialog {
             blockTitleHeight + titleToContent + rowHeight
         }
 
-        /// Body height for Permission + General (Language + Auto Launch).
+        /// Body height for Permission + Mode + General.
         static var bodyHeight: CGFloat {
             blockHeader
                 + rowHeight * 3
                 + gap * 2
+                + sectionGap
+                + blockHeader
+                + rowHeight * 2
+                + gap
                 + sectionGap
                 + blockHeader
                 + section
@@ -343,6 +349,32 @@ enum SetupDialog {
             )
 
             y -= Metrics.sectionGap
+            addBlockHeader("Mode", y: &y)
+            let freeArmed = MenuBarModel.freeArmedPreference
+            y -= Metrics.rowHeight
+            let pttOnly = NSButton(
+                radioButtonWithTitle: "Push to talk only",
+                target: self,
+                action: #selector(modePttOnly)
+            )
+            pttOnly.font = .systemFont(ofSize: 12)
+            pttOnly.state = freeArmed ? .off : .on
+            pttOnly.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+            addSubview(pttOnly)
+
+            y -= Metrics.gap
+            y -= Metrics.rowHeight
+            let freeMode = NSButton(
+                radioButtonWithTitle: "Arm Free (focus-gated)",
+                target: self,
+                action: #selector(modeArmFree)
+            )
+            freeMode.font = .systemFont(ofSize: 12)
+            freeMode.state = freeArmed ? .on : .off
+            freeMode.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+            addSubview(freeMode)
+
+            y -= Metrics.sectionGap
             addBlockHeader("General", y: &y)
 
             y -= Metrics.blockTitleHeight
@@ -573,6 +605,16 @@ enum SetupDialog {
 
         @objc private func openInputMonitoring() {
             Permissions.openInputMonitoringSettings()
+        }
+
+        @objc private func modePttOnly() {
+            MenuBarModel.freeArmedPreference = false
+            SetupDialog.onFreeArmChanged?(false)
+        }
+
+        @objc private func modeArmFree() {
+            MenuBarModel.freeArmedPreference = true
+            SetupDialog.onFreeArmChanged?(true)
         }
 
         private func selectedLanguage() -> AppLanguage {

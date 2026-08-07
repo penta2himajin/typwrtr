@@ -31,6 +31,13 @@ final class MicCapture {
     private(set) var lastSampleCount: Int = 0
     private(set) var lastSampleRate: UInt32 = 16_000
 
+    /// Whether the engine tap is currently installed.
+    var isRunning: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return running
+    }
+
     func requestPermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
@@ -101,6 +108,15 @@ final class MicCapture {
         lastSampleCount = out.count
         lastSampleRate = UInt32(targetSampleRate)
         return (out, UInt32(targetSampleRate))
+    }
+
+    /// Take buffered samples without stopping (Free continuous listen).
+    func drain() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        let out = buffer
+        buffer.removeAll(keepingCapacity: true)
+        return out
     }
 
     private func append(pcm inBuffer: AVAudioPCMBuffer, targetFormat: AVAudioFormat) {
