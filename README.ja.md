@@ -10,7 +10,7 @@
 
 ## 現状
 
-製品定義の初期段階。方針は [`docs/product.md`](./docs/product.md)、ユースケース整理は [`docs/use-cases.md`](./docs/use-cases.md)。
+製品定義の初期段階。方針は [`docs/product.md`](./docs/product.md)、UX は [`docs/ux-decisions.md`](./docs/ux-decisions.md)、ユースケースは [`docs/use-cases.md`](./docs/use-cases.md)。
 
 音声認識とテキスト整形は **[euhadra](https://github.com/penta2himajin/euhadra)**（プログラマブル ASR フレームワーク）に任せる。本リポジトリはエンドユーザー向けアプリ（Swift シェル + Rust/UniFFI コア）。
 

@@ -8,7 +8,7 @@ Named by dropping the vowels from “typewriter”.
 
 ## Status
 
-Early product definition. Decisions: [`docs/product.md`](./docs/product.md). Use-case prioritisation: [`docs/use-cases.md`](./docs/use-cases.md).
+Early product definition. Decisions: [`docs/product.md`](./docs/product.md). UX: [`docs/ux-decisions.md`](./docs/ux-decisions.md). Use cases: [`docs/use-cases.md`](./docs/use-cases.md).
 
 Speech recognition and text cleanup are provided by **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework). This repository is the end-user application (Swift shell + Rust/UniFFI core).
 

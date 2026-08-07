@@ -1,13 +1,15 @@
 # Typwrtr — Product Decisions
 
-Status: **agreed** (consultation, 2026-08-06).  
+Status: **agreed** (consultation 2026-08-06; UX grilling 2026-08-07).  
 Update this file when a decision changes; do not leave divergent copies in chat-only notes.
+
+UX / interaction details: **[`ux-decisions.md`](./ux-decisions.md)** (SSOT for hotkeys, Free/PTT, insertion failure, privacy UI).
 
 ## 1. What it is
 
 **Typwrtr** (vowels dropped from “typewriter”) is a local-first voice dictation **product**: hold a hotkey, speak, release, and cleaned text lands in the focused field.
 
-It is the end-user app in the same space as Aqua Voice / TYPELESS / Wispr Flow. The transcription and text-cleanup engine is **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework). Typwrtr owns activation, permissions UX, insertion, settings, model packaging, and distribution.
+It is the end-user app in the same space as Aqua Voice / TYPELESS / Wispr Flow. The transcription and text-cleanup engine is **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework, crates.io `euhadra` **0.2.0**). Typwrtr owns activation, permissions UX, insertion, settings, model packaging, and distribution.
 
 | Layer | Responsibility |
 |---|---|
@@ -15,6 +17,8 @@ It is the end-user app in the same space as Aqua Voice / TYPELESS / Wispr Flow. 
 | **Typwrtr** | Product experience: menu bar, hotkeys, Accessibility, paste/inject, onboarding, curated models |
 
 OS-specific code lives in Typwrtr. Useful pieces may later be upstreamed to euhadra as reference shell implementations—not the other way around for product UX.
+
+**Not an IME.** Text insertion is Accessibility and/or clipboard+paste (see [`ux-decisions.md`](./ux-decisions.md) §0).
 
 ## 2. Audience
 
@@ -39,7 +43,7 @@ Rationale: best-in-class permissions, hotkeys, and Accessibility per OS. Shared 
 
 | Artifact | License / terms |
 |---|---|
-| Source (core + app sources intended public) | **MIT** and/or **Apache-2.0**, aligned with euhadra when published |
+| Source (core + app sources intended public) | **MIT** and/or **Apache-2.0**, aligned with euhadra (`MIT OR Apache-2.0`) |
 | Notarised `.dmg` from the marketing page | **$5 one-time** purchase |
 
 - No “Plus” tier. No feature paywall inside the app.
@@ -47,6 +51,7 @@ Rationale: best-in-class permissions, hotkeys, and Accessibility per OS. Shared 
 - $5 buys **convenient access** to the notarised binary (and re-download), not exclusive rights to the software. Source remains free to build.
 - Payment / delivery: **Gumroad** first (library access, **unlimited re-downloads** for a purchase). **Booth** optional later for Japan.
 - App updates (e.g. Sparkle) may stay public; do not gate updates behind identity just to fight sharing.
+- Update **check** may run (pull); no telemetry — see [`ux-decisions.md`](./ux-decisions.md) §10.
 
 Rejected alternatives (kept for history): AGPL/GPL dual-license + proprietary app; source-available “org use forbidden”; $1 price (fees + support math are poor).
 
@@ -56,25 +61,27 @@ Win on: local-by-default, Japanese (and CJK) cleanup quality via euhadra, simple
 
 Commoditise “dictation that just works”; do not chase every cloud SaaS feature in MVP.
 
-## 6. MVP success sketch (to refine with use cases)
+## 6. MVP success sketch
 
-- Hold-to-talk → text in the focused field without opening a special window for the main path.
-- Default path needs no cloud account and no LLM.
-- Japanese fillers / self-corrections are cleaned enough to paste into chat or mail.
-- First-run: mic + Accessibility explained without developer jargon.
-- Latency targets: measure before claiming; do not invent SLOs here yet.
+Aligned with [`use-cases.md`](./use-cases.md) and [`ux-decisions.md`](./ux-decisions.md):
+
+- **U1** PTT dictation into the focused field; menu-bar state only (no interim text HUD).
+- **U9** Undo last (buffer-backed).
+- Default path: no cloud account, no LLM, no IME.
+- First-run wizard: mode, permissions, language(+model), launch-at-login.
+- Free/VAD: after PTT dogfood (or earlier if pulled forward); strict focus gate + visible unavailability.
+- Latency targets: measure before claiming.
 
 ## 7. Repo hygiene (pending)
 
 This tree started as a copy of `templates`. Still to do outside this doc:
 
-- Point `origin` at a dedicated Typwrtr GitHub repo (not `templates.git`).
-- Replace template README / project `AGENTS.md` placeholders with product text (in progress alongside this file).
+- ~~Point `origin` at a dedicated Typwrtr GitHub repo (not `templates.git`).~~ (in progress / done when remote is switched)
 - Add real crate / Xcode layout when implementation starts.
 
 ## 8. Open follow-ups
 
-1. Prioritise use cases → [`use-cases.md`](./use-cases.md).
-2. UniFFI surface for MVP (record / stop / cancel / emit / settings).
-3. Exact SPDX choice (MIT vs Apache-2.0 vs dual) to match published euhadra (`euhadra` **0.2.0** on crates.io as of 2026-08-07).
-4. Landing-page copy and Gumroad product setup (post-MVP dogfood).
+1. UniFFI surface for the PTT slice (record / stop / cancel / emit / undo / settings).
+2. Exact SPDX (MIT vs dual MIT OR Apache-2.0) in repo `LICENSE` files.
+3. Landing-page copy and Gumroad product setup (post-dogfood).
+4. Optional further UX grilling (error copy, icon state table, model install paths) vs jump to implementation design — choose with product owner.

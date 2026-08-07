@@ -1,6 +1,7 @@
 # Typwrtr — Use Cases
 
-Status: **prioritisation in progress**. Product constraints: [`product.md`](./product.md).
+Status: **prioritisation agreed for wedge; shipping cut in ux-decisions**. Product constraints: [`product.md`](./product.md). UX: [`ux-decisions.md`](./ux-decisions.md).
+
 
 Goal: pick a **wedge** for MVP (one primary job), then a short ordered backlog. Everything else stays explicit non-goals until promoted.
 
@@ -32,16 +33,26 @@ MVP wedge ≈ high local-fit + non-dev UX, moderate shell cost.
 | U11 | **Offline travel / air-gap** | No network ever after model install | Packaging + no telemetry; trust story. |
 | U12 | **Bilingual JA↔EN day** | Mix languages in one session | See § Realization notes. |
 
-## Working hypothesis (not locked)
+## Working hypothesis (locked for planning)
 
-**MVP wedge: U1** (anywhere dictation). Keep the pipeline generic enough that chat/mail improve “for free,” but **do not tune or market U2/U3 as early milestones**.
+**MVP wedge: U1** (anywhere dictation) + **U9** (undo). Keep the pipeline generic enough that chat/mail improve “for free,” but **do not tune or market U2/U3 as early milestones**.
 
 | Tier | IDs | Intent |
 |---|---|---|
-| MVP | **U1**, then **U9** | Dictate anywhere; undo last insert |
-| Soon after | U4, U5, light U6 | Notes / search-field awareness / dictionary — only if cheap |
-| Later | **U2, U3, U11** | Chat/mail polish and hard offline packaging — after the wedge is real |
-| Research / post | **U8, U10, U12**, U7 | Need design choices below; not MVP |
+| First dogfood | **U1** (PTT) | Dictate anywhere; menu-bar feedback; AX/clipboard insert |
+| Soon in MVP window | **U9** | Undo last insert (buffer) |
+| Before / at public | Free mode (F3) | Focus-gated VAD; see [`ux-decisions.md`](./ux-decisions.md) — may pull earlier |
+| Later | **U2, U3, U11** | Chat/mail polish and hard offline packaging |
+| Soon after (if cheap) | U4, U5, light U6 | Notes / search-field / dictionary |
+| Research / post | **U8, U10, U12**, U7 | See realization notes |
+
+## Decision log
+
+| Date | Decision |
+|---|---|
+| 2026-08-06 | Catalogue created; prioritisation pending with product owner. |
+| 2026-08-07 | Push **U2 / U3 / U11** later; keep MVP = **U1** (+ **U9**). Document realization paths for **U8 / U10 / U12**. |
+| 2026-08-07 | Grilling: PTT-first ship cut; Free F3 after dogfood (or earlier if wanted). Details in [`ux-decisions.md`](./ux-decisions.md). |
 
 ## Realization notes (U8 / U10 / U12)
 
@@ -88,10 +99,3 @@ MVP wedge ≈ high local-fit + non-dev UX, moderate shell cost.
 **Cleanup:** Tier 1/2 filters are language-specific (JA filler vs EN filler). Wrong language → bad cleanup. So LID must feed **both** ASR and filter/processor selection.
 
 **Dependency risk:** euhadra router is “language already chosen upstream” today — Typwrtr (or a thin policy crate) must own LID + mapping. True mid-sentence code-switch is a research-ish goal; product promise should start as **per-utterance** language.
-
-## Decision log
-
-| Date | Decision |
-|---|---|
-| 2026-08-06 | Catalogue created; prioritisation pending with product owner. |
-| 2026-08-07 | Push **U2 / U3 / U11** later; keep MVP = **U1** (+ **U9**). Document realization paths for **U8 / U10 / U12**. |

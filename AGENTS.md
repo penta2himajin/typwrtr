@@ -4,7 +4,8 @@
 
 Typwrtr is a local-first voice dictation **product** (macOS first): hotkey → speak → cleaned text in the focused field. ASR and text cleanup come from **euhadra**; this repo owns the native shell and product UX.
 
-Canonical decisions: @docs/product.md. Use-case backlog: @docs/use-cases.md. Engine details: euhadra `docs/spec.md`.
+Canonical decisions: @docs/product.md. UX/interaction: @docs/ux-decisions.md. Use-case backlog: @docs/use-cases.md. Engine details: euhadra `docs/spec.md` / crates.io `euhadra`.
+
 
 ## Project Structure
 
@@ -41,7 +42,8 @@ Until then, documentation-only changes need no build step.
 
 ## Development Principles
 
-- Product decisions in @docs/product.md are SSOT; update that file when changing licensing, pricing, or shell strategy.
+- Product decisions in @docs/product.md and @docs/ux-decisions.md are SSOT; update those files when changing licensing, pricing, shell, or interaction behaviour.
+
 - Prefer measuring latency and recognition quality over conjecturing (see Common Rules → Measure, Don't Conjecture).
 - Do not require end users to build from source for the happy path.
 
@@ -55,7 +57,8 @@ Until then, documentation-only changes need no build step.
 ## Prohibitions
 
 1. Do not add cloud accounts or license checks as requirements for basic dictation.
-2. Do not put product-definition SSOT only in chat; update @docs/product.md / @docs/use-cases.md.
+2. Do not put product-definition SSOT only in chat; update @docs/product.md / @docs/ux-decisions.md / @docs/use-cases.md.
+
 3. Do not expand MVP to terminal command execution (U7) or heavy structured-note flows (U8) without an explicit decision in @docs/use-cases.md.
 
 ## Git Conventions
