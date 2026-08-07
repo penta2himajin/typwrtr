@@ -1,4 +1,4 @@
-//! Resolve WhisperLocal / Parakeet model paths for dogfood.
+//! Resolve ASR model paths for dogfood (aligned with euhadra L1 packs).
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +15,15 @@ pub const DEFAULT_WHISPER_CLI_REL: &str = "vendor/whisper.cpp/build/bin/whisper-
 /// Default Parakeet-ja ONNX bundle (euhadra `setup_parakeet_ja.sh` layout).
 pub const DEFAULT_PARAKEET_JA_SUBDIR: &str = "models/parakeet-tdt_ctc-0.6b-ja";
 
+/// Canary-180M-Flash ONNX (en / es) — euhadra `setup_canary.sh`.
+pub const DEFAULT_CANARY_SUBDIR: &str = "models/canary-180m-flash-onnx";
+
+/// Paraformer-large Chinese — euhadra `setup_paraformer_zh.sh`.
+pub const DEFAULT_PARAFORMER_ZH_SUBDIR: &str = "models/paraformer-zh";
+
+/// SenseVoice-Small ONNX (ko) — euhadra `setup_sensevoice.sh`.
+pub const DEFAULT_SENSEVOICE_SUBDIR: &str = "models/sensevoice-small-onnx";
+
 /// Pick the ggml file for a language under a model directory.
 pub fn whisper_model_path(model_dir: &Path, language: Language) -> PathBuf {
     match language {
@@ -24,7 +33,7 @@ pub fn whisper_model_path(model_dir: &Path, language: Language) -> PathBuf {
     }
 }
 
-/// BCP-47 / whisper `-l` tag for Typwrtr's FFI languages.
+/// BCP-47 / whisper `-l` / Canary language tag for Typwrtr's FFI languages.
 pub fn whisper_language_tag(language: Language) -> &'static str {
     match language {
         Language::English => "en",
@@ -60,10 +69,6 @@ pub fn resolve_whisper_paths(
 }
 
 /// Resolve from environment / conventional dogfood locations.
-///
-/// Looks for:
-/// - `TYPWRTR_WHISPER_CLI` or `WHISPER_CLI`
-/// - `TYPWRTR_WHISPER_MODEL_DIR` or `TYPWRTR_MODELS_DIR/whisper` or `./models/whisper`
 pub fn resolve_whisper_from_env(language: Language) -> Result<(PathBuf, PathBuf), EngineError> {
     let cli = std::env::var_os("TYPWRTR_WHISPER_CLI")
         .or_else(|| std::env::var_os("WHISPER_CLI"))
@@ -136,6 +141,135 @@ pub fn resolve_parakeet_ja_from_env() -> Result<PathBuf, EngineError> {
     resolve_parakeet_dir(dir)
 }
 
+/// Validate Canary ONNX bundle (INT8 and/or FP32 filenames).
+pub fn resolve_canary_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, EngineError> {
+    let dir = model_dir.as_ref().to_path_buf();
+    if !dir.is_dir() {
+        return Err(EngineError::new(format!(
+            "Canary model dir not found at {}",
+            dir.display()
+        )));
+    }
+    let vocab = dir.join("vocab.txt");
+    if !vocab.is_file() {
+        return Err(EngineError::new(format!(
+            "Canary bundle incomplete: missing vocab.txt under {}",
+            dir.display()
+        )));
+    }
+    let has_fp32 = dir.join("encoder-model.onnx").is_file() && dir.join("decoder-model.onnx").is_file();
+    let has_int8 = dir.join("encoder-model.int8.onnx").is_file()
+        && dir.join("decoder-model.int8.onnx").is_file();
+    if !has_fp32 && !has_int8 {
+        return Err(EngineError::new(format!(
+            "Canary bundle incomplete: need encoder/decoder (.onnx or .int8.onnx) under {}",
+            dir.display()
+        )));
+    }
+    Ok(dir)
+}
+
+/// Prefer INT8 weights when present (and FP32 names are absent).
+pub fn canary_uses_int8(model_dir: &Path) -> bool {
+    model_dir.join("encoder-model.int8.onnx").is_file()
+        && !model_dir.join("encoder-model.onnx").is_file()
+}
+
+pub fn resolve_canary_from_env() -> Result<PathBuf, EngineError> {
+    let dir = std::env::var_os("TYPWRTR_CANARY_DIR")
+        .or_else(|| std::env::var_os("CANARY_DIR"))
+        .or_else(|| std::env::var_os("CANARY_ES_DIR"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("TYPWRTR_MODELS_DIR")
+                .map(|d| PathBuf::from(d).join("canary-180m-flash-onnx"))
+        })
+        .or_else(default_canary_candidate)
+        .ok_or_else(|| {
+            EngineError::new(
+                "Canary dir not set (TYPWRTR_CANARY_DIR) and default models path missing",
+            )
+        })?;
+    resolve_canary_dir(dir)
+}
+
+/// Validate Paraformer-zh bundle.
+pub fn resolve_paraformer_zh_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, EngineError> {
+    let dir = model_dir.as_ref().to_path_buf();
+    if !dir.is_dir() {
+        return Err(EngineError::new(format!(
+            "Paraformer model dir not found at {}",
+            dir.display()
+        )));
+    }
+    for required in ["model.onnx", "am.mvn", "tokens.json"] {
+        let p = dir.join(required);
+        if !p.is_file() {
+            return Err(EngineError::new(format!(
+                "Paraformer bundle incomplete: missing {} under {}",
+                required,
+                dir.display()
+            )));
+        }
+    }
+    Ok(dir)
+}
+
+pub fn resolve_paraformer_zh_from_env() -> Result<PathBuf, EngineError> {
+    let dir = std::env::var_os("TYPWRTR_PARAFORMER_ZH_DIR")
+        .or_else(|| std::env::var_os("PARAFORMER_ZH_DIR"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("TYPWRTR_MODELS_DIR").map(|d| PathBuf::from(d).join("paraformer-zh"))
+        })
+        .or_else(default_paraformer_zh_candidate)
+        .ok_or_else(|| {
+            EngineError::new(
+                "Paraformer-zh dir not set (TYPWRTR_PARAFORMER_ZH_DIR) and default models path missing",
+            )
+        })?;
+    resolve_paraformer_zh_dir(dir)
+}
+
+/// Validate SenseVoice-Small ONNX bundle.
+pub fn resolve_sensevoice_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, EngineError> {
+    let dir = model_dir.as_ref().to_path_buf();
+    if !dir.is_dir() {
+        return Err(EngineError::new(format!(
+            "SenseVoice model dir not found at {}",
+            dir.display()
+        )));
+    }
+    for required in ["model.int8.onnx", "am.mvn", "tokens.txt", "metadata.json"] {
+        let p = dir.join(required);
+        if !p.is_file() {
+            return Err(EngineError::new(format!(
+                "SenseVoice bundle incomplete: missing {} under {}",
+                required,
+                dir.display()
+            )));
+        }
+    }
+    Ok(dir)
+}
+
+pub fn resolve_sensevoice_from_env() -> Result<PathBuf, EngineError> {
+    let dir = std::env::var_os("TYPWRTR_SENSEVOICE_DIR")
+        .or_else(|| std::env::var_os("SENSEVOICE_DIR"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("TYPWRTR_MODELS_DIR")
+                .map(|d| PathBuf::from(d).join("sensevoice-small-onnx"))
+        })
+        .or_else(default_sensevoice_candidate)
+        .ok_or_else(|| {
+            EngineError::new(
+                "SenseVoice dir not set (TYPWRTR_SENSEVOICE_DIR) and default models path missing",
+            )
+        })?;
+    resolve_sensevoice_dir(dir)
+}
+
 fn default_cli_candidate() -> Option<PathBuf> {
     let p = PathBuf::from(DEFAULT_WHISPER_CLI_REL);
     p.is_file().then_some(p)
@@ -148,6 +282,21 @@ fn default_model_dir_candidate() -> Option<PathBuf> {
 
 fn default_parakeet_ja_candidate() -> Option<PathBuf> {
     let p = PathBuf::from(DEFAULT_PARAKEET_JA_SUBDIR);
+    p.is_dir().then_some(p)
+}
+
+fn default_canary_candidate() -> Option<PathBuf> {
+    let p = PathBuf::from(DEFAULT_CANARY_SUBDIR);
+    p.is_dir().then_some(p)
+}
+
+fn default_paraformer_zh_candidate() -> Option<PathBuf> {
+    let p = PathBuf::from(DEFAULT_PARAFORMER_ZH_SUBDIR);
+    p.is_dir().then_some(p)
+}
+
+fn default_sensevoice_candidate() -> Option<PathBuf> {
+    let p = PathBuf::from(DEFAULT_SENSEVOICE_SUBDIR);
     p.is_dir().then_some(p)
 }
 
@@ -190,6 +339,26 @@ mod tests {
         }
         let ok = resolve_parakeet_dir(&dir).expect("complete bundle");
         assert_eq!(ok, dir);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_canary_accepts_int8() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("typwrtr-canary-{stamp}"));
+        fs::create_dir_all(&dir).unwrap();
+        for name in [
+            "encoder-model.int8.onnx",
+            "decoder-model.int8.onnx",
+            "vocab.txt",
+        ] {
+            fs::write(dir.join(name), b"x").unwrap();
+        }
+        let ok = resolve_canary_dir(&dir).expect("int8 bundle");
+        assert!(canary_uses_int8(&ok));
         let _ = fs::remove_dir_all(&dir);
     }
 }

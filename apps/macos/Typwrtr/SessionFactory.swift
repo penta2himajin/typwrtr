@@ -2,129 +2,109 @@ import Foundation
 
 enum AsrBackend: Equatable {
     case parakeetJa(modelDir: String)
+    case canary(modelDir: String)
+    case paraformerZh(modelDir: String)
+    case sensevoice(modelDir: String)
     case whisperLocal(cli: String, model: String)
     case fixedTranscript
 
-    var menuLabel: String {
+    /// Debug-only label (not shown on the primary menu).
+    var debugLabel: String {
         switch self {
         case .parakeetJa:
-            return "ASR: Parakeet ja (ONNX)"
+            return "Backend: Parakeet ja (ONNX)"
+        case .canary:
+            return "Backend: Canary-180M-Flash (ONNX)"
+        case .paraformerZh:
+            return "Backend: Paraformer-zh (ONNX)"
+        case .sensevoice:
+            return "Backend: SenseVoice-Small (ONNX)"
         case .whisperLocal:
-            return "ASR: WhisperLocal ja (ggml-tiny)"
+            return "Backend: WhisperLocal (ggml-tiny)"
         case .fixedTranscript:
-            return "ASR: FixedAsr ja (fallback)"
+            return "Backend: FixedAsr (fallback)"
         }
     }
 }
 
 enum SessionFactory {
-    /// Dogfood default: Japanese.
-    static let language: FfiLanguage = .japanese
-
-    /// Prefer Parakeet-ja, then Whisper, else FixedAsr.
-    static func makeSession() -> (PttSession, AsrBackend) {
-        if let parakeet = tryParakeet() {
-            return parakeet
+    /// Prefer euhadra L1 pack for the language, else FixedAsr.
+    static func makeSession(language: AppLanguage = .current) -> (PttSession, AsrBackend) {
+        switch language {
+        case .japanese:
+            if let s = tryParakeet(language: language) { return s }
+        case .english, .spanish:
+            if let s = tryCanary(language: language) { return s }
+        case .chinese:
+            if let s = tryParaformer(language: language) { return s }
+        case .korean:
+            if let s = trySensevoice(language: language) { return s }
         }
-        if let whisper = tryWhisper() {
-            return whisper
-        }
-        NSLog("Typwrtr: no Parakeet/Whisper model — FixedAsr fallback")
+        NSLog("Typwrtr: no model for %@ — FixedAsr fallback", language.displayName)
         let session = try! PttSession.withFixedTranscript(
-            language: language,
-            fixedTranscript: "えーと、こんにちは、タイプライター"
+            language: language.ffi,
+            fixedTranscript: language.fixedFallbackTranscript
         )
         return (session, .fixedTranscript)
     }
 
-    private static func tryParakeet() -> (PttSession, AsrBackend)? {
-        let env = ProcessInfo.processInfo.environment
-        let dir = env["TYPWRTR_PARAKEET_JA_DIR"]
-            ?? env["PARAKEET_JA_DIR"]
-            ?? defaultParakeetDir()
-        guard FileManager.default.fileExists(atPath: (dir as NSString).appendingPathComponent("encoder-model.onnx")),
-              FileManager.default.fileExists(atPath: (dir as NSString).appendingPathComponent("encoder-model.onnx.data"))
-        else {
-            NSLog("Typwrtr: Parakeet-ja bundle missing at %@", dir)
+    private static func tryParakeet(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findParakeetJaDir() else {
+            NSLog("Typwrtr: Parakeet-ja missing (tried %@)", ModelLocator.preferredParakeetJaDir())
             return nil
         }
         do {
-            let session = try PttSession.withParakeet(language: language, modelDir: dir)
+            let session = try PttSession.withParakeet(language: language.ffi, modelDir: dir)
             NSLog("Typwrtr: using Parakeet-ja at %@", dir)
             return (session, .parakeetJa(modelDir: dir))
         } catch {
-            NSLog("Typwrtr: Parakeet-ja failed (\(error)); trying Whisper")
+            NSLog("Typwrtr: Parakeet-ja failed (\(error))")
             return nil
         }
     }
 
-    private static func tryWhisper() -> (PttSession, AsrBackend)? {
-        let env = ProcessInfo.processInfo.environment
-        let cli = env["TYPWRTR_WHISPER_CLI"] ?? env["WHISPER_CLI"] ?? defaultCliPath()
-        let modelDir = env["TYPWRTR_WHISPER_MODEL_DIR"]
-            ?? env["TYPWRTR_MODELS_DIR"].map { "\($0)/whisper" }
-            ?? defaultModelDir()
-        let modelPath = (modelDir as NSString).appendingPathComponent("ggml-tiny.bin")
-
-        guard FileManager.default.isExecutableFile(atPath: cli),
-              FileManager.default.fileExists(atPath: modelPath)
-        else {
+    private static func tryCanary(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findCanaryDir() else {
+            NSLog("Typwrtr: Canary missing (tried %@)", ModelLocator.preferredCanaryDir())
             return nil
         }
         do {
-            let session = try PttSession.withWhisperLocal(
-                language: language,
-                cliPath: cli,
-                modelPath: modelPath
-            )
-            return (session, .whisperLocal(cli: cli, model: modelPath))
+            let session = try PttSession.withCanary(language: language.ffi, modelDir: dir)
+            NSLog("Typwrtr: using Canary at %@ for %@", dir, language.displayName)
+            return (session, .canary(modelDir: dir))
         } catch {
-            NSLog("Typwrtr: WhisperLocal failed (\(error))")
+            NSLog("Typwrtr: Canary failed (\(error))")
             return nil
         }
     }
 
-    private static func defaultParakeetDir() -> String {
-        var candidates: [String] = []
-        if let root = ProcessInfo.processInfo.environment["TYPWRTR_ROOT"] {
-            candidates.append("\(root)/models/parakeet-tdt_ctc-0.6b-ja")
+    private static func tryParaformer(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findParaformerZhDir() else {
+            NSLog("Typwrtr: Paraformer-zh missing")
+            return nil
         }
-        candidates.append(contentsOf: [
-            NSString(string: "~/repos/typwrtr/models/parakeet-tdt_ctc-0.6b-ja")
-                .expandingTildeInPath,
-            "models/parakeet-tdt_ctc-0.6b-ja",
-            NSString(string: "~/Library/Application Support/Typwrtr/models/parakeet-tdt_ctc-0.6b-ja")
-                .expandingTildeInPath,
-        ])
-        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? candidates[0]
+        do {
+            let session = try PttSession.withParaformerZh(language: language.ffi, modelDir: dir)
+            NSLog("Typwrtr: using Paraformer-zh at %@", dir)
+            return (session, .paraformerZh(modelDir: dir))
+        } catch {
+            NSLog("Typwrtr: Paraformer-zh failed (\(error))")
+            return nil
+        }
     }
 
-    private static func defaultCliPath() -> String {
-        var candidates: [String] = []
-        if let root = ProcessInfo.processInfo.environment["TYPWRTR_ROOT"] {
-            candidates.append("\(root)/vendor/whisper.cpp/build/bin/whisper-cli")
+    private static func trySensevoice(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findSensevoiceDir() else {
+            NSLog("Typwrtr: SenseVoice missing")
+            return nil
         }
-        candidates.append(contentsOf: [
-            NSString(string: "~/repos/typwrtr/vendor/whisper.cpp/build/bin/whisper-cli")
-                .expandingTildeInPath,
-            "vendor/whisper.cpp/build/bin/whisper-cli",
-            NSString(string: "~/.local/bin/whisper-cli").expandingTildeInPath,
-        ])
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
-            ?? candidates[0]
-    }
-
-    private static func defaultModelDir() -> String {
-        var candidates: [String] = []
-        if let root = ProcessInfo.processInfo.environment["TYPWRTR_ROOT"] {
-            candidates.append("\(root)/models/whisper")
+        do {
+            let session = try PttSession.withSensevoice(language: language.ffi, modelDir: dir)
+            NSLog("Typwrtr: using SenseVoice at %@", dir)
+            return (session, .sensevoice(modelDir: dir))
+        } catch {
+            NSLog("Typwrtr: SenseVoice failed (\(error))")
+            return nil
         }
-        candidates.append(contentsOf: [
-            NSString(string: "~/repos/typwrtr/models/whisper").expandingTildeInPath,
-            "models/whisper",
-            NSString(string: "~/Library/Application Support/Typwrtr/models/whisper")
-                .expandingTildeInPath,
-        ])
-        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? candidates[0]
     }
 }

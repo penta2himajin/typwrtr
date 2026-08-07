@@ -57,34 +57,42 @@ enum Permissions {
     }
 
     static func openInputMonitoringSettings() {
-        // Register first so Typwrtr shows up in the list when the pane opens.
         registerInInputMonitoringList()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            openPrivacyURLs([
-                "x-apple.systempreferences:com.apple.Settings.PrivacySecurity.extension?Privacy_ListenEvent",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent",
-            ])
+        // Slight delay so TCC has registered us before the pane lists apps.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            openPrivacyPane(query: "Privacy_ListenEvent")
         }
     }
 
     static func openAccessibilitySettings() {
         registerInAccessibilityList()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            openPrivacyURLs([
-                "x-apple.systempreferences:com.apple.Settings.PrivacySecurity.extension?Privacy_Accessibility",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-            ])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            openPrivacyPane(query: "Privacy_Accessibility")
         }
     }
 
-    private static func openPrivacyURLs(_ candidates: [String]) {
+    /// System Settings → Privacy & Security → Microphone.
+    static func openMicrophoneSettings() {
+        openPrivacyPane(query: "Privacy_Microphone")
+    }
+
+    /// Open a Privacy & Security sub-pane.
+    ///
+    /// Prefer lowercase `com.apple.settings.PrivacySecurity.extension` — the
+    /// capital-`Settings` form often only opens System Settings root / General
+    /// while still returning success from `NSWorkspace.open`.
+    private static func openPrivacyPane(query: String) {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(query)",
+            "x-apple.systempreferences:com.apple.preference.security?\(query)",
+        ]
         for s in candidates {
-            if let url = URL(string: s), NSWorkspace.shared.open(url) {
+            guard let url = URL(string: s) else { continue }
+            if NSWorkspace.shared.open(url) {
                 return
             }
         }
-        // Last resort: Privacy & Security root.
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Settings.PrivacySecurity.extension") {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension") {
             NSWorkspace.shared.open(url)
         }
     }

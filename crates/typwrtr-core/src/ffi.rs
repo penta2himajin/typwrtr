@@ -11,13 +11,19 @@ use crate::engine::DictationEngine;
 use crate::session::{Session, SessionError, SessionStatus};
 use crate::Language;
 
-/// Languages exposed across the FFI boundary.
+/// Languages exposed across the FFI boundary (euhadra `Language` set).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum FfiLanguage {
     /// English (`en`).
     English,
     /// Japanese (`ja`).
     Japanese,
+    /// Chinese (`zh`).
+    Chinese,
+    /// Korean (`ko`).
+    Korean,
+    /// Spanish (`es`).
+    Spanish,
 }
 
 impl From<FfiLanguage> for Language {
@@ -25,6 +31,9 @@ impl From<FfiLanguage> for Language {
         match value {
             FfiLanguage::English => Language::English,
             FfiLanguage::Japanese => Language::Japanese,
+            FfiLanguage::Chinese => Language::Chinese,
+            FfiLanguage::Korean => Language::Korean,
+            FfiLanguage::Spanish => Language::Spanish,
         }
     }
 }
@@ -136,6 +145,42 @@ impl PttSession {
     #[uniffi::constructor]
     pub fn with_parakeet_ja_from_env(language: FfiLanguage) -> Result<Arc<Self>, FfiError> {
         let engine = DictationEngine::with_parakeet_ja_from_env(language.into()).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build using euhadra `CanaryAdapter` (en / es).
+    #[uniffi::constructor]
+    pub fn with_canary(language: FfiLanguage, model_dir: String) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_canary(language.into(), model_dir).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build using euhadra `ParaformerAdapter` (zh).
+    #[uniffi::constructor]
+    pub fn with_paraformer_zh(
+        language: FfiLanguage,
+        model_dir: String,
+    ) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_paraformer_zh(language.into(), model_dir).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build using euhadra `SenseVoiceAdapter` (ko).
+    #[uniffi::constructor]
+    pub fn with_sensevoice(language: FfiLanguage, model_dir: String) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_sensevoice(language.into(), model_dir).map_err(|e| {
             FfiError::Message {
                 msg: e.message().to_string(),
             }

@@ -573,6 +573,18 @@ open class PttSession: PttSessionProtocol, @unchecked Sendable {
 
     
     /**
+     * Build using euhadra `CanaryAdapter` (en / es).
+     */
+public static func withCanary(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_canary(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
+    )
+})
+}
+    
+    /**
      * Build a session whose ASR always returns `fixed_transcript` (then Tier 1+2 run).
      *
      * Dogfood / UI development without on-disk models.
@@ -582,6 +594,18 @@ public static func withFixedTranscript(language: FfiLanguage, fixedTranscript: S
     uniffi_typwrtr_core_fn_constructor_pttsession_with_fixed_transcript(
         FfiConverterTypeFfiLanguage_lower(language),
         FfiConverterString.lower(fixedTranscript),$0
+    )
+})
+}
+    
+    /**
+     * Build using euhadra `ParaformerAdapter` (zh).
+     */
+public static func withParaformerZh(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_paraformer_zh(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
     )
 })
 }
@@ -605,6 +629,18 @@ public static func withParakeetJaFromEnv(language: FfiLanguage)throws  -> PttSes
     return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
     uniffi_typwrtr_core_fn_constructor_pttsession_with_parakeet_ja_from_env(
         FfiConverterTypeFfiLanguage_lower(language),$0
+    )
+})
+}
+    
+    /**
+     * Build using euhadra `SenseVoiceAdapter` (ko).
+     */
+public static func withSensevoice(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_sensevoice(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
     )
 })
 }
@@ -856,7 +892,7 @@ extension FfiError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Languages exposed across the FFI boundary.
+ * Languages exposed across the FFI boundary (euhadra `Language` set).
  */
 
 public enum FfiLanguage {
@@ -869,6 +905,18 @@ public enum FfiLanguage {
      * Japanese (`ja`).
      */
     case japanese
+    /**
+     * Chinese (`zh`).
+     */
+    case chinese
+    /**
+     * Korean (`ko`).
+     */
+    case korean
+    /**
+     * Spanish (`es`).
+     */
+    case spanish
 }
 
 
@@ -890,6 +938,12 @@ public struct FfiConverterTypeFfiLanguage: FfiConverterRustBuffer {
         
         case 2: return .japanese
         
+        case 3: return .chinese
+        
+        case 4: return .korean
+        
+        case 5: return .spanish
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -904,6 +958,18 @@ public struct FfiConverterTypeFfiLanguage: FfiConverterRustBuffer {
         
         case .japanese:
             writeInt(&buf, Int32(2))
+        
+        
+        case .chinese:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .korean:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .spanish:
+            writeInt(&buf, Int32(5))
         
         }
     }
@@ -1119,13 +1185,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload() != 32124) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_canary() != 35209) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_paraformer_zh() != 36581) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_parakeet() != 52049) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_parakeet_ja_from_env() != 51186) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_sensevoice() != 40) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_whisper_from_env() != 6381) {

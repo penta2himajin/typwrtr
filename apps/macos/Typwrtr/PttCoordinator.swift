@@ -14,7 +14,7 @@ final class PttCoordinator {
     private let inserter = ClipboardInserter()
     private let mic = MicCapture()
     private var session: PttSession
-    private let backend: AsrBackend
+    private var backend: AsrBackend
     private var phase: Phase = .idle
     private var micAuthorized = false
     /// Frontmost app at PTT-down — restore focus here before paste (ASR may steal focus).
@@ -27,7 +27,7 @@ final class PttCoordinator {
     }
 
     func start() {
-        menu.setBackend(backend.menuLabel)
+        applyBackendToMenu()
         refreshStatus()
 
         mic.requestPermission { [weak self] granted in
@@ -53,9 +53,36 @@ final class PttCoordinator {
         menu.onUndoRequested = { [weak self] in
             self?.undoLast()
         }
+        menu.onLanguageSelected = { [weak self] language in
+            self?.applyLanguage(language)
+        }
+        SetupDialog.onLanguageChanged = { [weak self] language in
+            self?.applyLanguage(language)
+        }
         menu.setCanUndo(session.lastText() != nil)
         hotkey.start()
-        NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.menuLabel)
+        NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
+    }
+
+    /// Recreate the ASR session for a new language (idle only).
+    func applyLanguage(_ language: AppLanguage) {
+        guard phase == .idle else {
+            menu.showError("Finish the current dictation before changing language.")
+            return
+        }
+        AppLanguage.current = language
+        let made = SessionFactory.makeSession(language: language)
+        session = made.0
+        backend = made.1
+        applyBackendToMenu()
+        menu.setCanUndo(session.lastText() != nil)
+        menu.refreshSetupStatus()
+        NSLog("Typwrtr: language=%@ backend=%@", language.displayName, backend.debugLabel)
+    }
+
+    private func applyBackendToMenu() {
+        menu.setLanguage(AppLanguage.current)
+        menu.setBackendDebug(backend.debugLabel)
     }
 
     func undoLast() {

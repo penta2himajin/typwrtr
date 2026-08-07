@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Fetch curated models / tools for Typwrtr dogfood.
+# Fetch curated models / tools for Typwrtr dogfood (euhadra L1 packs).
 # Wizard (architecture step 6) should reuse the same layout/URLs.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${TYPWRTR_MODELS_DIR:-$ROOT/models}"
-KIND="${1:-whisper-tiny}"
+KIND="${1:-help}"
+EUHADRA_ROOT="${EUHADRA_ROOT:-$ROOT/../euhadra}"
 
 mkdir -p "$DEST"
 
 fetch() {
   local url="$1"
   local out="$2"
-  if [[ -f "$out" ]]; then
+  if [[ -f "$out" && -s "$out" ]]; then
     echo "[fetch-models] present: $out"
     return 0
   fi
@@ -80,26 +81,108 @@ case "$KIND" in
     echo "PARAKEET_JA_DIR=$dir"
     echo "TYPWRTR_MODELS_DIR=$DEST"
     ;;
+  canary)
+    # euhadra scripts/setup_canary.sh — INT8 by default (~213 MB). Serves en + es.
+    dir="${CANARY_DIR:-$DEST/canary-180m-flash-onnx}"
+    mkdir -p "$dir"
+    base="https://huggingface.co/istupakov/canary-180m-flash-onnx/resolve/main"
+    if [[ "${CANARY_FP32:-0}" == "1" ]]; then
+      enc="encoder-model.onnx"
+      dec="decoder-model.onnx"
+    else
+      enc="encoder-model.int8.onnx"
+      dec="decoder-model.int8.onnx"
+    fi
+    for f in vocab.txt config.json "$enc" "$dec"; do
+      fetch "$base/$f" "$dir/$f"
+    done
+    if [[ "${CANARY_FP32:-0}" != "1" ]]; then
+      for pair in "encoder-model.onnx encoder-model.int8.onnx" "decoder-model.onnx decoder-model.int8.onnx"; do
+        link="${pair% *}"
+        target="${pair#* }"
+        if [[ ! -e "$dir/$link" && -s "$dir/$target" ]]; then
+          (cd "$dir" && ln -sf "$target" "$link")
+        fi
+      done
+    fi
+    echo "[fetch-models] canary ready under $dir"
+    echo "TYPWRTR_CANARY_DIR=$dir"
+    echo "CANARY_DIR=$dir"
+    echo "TYPWRTR_MODELS_DIR=$DEST"
+    ;;
+  paraformer-zh)
+    # euhadra scripts/setup_paraformer_zh.sh (~238 MB quant).
+    dir="${PARAFORMER_ZH_DIR:-$DEST/paraformer-zh}"
+    mkdir -p "$dir"
+    base="https://huggingface.co/funasr/Paraformer-large/resolve/main"
+    fetch "$base/am.mvn" "$dir/am.mvn"
+    fetch "$base/config.yaml" "$dir/config.yaml"
+    if [[ ! -s "$dir/model.onnx" ]]; then
+      fetch "$base/model_quant.onnx" "$dir/model.onnx"
+    fi
+    if [[ ! -s "$dir/tokens.json" ]]; then
+      echo "[fetch-models] generating tokens.json from config.yaml"
+      python3 - "$dir/config.yaml" "$dir/tokens.json" <<'PY'
+import re, sys
+cfg_path, out_path = sys.argv[1], sys.argv[2]
+text = open(cfg_path, encoding="utf-8").read()
+m = re.search(r"^token_list:\s*\n((?:\s*-\s.*\n)+)", text, re.MULTILINE)
+if not m:
+    raise SystemExit("token_list not found in config.yaml")
+tokens = []
+for line in m.group(1).splitlines():
+    line = line.strip()
+    if line.startswith("- "):
+        tok = line[2:].strip()
+        if (tok.startswith('"') and tok.endswith('"')) or (tok.startswith("'") and tok.endswith("'")):
+            tok = tok[1:-1]
+        tokens.append(tok)
+import json
+json.dump(tokens, open(out_path, "w", encoding="utf-8"), ensure_ascii=False)
+print(f"wrote {len(tokens)} tokens → {out_path}")
+PY
+    fi
+    echo "[fetch-models] paraformer-zh ready under $dir"
+    echo "TYPWRTR_PARAFORMER_ZH_DIR=$dir"
+    echo "PARAFORMER_ZH_DIR=$dir"
+    echo "TYPWRTR_MODELS_DIR=$DEST"
+    ;;
+  sensevoice-ko)
+    # euhadra scripts/setup_sensevoice.sh (Python FunASR export — heavy).
+    dir="${SENSEVOICE_DIR:-$DEST/sensevoice-small-onnx}"
+    setup="$EUHADRA_ROOT/scripts/setup_sensevoice.sh"
+    if [[ ! -x "$setup" && ! -f "$setup" ]]; then
+      echo "[fetch-models] SenseVoice needs euhadra's setup_sensevoice.sh" >&2
+      echo "  Set EUHADRA_ROOT to your euhadra checkout, then re-run." >&2
+      echo "  Expected: $setup" >&2
+      exit 3
+    fi
+    echo "[fetch-models] delegating to $setup"
+    SENSEVOICE_DIR="$dir" bash "$setup"
+    echo "[fetch-models] sensevoice-ko ready under $dir"
+    echo "TYPWRTR_SENSEVOICE_DIR=$dir"
+    echo "SENSEVOICE_DIR=$dir"
+    echo "TYPWRTR_MODELS_DIR=$DEST"
+    ;;
   help|-h|--help)
     cat <<EOF
-Usage: $0 [whisper-tiny|whisper-cli|parakeet-ja|help]
+Usage: $0 <kind>
 
-  whisper-tiny  download ggml-tiny(.en) + build whisper-cli (default)
-  whisper-cli   build whisper-cli only
-  parakeet-ja   download nvidia/parakeet-tdt_ctc-0.6b-ja ONNX (~2.4 GB)
+  parakeet-ja     Japanese — nvidia Parakeet-ja ONNX (~2.4 GB)
+  canary          English + Spanish — Canary-180M-Flash INT8 (~213 MB)
+  paraformer-zh   Chinese — FunASR Paraformer-large quant (~238 MB)
+  sensevoice-ko   Korean — SenseVoice-Small ONNX via euhadra setup (Python)
+  whisper-tiny    legacy Whisper ggml-tiny + whisper-cli
+  whisper-cli     build whisper-cli only
 
 Env:
   TYPWRTR_MODELS_DIR   model root (default: $ROOT/models)
-  PARAKEET_JA_DIR       override Parakeet-ja output dir
-  WHISPER_DIR           whisper.cpp checkout (default: $ROOT/vendor/whisper.cpp)
-  WHISPER_REF           git tag/branch (default: v1.7.4)
-
-After parakeet-ja:
-  export TYPWRTR_PARAKEET_JA_DIR=...   # printed by the script
+  EUHADRA_ROOT          euhadra checkout (default: $ROOT/../euhadra)
+  CANARY_FP32=1         download full-precision Canary instead of INT8
 EOF
     ;;
   *)
-    echo "unknown kind: $KIND (try: whisper-tiny | whisper-cli | parakeet-ja | help)" >&2
+    echo "unknown kind: $KIND (try: $0 help)" >&2
     exit 1
     ;;
 esac

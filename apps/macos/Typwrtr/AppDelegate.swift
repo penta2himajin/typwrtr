@@ -7,10 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Agent-style: no Dock / no left-side app menu takeover while dictating into other apps.
         NSApp.setActivationPolicy(.accessory)
 
-        MenuBarModel.shared.setBackend("ASR: starting…")
+        MenuBarModel.shared.setLanguage(AppLanguage.current)
+        MenuBarModel.shared.setBackendDebug("Backend: starting…")
+        MenuBarModel.shared.refreshSetupStatus()
 
-        // Build session + wire hotkey on the main queue promptly so ⌃⇧D works
-        // without waiting on a background hop (Whisper path is still usually quick).
         let made = SessionFactory.makeSession()
         let coordinator = PttCoordinator(
             menu: MenuBarModel.shared,
@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.coordinator = coordinator
         coordinator.start()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            MenuBarModel.shared.presentSetupIfNeeded()
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

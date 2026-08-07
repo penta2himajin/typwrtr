@@ -6,7 +6,8 @@ import Combine
 final class MenuBarModel: ObservableObject {
     static let shared = MenuBarModel()
 
-    @Published var backendTitle = "ASR: —"
+    @Published var languageTitle = "Language: —"
+    @Published var backendDebugTitle = "Backend: —"
     @Published var lastCaptureTitle = "Last capture: —"
     @Published var statusTitle = "Status: idle"
     @Published var extraTitle = "Tw"
@@ -16,9 +17,11 @@ final class MenuBarModel: ObservableObject {
     @Published var hotkeyStatus = "Hotkey: starting…"
     @Published var lastTextTitle = "Last text: —"
     @Published var canUndo = false
+    @Published var setupComplete = false
 
     /// Set by PttCoordinator.
     var onUndoRequested: (() -> Void)?
+    var onLanguageSelected: ((AppLanguage) -> Void)?
 
     func setCanUndo(_ enabled: Bool) {
         DispatchQueue.main.async {
@@ -43,9 +46,15 @@ final class MenuBarModel: ObservableObject {
         }
     }
 
-    func setBackend(_ label: String) {
+    func setLanguage(_ language: AppLanguage) {
         DispatchQueue.main.async {
-            self.backendTitle = label
+            self.languageTitle = "Language: \(language.displayName)"
+        }
+    }
+
+    func setBackendDebug(_ label: String) {
+        DispatchQueue.main.async {
+            self.backendDebugTitle = label
         }
     }
 
@@ -114,5 +123,49 @@ final class MenuBarModel: ObservableObject {
             alert.alertStyle = .warning
             alert.runModal()
         }
+    }
+
+    func refreshSetupStatus() {
+        let apply = {
+            self.setupComplete = SetupChecker.current().isComplete
+            self.setLanguage(AppLanguage.current)
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func openSetup(isFirstRun: Bool = false) {
+        refreshSetupStatus()
+        SetupDialog.present(isFirstRun: isFirstRun)
+        refreshSetupStatus()
+    }
+
+    func presentSetupIfNeeded() {
+        refreshSetupStatus()
+        let status = SetupChecker.current()
+        guard !status.isComplete, !ModelLocator.setupDismissed else { return }
+        openSetup(isFirstRun: true)
+    }
+
+    func pickModelFolder() {
+        guard ModelLocator.pickParakeetFolder() != nil else { return }
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Typwrtr"
+            alert.informativeText =
+                "Model folder saved. Quit and relaunch Typwrtr so ASR picks up the new path."
+            alert.alertStyle = .informational
+            alert.runModal()
+        }
+    }
+
+    func copyFetchCommand() {
+        let lang = AppLanguage.current
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(lang.fetchCommand + "\n", forType: .string)
     }
 }

@@ -123,3 +123,6 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-07 | **WhisperLocal wired:** `DictationEngine::with_whisper_local` / `with_whisper_from_env`; FFI constructors; `fetch-models.sh` builds whisper-cli + ggml-tiny; Swift prefers Whisper when present. |
 | 2026-08-07 | **Default PTT hotkey → `⌃⇧D`** (was `⌃⌥V`; D = Dictate). |
 | 2026-08-08 | **Undo last (U9):** `take_undo_payload` + menu / `⌃⇧Z`; Swift AX→Backspace→⌘Z reverse. |
+| 2026-08-08 | **Dogfood setup checklist:** menu Setup + one-shot alert; model path via UserDefaults/App Support; launch-at-login via `SMAppService`. Full wizard (mode + in-app fetch) still step 7. |
+| 2026-08-08 | **Menu reorg:** Setup dialog (shared first-run/menu) with Language; Debug holds capture/backend/model path. |
+| 2026-08-08 | **Languages = euhadra 5:** ja Parakeet / en+es Canary / zh Paraformer / ko SenseVoice. |

@@ -3,13 +3,18 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use euhadra::canary::{CanaryAdapter, CanaryConfig};
 use euhadra::parakeet::ParakeetAdapter;
+use euhadra::paraformer::ParaformerAdapter;
 use euhadra::prelude::*;
+use euhadra::sensevoice::SenseVoiceAdapter;
 use euhadra::traits::AsrAdapter;
 use euhadra::whisper_local::WhisperLocal;
 
 use crate::paths::{
-    resolve_parakeet_dir, resolve_parakeet_ja_from_env, resolve_whisper_from_env,
+    canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_parakeet_dir,
+    resolve_parakeet_ja_from_env, resolve_paraformer_zh_dir, resolve_paraformer_zh_from_env,
+    resolve_sensevoice_dir, resolve_sensevoice_from_env, resolve_whisper_from_env,
     resolve_whisper_paths, whisper_language_tag,
 };
 
@@ -99,6 +104,64 @@ impl DictationEngine {
     pub fn with_parakeet_ja_from_env(language: Language) -> Result<Self, EngineError> {
         let dir = resolve_parakeet_ja_from_env()?;
         Self::with_parakeet(language, dir)
+    }
+
+    /// Build using euhadra [`CanaryAdapter`] (en / es).
+    pub fn with_canary(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let dir = resolve_canary_dir(model_dir)?;
+        let mut cfg = CanaryConfig::default();
+        if canary_uses_int8(&dir) {
+            cfg = cfg.with_int8_weights();
+        }
+        cfg.default_language = whisper_language_tag(language).to_string();
+        let asr = CanaryAdapter::load_with_config(&dir, cfg)
+            .map_err(|e| EngineError::new(e.to_string()))?
+            .with_language(whisper_language_tag(language));
+        Self::new(language, asr)
+    }
+
+    /// Canary from env / conventional dogfood paths.
+    pub fn with_canary_from_env(language: Language) -> Result<Self, EngineError> {
+        let dir = resolve_canary_from_env()?;
+        Self::with_canary(language, dir)
+    }
+
+    /// Build using euhadra [`ParaformerAdapter`] (zh).
+    pub fn with_paraformer_zh(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let dir = resolve_paraformer_zh_dir(model_dir)?;
+        let asr =
+            ParaformerAdapter::load(&dir).map_err(|e| EngineError::new(e.to_string()))?;
+        Self::new(language, asr)
+    }
+
+    /// Paraformer-zh from env / conventional dogfood paths.
+    pub fn with_paraformer_zh_from_env(language: Language) -> Result<Self, EngineError> {
+        let dir = resolve_paraformer_zh_from_env()?;
+        Self::with_paraformer_zh(language, dir)
+    }
+
+    /// Build using euhadra [`SenseVoiceAdapter`] (ko).
+    pub fn with_sensevoice(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let dir = resolve_sensevoice_dir(model_dir)?;
+        let asr = SenseVoiceAdapter::load(&dir)
+            .map_err(|e| EngineError::new(e.to_string()))?
+            .with_language(whisper_language_tag(language));
+        Self::new(language, asr)
+    }
+
+    /// SenseVoice from env / conventional dogfood paths.
+    pub fn with_sensevoice_from_env(language: Language) -> Result<Self, EngineError> {
+        let dir = resolve_sensevoice_from_env()?;
+        Self::with_sensevoice(language, dir)
     }
 
     /// Active language.

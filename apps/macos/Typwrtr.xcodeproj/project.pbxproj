@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */; };
 		3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5372EDEE73516D53C10A5810 /* SessionFactory.swift */; };
+		450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */; };
+		4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1763BAD2270C05C48F5224E1 /* SetupDialog.swift */; };
 		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
 		78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
@@ -17,19 +20,24 @@
 		9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
 		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
+		F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC57C97C2F91AEF6301000DF /* SetupChecker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = typwrtr_core.swift; sourceTree = "<group>"; };
+		1763BAD2270C05C48F5224E1 /* SetupDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupDialog.swift; sourceTree = "<group>"; };
 		30BE96FA6232566689AD5380 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		48DB62DEC33DAAF144CF18C9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
 		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
+		8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLocator.swift; sourceTree = "<group>"; };
 		8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypwrtrApp.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
+		BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -63,13 +71,17 @@
 			isa = PBXGroup;
 			children = (
 				30BE96FA6232566689AD5380 /* AppDelegate.swift */,
+				BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
 				E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */,
 				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
+				8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */,
 				48DB62DEC33DAAF144CF18C9 /* Permissions.swift */,
 				515965794E00F3EC78F3479B /* PttCoordinator.swift */,
 				5372EDEE73516D53C10A5810 /* SessionFactory.swift */,
+				CC57C97C2F91AEF6301000DF /* SetupChecker.swift */,
+				1763BAD2270C05C48F5224E1 /* SetupDialog.swift */,
 				8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */,
 			);
 			path = Typwrtr;
@@ -157,13 +169,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
+				1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
 				78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */,
 				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
+				450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */,
 				8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */,
 				E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */,
 				3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */,
+				F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */,
+				4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */,
 				9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */,
 				7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */,
 			);
@@ -267,6 +283,8 @@
 					Security,
 					"-framework",
 					IOKit,
+					"-framework",
+					ServiceManagement,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = Typwrtr;
@@ -305,6 +323,8 @@
 					Security,
 					"-framework",
 					IOKit,
+					"-framework",
+					ServiceManagement,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.typwrtr.macos.menuextra;
 				PRODUCT_NAME = Typwrtr;

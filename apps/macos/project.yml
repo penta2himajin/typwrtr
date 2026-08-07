@@ -45,6 +45,8 @@ targets:
           - "Security"
           - "-framework"
           - "IOKit"
+          - "-framework"
+          - "ServiceManagement"
         LD_RUNPATH_SEARCH_PATHS:
           - "@executable_path/../Frameworks"
           - "$(TYPWRTR_RUST_LIB_DIR)"

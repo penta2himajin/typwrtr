@@ -7,11 +7,8 @@ struct TypwrtrApp: App {
 
     var body: some Scene {
         MenuBarExtra(menu.extraTitle, systemImage: menu.symbolName) {
-            Text("Typwrtr (dogfood)")
             Text(menu.statusTitle)
             Text(menu.hotkeyStatus)
-            Text(menu.backendTitle)
-            Text(menu.lastCaptureTitle)
             Text(menu.lastTextTitle)
             Divider()
             Button("Undo last insert") {
@@ -19,6 +16,23 @@ struct TypwrtrApp: App {
             }
             .disabled(!menu.canUndo)
             .keyboardShortcut("z", modifiers: [.control, .shift])
+            Divider()
+            Button(menu.setupComplete ? "Setup…" : "Setup… (incomplete)") {
+                menu.openSetup(isFirstRun: false)
+            }
+            Divider()
+            Menu("Debug") {
+                Text(menu.languageTitle)
+                Text(menu.backendDebugTitle)
+                Text(menu.lastCaptureTitle)
+                Divider()
+                Button("Use model folder…") {
+                    menu.pickModelFolder()
+                }
+                Button("Copy fetch-models command") {
+                    menu.copyFetchCommand()
+                }
+            }
             Divider()
             Button("Quit") {
                 NSApp.terminate(nil)
