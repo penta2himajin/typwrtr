@@ -485,29 +485,71 @@ enum SetupDialog {
             Permissions.openInputMonitoringSettings()
         }
 
+        private func selectedLanguage() -> AppLanguage {
+            if let raw = languagePopup.selectedItem?.representedObject as? String,
+               let lang = AppLanguage(rawValue: raw)
+            {
+                return lang
+            }
+            return AppLanguage.current
+        }
+
         @objc private func installPack() {
-            let lang = AppLanguage.current
-            let pb = NSPasteboard.general
-            pb.clearContents()
-            pb.setString(lang.fetchCommand + "\n", forType: .string)
+            let lang = selectedLanguage()
+            if lang != AppLanguage.current {
+                onLanguage(lang)
+            }
 
-            let models = ModelLocator.applicationSupportModels
-            try? FileManager.default.createDirectory(
-                atPath: models,
-                withIntermediateDirectories: true
+            guard PackDownloader.isInAppDownloadSupported(for: lang) else {
+                let alert = NSAlert()
+                alert.messageText = "\(lang.displayName) pack"
+                alert.informativeText = PackDownloader.DownloadError.unsupported(lang)
+                    .errorDescription ?? ""
+                alert.alertStyle = .informational
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                return
+            }
+
+            downloadButton.isEnabled = false
+            setOutlineAppearance(downloadButton, emphasized: false, title: "0%")
+
+            PackDownloader.download(
+                language: lang,
+                progress: { fraction in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        let pct = Int((fraction * 100).rounded(.down))
+                        self.setOutlineAppearance(
+                            self.downloadButton,
+                            emphasized: false,
+                            title: "\(pct)%"
+                        )
+                    }
+                },
+                completion: { [weak self] result in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        switch result {
+                        case .success(let dest):
+                            ModelLocator.setModelRoot(ModelLocator.applicationSupportModels)
+                            if lang == .japanese {
+                                ModelLocator.setParakeetJaDir(dest.path)
+                            }
+                            self.applyPackUI(for: lang)
+                            self.onLanguage(lang)
+                        case .failure(let error):
+                            self.applyPackUI(for: lang)
+                            let alert = NSAlert()
+                            alert.messageText = "Download failed"
+                            alert.informativeText = error.localizedDescription
+                            alert.alertStyle = .warning
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                        }
+                    }
+                }
             )
-            NSWorkspace.shared.open(URL(fileURLWithPath: models, isDirectory: true))
-
-            let alert = NSAlert()
-            alert.messageText = "\(lang.displayName) pack"
-            alert.informativeText = """
-            Fetch command copied. Finder opened models/.
-
-            Run the command in the repo, put the pack in that folder, then Refresh.
-            """
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
         }
 
         @objc private func toggleLogin(_ sender: NSButton) {
