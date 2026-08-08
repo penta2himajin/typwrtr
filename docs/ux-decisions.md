@@ -76,12 +76,17 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   700ms default. **Measure first, then adjust** — shortening it is a latency win
   and must not be bundled with the detector swap, or a regression cannot be
   attributed to one or the other.
-  - First measurement (dogfood, 2026-08-09, 4 PTT captures): pushed 1.19–1.89s
-    with **essentially no leading or trailing silence to trim**. Users release the
-    key tight around their speech, so on this path the detector earns little; the
-    1.5s value does not apply to PTT at all, since the key release ends the
-    capture. **The value only matters for Free, which is unmeasured.** Defer the
-    change until Free runs on real audio.
+  - First measurement (dogfood, 2026-08-09, PTT): captures of 1.19–2.09s, of
+    which **0.00–0.07s was trimmed**, one utterance each. Read that as an upper
+    bound rather than proof of clean captures: segment bounds carry 200ms of
+    `speech_pad` either side, so any silence inside that margin is deliberately
+    kept and reports as 0. Trimming on PTT is therefore bounded by the pad width
+    and is negligible either way — the key release already ends the capture, so
+    **the 1.5s value never applies to this path**.
+  - **The value only matters for Free, which is still unmeasured** — its mic opens
+    on focus, so it is where both the trimming and the segment-end value earn
+    their keep. Defer the change until Free runs on real audio; stage 2 is where
+    that measurement becomes available.
 - **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
   is force-segmented after 30s with no pause. Previously such an utterance
   produced a single insert, and the buffer grew without bound. The cap is

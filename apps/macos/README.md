@@ -44,29 +44,43 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 - **Microphone is real:** hold **Control + Shift + D**; release → 16 kHz mono PCM → ASR → insert (AX / unicode / ⌘V).
 - Chord is swallowed. Needs **Accessibility** for the event tap + paste.
 - Menu shows ASR backend and **Last capture** sample counts.
-- Grant **Microphone** and **Accessibility** when prompted. Prefer signing with `Typwrtr Dogfood` (`scripts/create-dogfood-cert.sh`) so TCC survives rebuilds.
+- Grant **Microphone** and **Accessibility** when prompted. Install with `scripts/install-dogfood.sh` so the `Typwrtr Dogfood` signature — and with it the TCC grants — survives rebuilds ([why](#why-signing-decides-whether-permissions-stick)).
 
 ## Launch (CLI dogfood)
 
 ```bash
 # From repo root
 ./scripts/create-dogfood-cert.sh   # once
-cd apps/macos
-xcodegen generate
-xcodebuild -scheme Typwrtr -configuration Release -derivedDataPath ./DerivedData \
-  CODE_SIGN_IDENTITY="Typwrtr Dogfood" CODE_SIGNING_REQUIRED=YES build
-mkdir -p ~/Applications
-rm -rf ~/Applications/Typwrtr.app
-cp -R DerivedData/Build/Products/Release/Typwrtr.app ~/Applications/
-mkdir -p ~/Applications/Typwrtr.app/Contents/Frameworks
-cp -f ../../target/debug/libtypwrtr_core.dylib ~/Applications/Typwrtr.app/Contents/Frameworks/
-codesign --force --deep --sign "Typwrtr Dogfood" ~/Applications/Typwrtr.app
-open ~/Applications/Typwrtr.app
+./scripts/install-dogfood.sh       # build, install to ~/Applications, launch
 ```
+
+Pass `--reset-permissions` to clear this app's TCC grants and be prompted again.
+Only needed when the designated requirement changed — a new cert, or recovering
+from an ad-hoc install — not on an ordinary rebuild.
 
 **Expected UI:** a **mic icon on the right** of the menu bar (near Wi‑Fi / clock), not the left-side app name. That icon stays while you work in Notes/Slack/etc. Hold **⌃⇧D** to dictate.
 
-Also grant **Microphone**, **Input Monitoring** (for ⌃⇧D), and **Accessibility** (paste / swallow). With the Dogfood identity, rebuilds usually keep TCC grants; after switching identities, re-check those toggles.
+Also grant **Microphone**, **Input Monitoring** (for ⌃⇧D), and **Accessibility** (paste / swallow).
+
+### Why signing decides whether permissions stick
+
+macOS records approval against the app's **designated requirement**, so how the
+bundle is signed determines whether a rebuild keeps its grants:
+
+| Signature | Designated requirement | Survives a rebuild |
+|---|---|---|
+| `Typwrtr Dogfood` | `identifier` + certificate leaf | **Yes** |
+| ad-hoc (`--sign -`) | `cdhash` of that exact binary | No — changes every build |
+
+An ad-hoc install therefore loses Accessibility on the next build, and System
+Settings still lists a toggle that looks enabled while the tap does nothing. Never
+re-sign the installed copy with `--sign -`; `install-dogfood.sh` copies with
+`ditto` to keep the real signature and refuses to install an ad-hoc bundle. To
+check by hand:
+
+```bash
+codesign -d --requirements - ~/Applications/Typwrtr.app   # expect identifier + certificate leaf
+```
 
 
 See `docs/architecture.md` and `docs/ux-decisions.md`.

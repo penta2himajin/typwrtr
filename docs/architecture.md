@@ -84,9 +84,11 @@ adapter.
   speech end to end they extend past the audio; summing lengths reported 1.15×
   the recording in the first dogfood run. `speech_coverage` in `engine.rs` owns
   this, and `speech_never_exceeds_the_audio_handed_in` pins it.
-- Measured on PTT (2026-08-09): there is **almost nothing to trim** — the key
-  release already bounds the capture tightly. Stage 1's value is therefore
-  concentrated in Free, as expected above.
+- Measured on PTT (2026-08-09): 0.00–0.07s trimmed from captures of 1.19–2.09s.
+  Trimming on this path is bounded by the 200ms `speech_pad` — silence inside the
+  pad is kept on purpose — so it is negligible whatever the speaker does. Stage
+  1's value is concentrated in Free, as expected above, and Free is unmeasured
+  until stage 2.
 
 **Stage 2 — endpointing moves into the core.** `Segmenter` + `VadStream` + the
 rolling buffer live on `PttSession`, which already owns the engine and the Tokio
