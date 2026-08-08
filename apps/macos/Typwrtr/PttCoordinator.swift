@@ -163,7 +163,7 @@ final class PttCoordinator {
         if !AXIsProcessTrusted() {
             focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.unavailableExplained)
-            menu.setFreeStatusDetail("Free: needs Accessibility (not VoiceOver)")
+            menu.setFocusDictationStatus("Needs Accessibility")
             if freeMicOpen {
                 stopFreeMic(abandon: true)
             }
@@ -247,7 +247,7 @@ final class PttCoordinator {
         let auth = AVCaptureDevice.authorizationStatus(for: .audio)
         guard micAuthorized || auth == .authorized else {
             NSLog("Typwrtr: Free mic skipped (auth=%d)", auth.rawValue)
-            menu.setFreeStatusDetail("Free: needs Microphone")
+            menu.setFocusDictationStatus("Needs Microphone")
             return
         }
         micAuthorized = true
@@ -263,7 +263,7 @@ final class PttCoordinator {
         } catch {
             freeMicOpen = false
             NSLog("Typwrtr: Free mic start failed: %@", error.localizedDescription)
-            menu.setFreeStatusDetail("Free: mic failed")
+            menu.setFocusDictationStatus("Microphone failed")
         }
     }
 

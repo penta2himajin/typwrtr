@@ -8,20 +8,29 @@ struct TypwrtrApp: App {
     var body: some Scene {
         MenuBarExtra {
             Text(menu.statusTitle)
-            Text(menu.freeStatusTitle)
             Text(menu.lastTextTitle)
             Divider()
             Button("Push to talk") {}
                 .keyboardShortcut("d", modifiers: [.control, .shift])
                 .disabled(true)
-            Button(menu.freeArmed ? "Disarm Free" : "Arm Free") {
-                menu.toggleFreeArmed()
-            }
             Button("Undo last insert") {
                 menu.onUndoRequested?()
             }
             .disabled(!menu.canUndo)
             .keyboardShortcut("z", modifiers: [.control, .shift])
+            Divider()
+            Toggle(
+                "Focus Dictation",
+                isOn: Binding(
+                    get: { menu.freeArmed },
+                    set: { menu.setFocusDictationEnabled($0) }
+                )
+            )
+            if let status = menu.focusDictationStatus {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Divider()
             Button(menu.setupComplete ? "Setup…" : "Setup… (incomplete)") {
                 menu.openSetup(isFirstRun: false)

@@ -80,7 +80,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 **Model download:** tied to language choice; start in-wizard with progress; do not pretend ready until required model is present (disable or block start).
 
-**Dogfood (2026-08-08):** shared **Setup** dialog covers permissions, **mode** (PTT-only vs Arm Free), language + in-app pack download, and launch-at-login. Free/VAD (F3): menu **Arm Free** / **Disarm Free**, AX focus gate (**Accessibility**, not VoiceOver), focus via AXObserver + light probe (no window-tree walk), 1.5s silence end, PTT temporarily suspends Free. Korean remains WIP (no in-app SenseVoice export).
+**Dogfood (2026-08-08):** shared **Setup** dialog covers permissions, **mode** (PTT-only vs Arm Free), language + in-app pack download, and launch-at-login. Free/VAD (F3) is presented in the menu as a checked **Focus Dictation** runtime toggle in its own section between hotkeys and Setup; a smaller secondary line appears only while enabled (`Listening`, `Waiting for text field`, `Unavailable here`, or a permission failure). The former separate `Free: …` status and `Arm/Disarm Free` item are removed. AX focus gate uses **Accessibility**, not VoiceOver, with app-switch watching + light probes (no window-tree walk); segment end is 1.5s silence and PTT temporarily suspends Focus Dictation. Korean remains WIP (no in-app SenseVoice export).
 
 **Settings window:** not required while the surface stays small; menu bar is the primary control surface. Add a settings window when complexity demands it.
 

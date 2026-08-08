@@ -19,7 +19,8 @@ final class MenuBarModel: ObservableObject {
     @Published var canUndo = false
     @Published var setupComplete = false
     @Published var freeArmed = false
-    @Published var freeStatusTitle = "Free: off"
+    /// Secondary line below the Focus Dictation toggle; hidden while off.
+    @Published var focusDictationStatus: String?
 
     static let freeArmedKey = "typwrtr.freeArmed"
 
@@ -37,7 +38,7 @@ final class MenuBarModel: ObservableObject {
         let apply = {
             self.freeArmed = armed
             if !armed {
-                self.freeStatusTitle = "Free: off"
+                self.focusDictationStatus = nil
                 // Restore idle chrome if we were showing Free listening.
                 if self.statusTitle == "Status: free listening" {
                     self.symbolName = "mic"
@@ -58,23 +59,23 @@ final class MenuBarModel: ObservableObject {
         let title: String
         switch availability {
         case .disarmed:
-            title = "Free: off"
+            title = ""
         case .listening:
-            title = "Free: listening"
+            title = "Listening"
         case .armedWaitingFocus:
-            title = "Free: waiting for text field"
+            title = "Waiting for text field"
         case .unavailableExplained:
-            title = "Free: unavailable here"
+            title = "Unavailable here"
         }
         DispatchQueue.main.async {
-            self.freeStatusTitle = title
+            self.focusDictationStatus = title.isEmpty ? nil : title
         }
     }
 
-    /// Override Free status line (mic / Accessibility failures).
-    func setFreeStatusDetail(_ title: String) {
+    /// Override the Focus Dictation status line (mic / Accessibility failures).
+    func setFocusDictationStatus(_ title: String) {
         DispatchQueue.main.async {
-            self.freeStatusTitle = title
+            self.focusDictationStatus = title
         }
     }
 
@@ -104,11 +105,10 @@ final class MenuBarModel: ObservableObject {
         }
     }
 
-    func toggleFreeArmed() {
-        let next = !Self.freeArmedPreference
-        Self.freeArmedPreference = next
-        setFreeArmed(next)
-        onFreeArmChanged?(next)
+    func setFocusDictationEnabled(_ enabled: Bool) {
+        Self.freeArmedPreference = enabled
+        setFreeArmed(enabled)
+        onFreeArmChanged?(enabled)
     }
     func setCanUndo(_ enabled: Bool) {
         DispatchQueue.main.async {
