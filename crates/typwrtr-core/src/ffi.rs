@@ -169,17 +169,21 @@ impl PttSession {
         language: FfiLanguage,
         model_dir: String,
     ) -> Result<Arc<Self>, FfiError> {
-        let engine = DictationEngine::with_paraformer_zh(language.into(), model_dir).map_err(|e| {
-            FfiError::Message {
-                msg: e.message().to_string(),
-            }
-        })?;
+        let engine =
+            DictationEngine::with_paraformer_zh(language.into(), model_dir).map_err(|e| {
+                FfiError::Message {
+                    msg: e.message().to_string(),
+                }
+            })?;
         ptt_session_from_engine(engine)
     }
 
     /// Build using euhadra `SenseVoiceAdapter` (ko).
     #[uniffi::constructor]
-    pub fn with_sensevoice(language: FfiLanguage, model_dir: String) -> Result<Arc<Self>, FfiError> {
+    pub fn with_sensevoice(
+        language: FfiLanguage,
+        model_dir: String,
+    ) -> Result<Arc<Self>, FfiError> {
         let engine = DictationEngine::with_sensevoice(language.into(), model_dir).map_err(|e| {
             FfiError::Message {
                 msg: e.message().to_string(),

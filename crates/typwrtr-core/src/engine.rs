@@ -4,16 +4,16 @@ use std::path::Path;
 use std::sync::Arc;
 
 use euhadra::canary::{CanaryAdapter, CanaryConfig};
-use euhadra::parakeet::ParakeetAdapter;
 use euhadra::paraformer::ParaformerAdapter;
+use euhadra::parakeet::ParakeetAdapter;
 use euhadra::prelude::*;
 use euhadra::sensevoice::SenseVoiceAdapter;
 use euhadra::traits::AsrAdapter;
 use euhadra::whisper_local::WhisperLocal;
 
 use crate::paths::{
-    canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_parakeet_dir,
-    resolve_parakeet_ja_from_env, resolve_paraformer_zh_dir, resolve_paraformer_zh_from_env,
+    canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_paraformer_zh_dir,
+    resolve_paraformer_zh_from_env, resolve_parakeet_dir, resolve_parakeet_ja_from_env,
     resolve_sensevoice_dir, resolve_sensevoice_from_env, resolve_whisper_from_env,
     resolve_whisper_paths, whisper_language_tag,
 };
@@ -135,8 +135,7 @@ impl DictationEngine {
         model_dir: impl AsRef<Path>,
     ) -> Result<Self, EngineError> {
         let dir = resolve_paraformer_zh_dir(model_dir)?;
-        let asr =
-            ParaformerAdapter::load(&dir).map_err(|e| EngineError::new(e.to_string()))?;
+        let asr = ParaformerAdapter::load(&dir).map_err(|e| EngineError::new(e.to_string()))?;
         Self::new(language, asr)
     }
 

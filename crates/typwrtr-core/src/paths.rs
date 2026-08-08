@@ -157,7 +157,8 @@ pub fn resolve_canary_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, Engine
             dir.display()
         )));
     }
-    let has_fp32 = dir.join("encoder-model.onnx").is_file() && dir.join("decoder-model.onnx").is_file();
+    let has_fp32 =
+        dir.join("encoder-model.onnx").is_file() && dir.join("decoder-model.onnx").is_file();
     let has_int8 = dir.join("encoder-model.int8.onnx").is_file()
         && dir.join("decoder-model.int8.onnx").is_file();
     if !has_fp32 && !has_int8 {
