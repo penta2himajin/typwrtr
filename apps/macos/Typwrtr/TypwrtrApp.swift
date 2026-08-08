@@ -6,7 +6,7 @@ struct TypwrtrApp: App {
     @ObservedObject private var menu = MenuBarModel.shared
 
     var body: some Scene {
-        MenuBarExtra(menu.extraTitle, systemImage: menu.symbolName) {
+        MenuBarExtra {
             Text(menu.statusTitle)
             Text(menu.freeStatusTitle)
             Text(menu.lastTextTitle)
@@ -31,6 +31,17 @@ struct TypwrtrApp: App {
                 NSApp.terminate(nil)
             }
             .keyboardShortcut("q")
+        } label: {
+            if menu.symbolName == "mic" {
+                Image("MenuBarIcon")
+                    .renderingMode(.template)
+                    .accessibilityLabel("Typwrtr")
+                    .help(menu.toolTip)
+            } else {
+                Image(systemName: menu.symbolName)
+                    .accessibilityLabel("Typwrtr")
+                    .help(menu.toolTip)
+            }
         }
         .menuBarExtraStyle(.menu)
     }

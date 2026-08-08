@@ -14,6 +14,7 @@
 		450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */; };
 		4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1763BAD2270C05C48F5224E1 /* SetupDialog.swift */; };
 		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
+		52CF598067F742FA9C29EA6F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 85B91393F5CBC50C3C4B8208 /* Assets.xcassets */; };
 		78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
 		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
@@ -36,6 +37,7 @@
 		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
 		7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusProbe.swift; sourceTree = "<group>"; };
 		8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLocator.swift; sourceTree = "<group>"; };
+		85B91393F5CBC50C3C4B8208 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypwrtrApp.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 			children = (
 				30BE96FA6232566689AD5380 /* AppDelegate.swift */,
 				BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */,
+				85B91393F5CBC50C3C4B8208 /* Assets.xcassets */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */,
 				B5F0BD526E6949E60246A91D /* FocusWatcher.swift */,
@@ -108,6 +111,7 @@
 			buildPhases = (
 				3977D05D06F4B855DD37DE6B /* Build typwrtr-core */,
 				DABF74BD9E79D41D94CE36EA /* Sources */,
+				699639E5E08DEA16F19EA34A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -152,6 +156,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		699639E5E08DEA16F19EA34A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52CF598067F742FA9C29EA6F /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		3977D05D06F4B855DD37DE6B /* Build typwrtr-core */ = {

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Typwrtr app icon</title>
+  <desc id="desc">A simplified typewriter with a wide microphone head in its paper feed.</desc>
+
+  <!-- Warm macOS app-icon ground -->
+  <rect x="8" y="8" width="1008" height="1008" rx="244" fill="#faf7f0"/>
+
+  <!-- Typewriter and microphone share one quiet charcoal silhouette. -->
+  <g fill="#242628">
+    <!-- Carriage -->
+    <rect x="155" y="505" width="714" height="72" rx="25"/>
+    <rect x="154" y="512" width="28" height="64" rx="14"/>
+    <rect x="842" y="512" width="28" height="64" rx="14"/>
+    <rect x="194" y="465" width="32" height="116" rx="16"/>
+    <rect x="798" y="465" width="32" height="116" rx="16"/>
+
+    <!-- Typewriter body -->
+    <path d="
+      M241 450
+      H366
+      C391 450 399 500 470 526
+      V580
+      H554
+      V526
+      C625 500 633 450 658 450
+      H783
+      L833 708
+      V753
+      C833 819 797 858 730 858
+      H294
+      C227 858 191 819 191 753
+      V708
+      Z"/>
+
+    <!-- Wide microphone capsule -->
+    <rect x="389" y="130" width="246" height="386" rx="123"/>
+    <!-- Microphone stem -->
+    <rect x="491" y="486" width="42" height="98" rx="16"/>
+  </g>
+
+  <!-- Microphone grille -->
+  <g fill="#faf7f0">
+    <rect x="436" y="271" width="152" height="27" rx="14"/>
+    <rect x="436" y="334" width="152" height="27" rx="14"/>
+    <rect x="444" y="396" width="136" height="27" rx="14"/>
+  </g>
+
+  <!-- Keys -->
+  <g fill="#faf7f0">
+    <circle cx="301" cy="656" r="21"/>
+    <circle cx="371" cy="656" r="21"/>
+    <circle cx="441" cy="656" r="21"/>
+    <circle cx="511" cy="656" r="21"/>
+    <circle cx="581" cy="656" r="21"/>
+    <circle cx="651" cy="656" r="21"/>
+    <circle cx="721" cy="656" r="21"/>
+
+    <circle cx="272" cy="726" r="21"/>
+    <circle cx="341" cy="726" r="21"/>
+    <circle cx="410" cy="726" r="21"/>
+    <circle cx="479" cy="726" r="21"/>
+    <circle cx="548" cy="726" r="21"/>
+    <circle cx="617" cy="726" r="21"/>
+    <circle cx="686" cy="726" r="21"/>
+    <circle cx="755" cy="726" r="21"/>
+
+    <rect x="316" y="781" width="392" height="30" rx="15"/>
+  </g>
+</svg>
