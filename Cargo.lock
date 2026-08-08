@@ -442,9 +442,9 @@ dependencies = [
 
 [[package]]
 name = "euhadra"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "397cacfea1308033c3155a23394a2d72dc457b41134c990df7cc9bd560cde317"
+checksum = "f8191d4bbb3772f782089d47115c18d7fe0253eb5fb36a74572ce57327390bec"
 dependencies = [
  "async-trait",
  "ndarray",
