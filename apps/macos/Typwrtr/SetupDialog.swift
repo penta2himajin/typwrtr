@@ -1,6 +1,6 @@
 import AppKit
 
-/// Shared Setup UI for first-run and menu → Setup….
+/// Shared Typwrtr Settings UI for first-run and the menu command.
 /// Fixed-width `NSPanel` (not `NSAlert`) so content height cannot widen the window.
 enum SetupDialog {
     /// Called when the user changes language inside the dialog (recreate ASR session).
@@ -106,7 +106,7 @@ enum SetupDialog {
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "Setup"
+            panel.title = "Typwrtr Settings"
             panel.titleVisibility = .hidden
             panel.titlebarAppearsTransparent = true
             panel.isOpaque = false
@@ -218,7 +218,7 @@ enum SetupDialog {
             var y = contentHost.bounds.height - Metrics.titlebarInset - Metrics.padding
 
             y -= Metrics.headingHeight
-            let heading = NSTextField(labelWithString: "Setup")
+            let heading = NSTextField(labelWithString: "Typwrtr Settings")
             heading.font = .systemFont(ofSize: 15, weight: .semibold)
             heading.textColor = .labelColor
             heading.frame = NSRect(

@@ -32,9 +32,10 @@ struct TypwrtrApp: App {
                     .foregroundStyle(.secondary)
             }
             Divider()
-            Button(menu.setupComplete ? "Setup…" : "Setup… (incomplete)") {
+            Button(menu.setupComplete ? "Settings…" : "Finish Setup…") {
                 menu.openSetup(isFirstRun: false)
             }
+            .keyboardShortcut(",", modifiers: .command)
             Divider()
             Button("Quit") {
                 NSApp.terminate(nil)
