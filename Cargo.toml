@@ -6,8 +6,11 @@ members = ["crates/typwrtr-core"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/penta2himajin/typwrtr"
-rust-version = "1.78"
+rust-version = "1.88"
 
 [workspace.dependencies]
-euhadra = { version = "0.3.0", default-features = false, features = ["onnx"] }
+euhadra = { version = "0.3.0", default-features = false, features = [
+    "onnx",
+    "vad",
+] }
 

@@ -1,6 +1,6 @@
 # Typwrtr — UX & Interaction Decisions
 
-Status: **agreed** (grilling session, 2026-08-07).  
+Status: **agreed** (grilling sessions, 2026-08-07 and 2026-08-09).  
 SSOT for activation, feedback, insertion, privacy UI, and onboarding behaviour.  
 Product positioning / licensing: [`product.md`](./product.md). Use cases: [`use-cases.md`](./use-cases.md).
 
@@ -38,7 +38,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 - **F3:** User must explicitly arm Free mode. Then it runs **only while a text field is focused**.  
 - Mic: not open merely because a field is focused; armed + focused + VAD policy.  
-- Segment end: **1.5s silence** → **immediate insert** (Q12 = immediate; no cooldown).  
+- Segment end: **1.5s silence** → **immediate insert** (Q12 = immediate; no cooldown). See Q25 for where 1.5s came from.  
 - Spoken commit phrases (“エンター” etc.) and “wait for sentence end” modes: **deferred**.  
 - Shipping cut (Q19): **Dogfood / early builds = PTT first**; Free before Gumroad public if ready; **may pull Free earlier if desired**.
 
@@ -53,6 +53,33 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 - **3b — temporary override:** PTT on the focused field cancels/suspends Free listening for that capture and runs one PTT session.  
 - Does **not** permanently disarm Free. Arming state stays as the user set it.
+
+### Silence handling & segment end (Q23–Q26)
+
+Decided 2026-08-09, once euhadra 0.3.0 made voice activity detection available.
+Applies to **both** PTT and Free: the two paths share one pipeline.
+
+- **Q23 — Silence must not reach the ASR adapter.** A recogniser handed silence
+  invents fluent text (「ご視聴ありがとうございました」, runaway repetition).
+  Detection sits ahead of the adapter, and only the detected speech is
+  transcribed. Users see fewer invented sentences, especially on short captures.
+- **Q24 — A capture with no speech in it is not an error the user must read.**
+  **PTT: return to idle silently** — no alert. The user knows they said nothing,
+  and the previous wording ("Speak longer, or check that ASR is …") wrongly sent
+  them to inspect their model setup. **Free: ignore entirely** — while armed,
+  stretches of silence are the normal case, not a failure.
+- **Q25 — Segment end stays 1.5s for now, but the value is not UX-derived.**
+  It was a margin for the old energy detector: its threshold had been lowered to
+  catch quiet speakers, which made it read mid-utterance dips as silence, so a
+  long grace period was needed to avoid cutting people off mid-sentence. A real
+  detector removes that constraint, and there is room to move toward euhadra's
+  700ms default. **Measure first, then adjust** — shortening it is a latency win
+  and must not be bundled with the detector swap, or a regression cannot be
+  attributed to one or the other.
+- **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
+  is force-segmented after 30s with no pause. Previously such an utterance
+  produced a single insert, and the buffer grew without bound. The cap is
+  accepted; the granularity change is the visible cost.
 
 ## 3. Hotkey (Q15)
 
@@ -134,6 +161,11 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 - **Audio waveforms:** process in memory only; **do not write to disk**.  
 - **Text:** keep the minimum needed for failure preview, retry, and Undo; discard after success path is done and Undo is no longer applicable (or after explicit dismiss).  
 - No “save last N recordings” debug store in MVP.
+- **Capture measurements (Q27):** debug builds only, via `os_log` under subsystem
+  `app.typwrtr.macos.menuextra`. Counts and durations only — total samples,
+  detected speech duration, and their ratio. No audio, no transcribed text. This
+  exists because Q25 defers the segment-end value to measurement, and because
+  `NSLog` output has been confirmed unrecoverable after the fact.
 
 ## 11. Quit while busy (Q20)
 
@@ -164,6 +196,11 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 | Q20 | Confirm on quit while recording/processing |
 | Q21 | Locale → language; else en |
 | Q22 | ja/en recommended; zh/es/ko experimental |
+| Q23 | Silence never reaches the ASR adapter (detection ahead of it, both paths) |
+| Q24 | No-speech capture: PTT returns to idle silently; Free ignores it |
+| Q25 | Segment end stays 1.5s; value is old-detector margin, revisit after measuring |
+| Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
+| Q27 | Capture measurements: debug builds, `os_log`, numbers only |
 
 ## 13. Deferred (explicit non-decisions)
 
@@ -174,3 +211,7 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 - Quiet/whisper mode (U10), structured notes (U8), true bilingual auto (U12)  
 - Cooldown between Free segments  
 - Permanent “PTT disables Free arming” behaviour  
+- Incremental per-utterance output while the speaker is still talking. Not needed:
+  endpointing reads the segmenter synchronously instead (see
+  [`architecture.md`](./architecture.md)). Revisit only if a feature wants text
+  before the utterance closes — which Q11 currently forbids anyway.  

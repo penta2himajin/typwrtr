@@ -331,6 +331,7 @@ final class PttCoordinator {
                 try self.session.startPtt()
                 try self.session.pushPcmF32(samples: samples, sampleRate: 16_000)
                 let text = try self.session.stopPtt()
+                CaptureLog.record(self.session.lastCaptureMetrics(), path: "free")
                 DispatchQueue.main.async {
                     self.freeFinishing = false
                     self.refreshStatus()
@@ -462,6 +463,7 @@ final class PttCoordinator {
                     )
                 }
                 let text = try self.session.stopPtt()
+                CaptureLog.record(self.session.lastCaptureMetrics(), path: "ptt")
                 DispatchQueue.main.async {
                     self.phase = .idle
                     self.freeSuspendedByPtt = false
@@ -475,9 +477,9 @@ final class PttCoordinator {
                     self.restoreInsertTargetFocus()
                     switch self.inserter.insert(text, into: self.insertTarget) {
                     case .emptyText:
-                        self.menu.showError(
-                            "No text recognized. Speak longer, or check that ASR is Parakeet ja / Whisper."
-                        )
+                        // ux-decisions Q24: nothing was said. The user knows, and the
+                        // old wording sent them to inspect their model setup instead.
+                        break
                     case .pasted:
                         self.menu.setCanUndo(true)
                     case .clipboardOnly:

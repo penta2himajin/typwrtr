@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::asr::FixedAsr;
 use crate::engine::DictationEngine;
-use crate::session::{Session, SessionError, SessionStatus};
+use crate::session::{CaptureMetrics, Session, SessionError, SessionStatus};
 use crate::Language;
 
 /// Languages exposed across the FFI boundary (euhadra `Language` set).
@@ -58,6 +58,27 @@ impl From<SessionStatus> for FfiStatus {
             SessionStatus::Recording => Self::Recording,
             SessionStatus::Processing => Self::Processing,
             SessionStatus::Error => Self::Error,
+        }
+    }
+}
+
+/// How much of the last capture was speech (debug measurement, Q27).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct FfiCaptureMetrics {
+    /// Samples the shell pushed.
+    pub pushed_samples: u64,
+    /// Of those, samples the detector classified as speech.
+    pub speech_samples: u64,
+    /// Rate the chunks declared.
+    pub sample_rate: u32,
+}
+
+impl From<CaptureMetrics> for FfiCaptureMetrics {
+    fn from(value: CaptureMetrics) -> Self {
+        Self {
+            pushed_samples: value.pushed_samples,
+            speech_samples: value.speech_samples,
+            sample_rate: value.sample_rate,
         }
     }
 }
@@ -204,6 +225,12 @@ impl PttSession {
             .block_on(async { self.inner.lock().await.last_text().map(str::to_string) })
     }
 
+    /// What the detector made of the last capture. Debug measurement only.
+    pub fn last_capture_metrics(&self) -> Option<FfiCaptureMetrics> {
+        self.runtime
+            .block_on(async { self.inner.lock().await.last_metrics().map(Into::into) })
+    }
+
     /// Start PTT.
     pub fn start_ptt(&self) -> Result<(), FfiError> {
         self.runtime
@@ -265,13 +292,15 @@ fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, F
 mod tests {
     use super::*;
 
+    use crate::test_audio::voiced_samples;
+
     #[test]
     fn ffi_fixed_transcript_ptt_roundtrip() {
         let session =
             PttSession::with_fixed_transcript(FfiLanguage::English, "um hello from ffi".into())
                 .unwrap();
         session.start_ptt().unwrap();
-        session.push_pcm_f32(vec![0.0; 1600], 16_000).unwrap();
+        session.push_pcm_f32(voiced_samples(1.0), 16_000).unwrap();
         let text = session.stop_ptt().unwrap();
         assert!(!text.to_lowercase().contains("um"), "{text}");
         assert!(text.to_lowercase().contains("hello"), "{text}");

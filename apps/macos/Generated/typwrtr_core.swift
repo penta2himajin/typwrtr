@@ -416,6 +416,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
     typealias FfiType = Float
     typealias SwiftType = Float
@@ -732,6 +748,11 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func clearBuffer() 
     
     /**
+     * What the detector made of the last capture. Debug measurement only.
+     */
+    func lastCaptureMetrics()  -> FfiCaptureMetrics?
+    
+    /**
      * Last retained text (success or failure preview).
      */
     func lastText()  -> String?
@@ -933,6 +954,16 @@ open func clearBuffer()  {try! rustCall() {
 }
     
     /**
+     * What the detector made of the last capture. Debug measurement only.
+     */
+open func lastCaptureMetrics() -> FfiCaptureMetrics?  {
+    return try!  FfiConverterOptionTypeFfiCaptureMetrics.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_pttsession_last_capture_metrics(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
      * Last retained text (success or failure preview).
      */
 open func lastText() -> String?  {
@@ -1046,6 +1077,105 @@ public func FfiConverterTypePttSession_lower(_ value: PttSession) -> UnsafeMutab
 }
 
 
+
+
+/**
+ * How much of the last capture was speech (debug measurement, Q27).
+ */
+public struct FfiCaptureMetrics {
+    /**
+     * Samples the shell pushed.
+     */
+    public var pushedSamples: UInt64
+    /**
+     * Of those, samples the detector classified as speech.
+     */
+    public var speechSamples: UInt64
+    /**
+     * Rate the chunks declared.
+     */
+    public var sampleRate: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Samples the shell pushed.
+         */pushedSamples: UInt64, 
+        /**
+         * Of those, samples the detector classified as speech.
+         */speechSamples: UInt64, 
+        /**
+         * Rate the chunks declared.
+         */sampleRate: UInt32) {
+        self.pushedSamples = pushedSamples
+        self.speechSamples = speechSamples
+        self.sampleRate = sampleRate
+    }
+}
+
+#if compiler(>=6)
+extension FfiCaptureMetrics: Sendable {}
+#endif
+
+
+extension FfiCaptureMetrics: Equatable, Hashable {
+    public static func ==(lhs: FfiCaptureMetrics, rhs: FfiCaptureMetrics) -> Bool {
+        if lhs.pushedSamples != rhs.pushedSamples {
+            return false
+        }
+        if lhs.speechSamples != rhs.speechSamples {
+            return false
+        }
+        if lhs.sampleRate != rhs.sampleRate {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(pushedSamples)
+        hasher.combine(speechSamples)
+        hasher.combine(sampleRate)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCaptureMetrics: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCaptureMetrics {
+        return
+            try FfiCaptureMetrics(
+                pushedSamples: FfiConverterUInt64.read(from: &buf), 
+                speechSamples: FfiConverterUInt64.read(from: &buf), 
+                sampleRate: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiCaptureMetrics, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.pushedSamples, into: &buf)
+        FfiConverterUInt64.write(value.speechSamples, into: &buf)
+        FfiConverterUInt32.write(value.sampleRate, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCaptureMetrics_lift(_ buf: RustBuffer) throws -> FfiCaptureMetrics {
+    return try FfiConverterTypeFfiCaptureMetrics.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCaptureMetrics_lower(_ value: FfiCaptureMetrics) -> RustBuffer {
+    return FfiConverterTypeFfiCaptureMetrics.lower(value)
+}
 
 
 /**
@@ -1555,6 +1685,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeFfiCaptureMetrics: FfiConverterRustBuffer {
+    typealias SwiftType = FfiCaptureMetrics?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeFfiCaptureMetrics.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeFfiCaptureMetrics.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
     typealias SwiftType = [Float]
 
@@ -1614,6 +1768,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_clear_buffer() != 36423) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_last_capture_metrics() != 19726) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_last_text() != 35060) {

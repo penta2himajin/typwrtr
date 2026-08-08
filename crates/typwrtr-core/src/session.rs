@@ -54,11 +54,26 @@ impl From<EngineError> for SessionError {
     }
 }
 
+/// How much of the last capture was speech.
+///
+/// Debug-only measurement (ux-decisions Q27). `speech_samples` is 0 when the
+/// detector found nothing, which is also what a dead microphone looks like.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CaptureMetrics {
+    /// Samples the shell pushed.
+    pub pushed_samples: u64,
+    /// Of those, samples the detector classified as speech.
+    pub speech_samples: u64,
+    /// Rate the chunks declared.
+    pub sample_rate: u32,
+}
+
 /// In-process PTT session.
 pub struct Session {
     status: SessionStatus,
     last_text: Option<String>,
     last_error: Option<SessionError>,
+    last_metrics: Option<CaptureMetrics>,
     chunks: Vec<AudioChunk>,
     engine: Option<SharedEngine>,
 }
@@ -76,6 +91,7 @@ impl Session {
             status: SessionStatus::Idle,
             last_text: None,
             last_error: None,
+            last_metrics: None,
             chunks: Vec::new(),
             engine: None,
         }
@@ -102,6 +118,11 @@ impl Session {
     /// Last error message when [`SessionStatus::Error`].
     pub fn last_error(&self) -> Option<&SessionError> {
         self.last_error.as_ref()
+    }
+
+    /// What the detector made of the last capture (debug measurement).
+    pub fn last_metrics(&self) -> Option<CaptureMetrics> {
+        self.last_metrics
     }
 
     /// Begin PTT recording.
@@ -165,10 +186,28 @@ impl Session {
             SessionError::new("no dictation engine configured; use Session::with_engine")
         })?;
         let chunks = std::mem::take(&mut self.chunks);
+        let pushed_samples = chunks.iter().map(|c| c.samples.len() as u64).sum();
+        let sample_rate = chunks.first().map(|c| c.sample_rate).unwrap_or(0);
         match engine.dictate(&chunks).await {
-            Ok(text) => {
-                self.complete_with_text(text.clone())?;
-                Ok(text)
+            Ok(dictated) => {
+                self.last_metrics = Some(CaptureMetrics {
+                    pushed_samples,
+                    speech_samples: dictated.speech_samples,
+                    sample_rate,
+                });
+                self.complete_with_text(dictated.text.clone())?;
+                Ok(dictated.text)
+            }
+            // Nothing was said. Not a failure the user has to read
+            // (ux-decisions Q24), so return to idle with an empty result.
+            Err(err) if err.is_no_speech() => {
+                self.last_metrics = Some(CaptureMetrics {
+                    pushed_samples,
+                    speech_samples: 0,
+                    sample_rate,
+                });
+                self.complete_with_text(String::new())?;
+                Ok(String::new())
             }
             Err(err) => {
                 let session_err = SessionError::from(err);
@@ -179,10 +218,14 @@ impl Session {
     }
 
     /// Record a successful transcript and return to idle.
+    ///
+    /// Empty text leaves the buffer untouched: nothing was inserted, so there is
+    /// nothing for Undo to reverse.
     pub fn complete_with_text(&mut self, text: impl Into<String>) -> Result<(), SessionError> {
         match self.status {
             SessionStatus::Processing => {
-                self.last_text = Some(text.into());
+                let text = text.into();
+                self.last_text = (!text.is_empty()).then_some(text);
                 self.last_error = None;
                 self.chunks.clear();
                 self.status = SessionStatus::Idle;
@@ -244,6 +287,7 @@ mod tests {
     use euhadra::types::Language;
 
     use crate::engine::DictationEngine;
+    use crate::test_audio::{chunk, voiced_chunk};
 
     #[test]
     fn ptt_happy_path_status_transitions() {
@@ -295,17 +339,28 @@ mod tests {
         );
         let mut s = Session::with_engine(engine);
         s.start_ptt().unwrap();
-        s.push_audio(AudioChunk {
-            samples: vec![0.0; 800],
-            sample_rate: 16_000,
-            channels: 1,
-        })
-        .unwrap();
+        s.push_audio(voiced_chunk(1.0)).unwrap();
         let text = s.stop_ptt().await.unwrap();
         assert!(!text.to_lowercase().contains("um"), "got: {text}");
         assert!(text.to_lowercase().contains("hello"), "got: {text}");
         assert_eq!(s.status(), SessionStatus::Idle);
         assert_eq!(s.last_text(), Some(text.as_str()));
+    }
+
+    /// ux-decisions Q24: a capture with no speech returns to idle quietly,
+    /// leaving nothing behind for Undo. The shell must not show an error.
+    #[tokio::test]
+    async fn stop_ptt_on_silence_returns_empty_and_stays_idle() {
+        let engine =
+            Arc::new(DictationEngine::new(Language::English, MockAsr::new("unused")).unwrap());
+        let mut s = Session::with_engine(engine);
+        s.start_ptt().unwrap();
+        s.push_audio(chunk(vec![0.0; 16_000 * 3])).unwrap();
+
+        assert_eq!(s.stop_ptt().await.unwrap(), "");
+        assert_eq!(s.status(), SessionStatus::Idle);
+        assert_eq!(s.last_text(), None);
+        assert!(s.last_error().is_none());
     }
 
     #[test]

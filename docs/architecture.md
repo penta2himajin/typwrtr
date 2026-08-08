@@ -33,7 +33,7 @@ typwrtr/
 ```
 
 - No IME target. Insertion lives in `apps/macos`.  
-- `typwrtr-core` depends on crates.io **`euhadra` 0.2.x** (features as needed: likely `onnx`, later `mic` if capture moves into Rust).
+- `typwrtr-core` depends on crates.io **`euhadra` 0.3.x** with `default-features = false` and features **`onnx`** (ASR adapters) + **`vad`** (`EarshotVad`). `mic` stays off while capture lives in Swift.
 
 ## 3. Layer responsibilities
 
@@ -49,6 +49,59 @@ typwrtr/
 First implementation should pick one path and document the choice in this file’s decision log when measured—not both.
 
 Initial bias: **Swift records → core transcribes** so Accessibility / hotkey / mic permission stay in one process story. Revisit if euhadra `mic` + UniFFI streaming is cleaner.
+
+### Voice activity detection placement (2026-08-09)
+
+Detection is **listening accuracy**, so it belongs to euhadra. The Swift
+`SilenceVad` (RMS threshold, wall-clock silence timer) was a local
+reimplementation of that, and euhadra 0.3.0 replaced the reason it existed.
+Adoption is two stages.
+
+**Stage 1 — trimming, no FFI change.** `.vad(EarshotVad::new())` on the pipeline
+built in `DictationEngine`. This covers **both** paths for free: Free finalises a
+segment by calling `start_ptt` / `push_pcm_f32` / `stop_ptt`, so it funnels
+through the same `dictate` as PTT. Free in fact carried the larger problem — its
+mic opens on focus, so everything from mic-open to speech was reaching the
+adapter.
+
+- `FinalPass::SpeechOnly` (the default). `WholeUtterance` would leave the final
+  text unchanged and defeat the purpose; `JoinSegments` measured worst.
+- `SegmenterConfig::threshold` stays `None` so the backend calibrates it.
+  `EarshotVad` wants 0.2; euhadra measured `EnergyVad`'s 0.5 applied to it as
+  **worse than no detector at all**. Do not hardcode a threshold here.
+- `min_silence` = 1500ms to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25).
+- A capture with no speech now yields `PipelineError::NoSpeech` where an ASR
+  hallucination used to be returned. The core turns that into an **empty
+  successful result** — `stop_ptt` returns `""`, status goes to idle, and the text
+  buffer stays empty because there is nothing for Undo to reverse. No new FFI
+  error variant: Swift's existing empty-text branch already covers Q24 for both
+  paths, and euhadra makes no distinction between "detector found no speech" and
+  "adapter returned nothing" anyway (both are `NoSpeech`).
+- A dead microphone would therefore also be silent. That is what the Q27
+  measurement is for: pushed samples against detected speech duration shows it.
+
+**Stage 2 — endpointing moves into the core.** `Segmenter` + `VadStream` + the
+rolling buffer live on `PttSession`, which already owns the engine and the Tokio
+runtime; `FreeController` stays pure policy with no audio. The UniFFI addition is
+a **synchronous** Free lifecycle (see §4) — deliberately no callback interface and
+no async, because incremental output is deferred, and `Segmenter::push` is itself
+synchronous. Swift becomes a pump: hand over samples, act on the returned event.
+
+The segmenter is used for **endpointing only**. A closed segment still hands the
+accumulated buffer to `dictate` and lets the pipeline's own detector trim it,
+rather than slicing on `SpeechSegment` bounds — one pipeline configuration serves
+both paths, and running the 40 KiB network twice is not worth a second code path.
+
+Deleting `SilenceVad.swift` also removes two latent bugs it had: the silence
+clock ran on wall time rather than sample count, and a segment could only close
+when a non-empty low-level chunk arrived, so a mic that stopped delivering never
+ended one.
+
+**Rate constraint.** `EarshotVad` is 16 kHz only. `MicCapture` converts to 16 kHz
+mono f32 and reports the rate as a hardcoded constant, so the constraint holds
+today. Note the failure mode if capture ever becomes rate-flexible: euhadra
+**degrades silently**, transcribing unsegmented audio and reporting it only as a
+`Stage::Vad` entry in `diagnostics.failures`, which `dictate` currently discards.
 
 ## 4. UniFFI surface (PTT slice)
 
@@ -67,6 +120,25 @@ Minimal, sync-friendly where possible; long work may use callbacks or async brid
 | `clear_buffer()` | after successful undo / user dismiss |
 
 Swift owns **emit** (AX/clipboard). Core returns text + metadata; it does not call macOS pasteboard itself in the dogfood slice (keeps UniFFI free of AppKit). Clipboard emitters inside euhadra remain available for Rust CLI tests only.
+
+### Free lifecycle (stage 2, synchronous — names indicative)
+
+| API | Role |
+|---|---|
+| `start_free()` | Open a listening period: fresh `VadStream` + `Segmenter`, empty buffer |
+| `push_free_pcm_f32(samples, sample_rate) -> FreeVadEvent` | Accumulate, frame, score, segment. Returns `None` / `SpeechStarted` / `SegmentEnded` |
+| `take_free_segment() -> Result<String, FfiError>` | Transcribe the closed segment and return cleaned text. Blocking — Swift calls it off the main queue |
+| `stop_free()` | Close the listening period; discard any open buffer |
+
+Every call is synchronous, matching the existing `block_on`-per-call model. The
+whole surface today is sync with no callback interfaces and no async, and stage 2
+does not change that: the segmenter reports a closed utterance as a return value,
+not as a pushed event. One listening period spans many segments, so the stream and
+segmenter must outlive a single `SegmentEnded`.
+
+`status()` is shared with the PTT state machine, so Free's processing state has to
+map onto the same idle / recording / processing / error values the menu already
+renders.
 
 ## 5. Model acquisition
 
@@ -88,7 +160,9 @@ Default dogfood languages: **`ja` recommended path first**, `en` second; experim
 5. **Insert adapters** — AX then clipboard; failure preview; clipboard restore policy.  
 6. **Undo last** — wire buffer to menu/hotkey.  
 7. **Wizard** — mode, permissions, language+**in-app model fetch**, launch-at-login (reuses `scripts/` logic).  
-8. Free/VAD (F3) — after PTT dogfood is usable (may pull earlier per product owner).
+8. Free/VAD (F3) — after PTT dogfood is usable (may pull earlier per product owner). **Shipped 2026-08-08** as the Focus Dictation toggle, with a Swift-side energy detector.
+9. **VAD stage 1** — failing test first: with `RecordingAsr` (euhadra `testing` feature), assert the adapter is handed materially fewer samples than were pushed when the recording is mostly silence. Then `.vad(EarshotVad::new())`, the `vad` feature, and the `NoSpeech` FFI error.
+10. **VAD stage 2** — move endpointing into the core per §3, delete `SilenceVad.swift`.
 
 ## 7. Build & test (target commands)
 
@@ -126,3 +200,7 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-08 | **Dogfood setup checklist:** menu Setup + one-shot alert; model path via UserDefaults/App Support; launch-at-login via `SMAppService`. Full wizard (mode + in-app fetch) still step 7. |
 | 2026-08-08 | **Menu reorg:** Setup dialog (shared first-run/menu) with Language; Debug holds capture/backend/model path. |
 | 2026-08-08 | **Languages = euhadra 5:** ja Parakeet / en+es Canary / zh Paraformer / ko SenseVoice. |
+| 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
+| 2026-08-09 | **VAD returns to euhadra** in two stages: (1) `.vad(EarshotVad)` on the shared pipeline, no FFI change; (2) endpointing into `PttSession` via a sync Free lifecycle, deleting `SilenceVad.swift`. |
+| 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
+| 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |

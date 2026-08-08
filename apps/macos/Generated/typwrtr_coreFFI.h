@@ -357,6 +357,11 @@ void uniffi_typwrtr_core_fn_method_pttsession_cancel(void*_Nonnull ptr, RustCall
 void uniffi_typwrtr_core_fn_method_pttsession_clear_buffer(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_last_capture_metrics(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_TEXT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_TEXT
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_last_text(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -712,6 +717,12 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_cancel(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_CLEAR_BUFFER
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_CLEAR_BUFFER
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_clear_buffer(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_last_capture_metrics(void
     
 );
 #endif

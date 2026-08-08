@@ -125,12 +125,19 @@ final class MenuBarModel: ObservableObject {
 
     func setLastText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let display = trimmed.isEmpty ? "(empty)" : trimmed
-        let short = display.count > 36 ? String(display.prefix(36)) + "…" : display
+        guard !trimmed.isEmpty else {
+            // Nothing was said (ux-decisions Q24). Leave the previous preview
+            // alone rather than replacing it with an empty placeholder.
+            DispatchQueue.main.async {
+                self.canUndo = false
+            }
+            return
+        }
+        let short = trimmed.count > 36 ? String(trimmed.prefix(36)) + "…" : trimmed
         DispatchQueue.main.async {
             // Keep the menu narrow: short preview only.
             self.lastTextTitle = "Last: \(short)"
-            self.canUndo = !trimmed.isEmpty
+            self.canUndo = true
         }
     }
 
