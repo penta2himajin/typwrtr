@@ -64,6 +64,8 @@ pub struct CaptureMetrics {
     pub pushed_samples: u64,
     /// Of those, samples the detector classified as speech.
     pub speech_samples: u64,
+    /// How many utterances the detector found.
+    pub speech_segments: u32,
     /// Rate the chunks declared.
     pub sample_rate: u32,
 }
@@ -193,6 +195,7 @@ impl Session {
                 self.last_metrics = Some(CaptureMetrics {
                     pushed_samples,
                     speech_samples: dictated.speech_samples,
+                    speech_segments: dictated.speech_segments,
                     sample_rate,
                 });
                 self.complete_with_text(dictated.text.clone())?;
@@ -204,6 +207,7 @@ impl Session {
                 self.last_metrics = Some(CaptureMetrics {
                     pushed_samples,
                     speech_samples: 0,
+                    speech_segments: 0,
                     sample_rate,
                 });
                 self.complete_with_text(String::new())?;

@@ -79,6 +79,14 @@ adapter.
   "adapter returned nothing" anyway (both are `NoSpeech`).
 - A dead microphone would therefore also be silent. That is what the Q27
   measurement is for: pushed samples against detected speech duration shows it.
+- `Dictated::speech_samples` **clamps segment bounds to the buffer and merges
+  overlaps**. Bounds carry `speech_pad` either side, so on a capture that is
+  speech end to end they extend past the audio; summing lengths reported 1.15×
+  the recording in the first dogfood run. `speech_coverage` in `engine.rs` owns
+  this, and `speech_never_exceeds_the_audio_handed_in` pins it.
+- Measured on PTT (2026-08-09): there is **almost nothing to trim** — the key
+  release already bounds the capture tightly. Stage 1's value is therefore
+  concentrated in Free, as expected above.
 
 **Stage 2 — endpointing moves into the core.** `Segmenter` + `VadStream` + the
 rolling buffer live on `PttSession`, which already owns the engine and the Tokio

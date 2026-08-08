@@ -4,8 +4,13 @@ import os
 /// Debug-only capture measurement (ux-decisions Q27).
 ///
 /// Numbers only: how long the capture was, how much of it the detector called
-/// speech, and the ratio. No audio and no transcribed text, so this stays inside
-/// the data-retention rules in ux-decisions §10.
+/// speech, how many utterances it found, and the trimmed fraction. No audio and
+/// no transcribed text, so this stays inside the data-retention rules in
+/// ux-decisions §10.
+///
+/// `trimmed` is what Q25 needs: the share of the capture the detector dropped.
+/// Reporting speech as a share of the capture instead invited reading a padded
+/// overcount as a fraction, which is how the first dogfood run showed 1.15.
 ///
 /// Exists because Q25 defers the segment-end value to measurement, and because
 /// `NSLog` output has been confirmed unrecoverable after the fact. Read it with:
@@ -26,13 +31,14 @@ enum CaptureLog {
             let rate = Double(metrics.sampleRate)
             let pushedSeconds = Double(metrics.pushedSamples) / rate
             let speechSeconds = Double(metrics.speechSamples) / rate
-            let speechRatio = pushedSeconds > 0 ? speechSeconds / pushedSeconds : 0
+            let trimmedSeconds = max(0, pushedSeconds - speechSeconds)
             log.info(
                 """
                 capture path=\(path, privacy: .public) \
                 pushed=\(pushedSeconds, format: .fixed(precision: 2), privacy: .public)s \
                 speech=\(speechSeconds, format: .fixed(precision: 2), privacy: .public)s \
-                ratio=\(speechRatio, format: .fixed(precision: 3), privacy: .public)
+                trimmed=\(trimmedSeconds, format: .fixed(precision: 2), privacy: .public)s \
+                segments=\(metrics.speechSegments, privacy: .public)
                 """
             )
         #endif

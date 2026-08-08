@@ -69,6 +69,8 @@ pub struct FfiCaptureMetrics {
     pub pushed_samples: u64,
     /// Of those, samples the detector classified as speech.
     pub speech_samples: u64,
+    /// How many utterances the detector found.
+    pub speech_segments: u32,
     /// Rate the chunks declared.
     pub sample_rate: u32,
 }
@@ -78,6 +80,7 @@ impl From<CaptureMetrics> for FfiCaptureMetrics {
         Self {
             pushed_samples: value.pushed_samples,
             speech_samples: value.speech_samples,
+            speech_segments: value.speech_segments,
             sample_rate: value.sample_rate,
         }
     }

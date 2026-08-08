@@ -76,6 +76,12 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   700ms default. **Measure first, then adjust** — shortening it is a latency win
   and must not be bundled with the detector swap, or a regression cannot be
   attributed to one or the other.
+  - First measurement (dogfood, 2026-08-09, 4 PTT captures): pushed 1.19–1.89s
+    with **essentially no leading or trailing silence to trim**. Users release the
+    key tight around their speech, so on this path the detector earns little; the
+    1.5s value does not apply to PTT at all, since the key release ends the
+    capture. **The value only matters for Free, which is unmeasured.** Defer the
+    change until Free runs on real audio.
 - **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
   is force-segmented after 30s with no pause. Previously such an utterance
   produced a single insert, and the buffer grew without bound. The cap is
@@ -162,10 +168,15 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 - **Text:** keep the minimum needed for failure preview, retry, and Undo; discard after success path is done and Undo is no longer applicable (or after explicit dismiss).  
 - No “save last N recordings” debug store in MVP.
 - **Capture measurements (Q27):** debug builds only, via `os_log` under subsystem
-  `app.typwrtr.macos.menuextra`. Counts and durations only — total samples,
-  detected speech duration, and their ratio. No audio, no transcribed text. This
-  exists because Q25 defers the segment-end value to measurement, and because
-  `NSLog` output has been confirmed unrecoverable after the fact.
+  `app.typwrtr.macos.menuextra`. Counts and durations only — capture duration,
+  detected speech duration, how much was trimmed, and the utterance count. No
+  audio, no transcribed text. This exists because Q25 defers the segment-end
+  value to measurement, and because `NSLog` output has been confirmed
+  unrecoverable after the fact.
+  - Report **trimmed duration, not speech-as-a-fraction**. Segment bounds carry
+    `speech_pad` either side and can overlap or run past the buffer, so summing
+    them overcounts; the first dogfood run reported a "ratio" of 1.15. The core
+    now clamps and merges the ranges, and a test pins speech ≤ audio handed in.
 
 ## 11. Quit while busy (Q20)
 
@@ -198,9 +209,9 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 | Q22 | ja/en recommended; zh/es/ko experimental |
 | Q23 | Silence never reaches the ASR adapter (detection ahead of it, both paths) |
 | Q24 | No-speech capture: PTT returns to idle silently; Free ignores it |
-| Q25 | Segment end stays 1.5s; value is old-detector margin, revisit after measuring |
+| Q25 | Segment end stays 1.5s; PTT has no silence to trim, so revisit via Free |
 | Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
-| Q27 | Capture measurements: debug builds, `os_log`, numbers only |
+| Q27 | Capture measurements: debug builds, `os_log`, trimmed duration + count |
 
 ## 13. Deferred (explicit non-decisions)
 

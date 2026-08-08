@@ -1092,6 +1092,10 @@ public struct FfiCaptureMetrics {
      */
     public var speechSamples: UInt64
     /**
+     * How many utterances the detector found.
+     */
+    public var speechSegments: UInt32
+    /**
      * Rate the chunks declared.
      */
     public var sampleRate: UInt32
@@ -1106,10 +1110,14 @@ public struct FfiCaptureMetrics {
          * Of those, samples the detector classified as speech.
          */speechSamples: UInt64, 
         /**
+         * How many utterances the detector found.
+         */speechSegments: UInt32, 
+        /**
          * Rate the chunks declared.
          */sampleRate: UInt32) {
         self.pushedSamples = pushedSamples
         self.speechSamples = speechSamples
+        self.speechSegments = speechSegments
         self.sampleRate = sampleRate
     }
 }
@@ -1127,6 +1135,9 @@ extension FfiCaptureMetrics: Equatable, Hashable {
         if lhs.speechSamples != rhs.speechSamples {
             return false
         }
+        if lhs.speechSegments != rhs.speechSegments {
+            return false
+        }
         if lhs.sampleRate != rhs.sampleRate {
             return false
         }
@@ -1136,6 +1147,7 @@ extension FfiCaptureMetrics: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(pushedSamples)
         hasher.combine(speechSamples)
+        hasher.combine(speechSegments)
         hasher.combine(sampleRate)
     }
 }
@@ -1151,6 +1163,7 @@ public struct FfiConverterTypeFfiCaptureMetrics: FfiConverterRustBuffer {
             try FfiCaptureMetrics(
                 pushedSamples: FfiConverterUInt64.read(from: &buf), 
                 speechSamples: FfiConverterUInt64.read(from: &buf), 
+                speechSegments: FfiConverterUInt32.read(from: &buf), 
                 sampleRate: FfiConverterUInt32.read(from: &buf)
         )
     }
@@ -1158,6 +1171,7 @@ public struct FfiConverterTypeFfiCaptureMetrics: FfiConverterRustBuffer {
     public static func write(_ value: FfiCaptureMetrics, into buf: inout [UInt8]) {
         FfiConverterUInt64.write(value.pushedSamples, into: &buf)
         FfiConverterUInt64.write(value.speechSamples, into: &buf)
+        FfiConverterUInt32.write(value.speechSegments, into: &buf)
         FfiConverterUInt32.write(value.sampleRate, into: &buf)
     }
 }

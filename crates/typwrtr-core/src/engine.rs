@@ -213,17 +213,31 @@ impl DictationEngine {
     /// Run a complete utterance through ASR + cleanup.
     pub async fn dictate(&self, audio: &[AudioChunk]) -> Result<Dictated, EngineError> {
         let result = self.pipeline.transcribe(audio).await?;
-        let speech_samples = result
-            .diagnostics
-            .speech_segments
-            .iter()
-            .map(|segment| segment.len() as u64)
-            .sum();
+        let total: usize = audio.iter().map(|c| c.samples.len()).sum();
         Ok(Dictated {
             text: result.text().to_string(),
-            speech_samples,
+            speech_samples: speech_coverage(&result.diagnostics.speech_segments, total),
+            speech_segments: result.diagnostics.speech_segments.len() as u32,
         })
     }
+}
+
+/// Samples covered by the detected utterances, as a fraction of the recording.
+///
+/// Segment bounds carry `speech_pad` either side, so they can reach past the
+/// recording and — when two utterances sit close together — past each other.
+/// Summing their lengths therefore overcounts, and did report more speech than
+/// there was audio. Clamp to the buffer and merge overlaps instead.
+fn speech_coverage(segments: &[euhadra::vad::SpeechSegment], total: usize) -> u64 {
+    let mut covered = 0u64;
+    let mut cursor = 0usize;
+    for segment in segments {
+        let start = segment.start.clamp(cursor, total);
+        let end = segment.end.clamp(start, total);
+        covered += (end - start) as u64;
+        cursor = end;
+    }
+    covered
 }
 
 /// A finished dictation plus what the detector made of the recording.
@@ -231,8 +245,10 @@ impl DictationEngine {
 pub struct Dictated {
     /// Cleaned text.
     pub text: String,
-    /// Samples the detector classified as speech, summed over utterances.
+    /// Samples covered by detected speech, never more than were handed in.
     pub speech_samples: u64,
+    /// How many utterances the detector found.
+    pub speech_segments: u32,
 }
 
 /// Shared engine handle for sessions.
@@ -243,7 +259,7 @@ mod tests {
     use super::*;
     use euhadra::mock::{MockAsr, RecordingAsr};
 
-    use crate::test_audio::{chunk, voiced_chunk, voiced_padded_with_silence};
+    use crate::test_audio::{chunk, voiced_chunk, voiced_padded_with_silence, voiced_samples};
 
     #[tokio::test]
     async fn english_mock_pipeline_removes_filler_and_self_repair() {
@@ -300,6 +316,24 @@ mod tests {
             "reported speech {} of {pushed} samples",
             dictated.speech_samples
         );
+    }
+
+    /// Real PTT captures hold almost no leading or trailing silence, so the
+    /// padded segment bounds run past the buffer. Summing them reported more
+    /// speech than there was audio (ratio 1.15 in the first dogfood captures).
+    #[tokio::test]
+    async fn speech_never_exceeds_the_audio_handed_in() {
+        let engine = DictationEngine::new(Language::English, MockAsr::new("hello")).unwrap();
+
+        let samples = voiced_samples(1.4);
+        let pushed = samples.len() as u64;
+        let dictated = engine.dictate(&[chunk(samples)]).await.unwrap();
+        assert!(
+            dictated.speech_samples <= pushed,
+            "reported {} speech samples of {pushed} pushed",
+            dictated.speech_samples
+        );
+        assert!(dictated.speech_samples > 0, "speech went undetected");
     }
 
     /// A capture with nothing in it is an empty result, not a failure to report.
