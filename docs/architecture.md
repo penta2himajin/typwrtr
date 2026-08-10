@@ -39,9 +39,9 @@ typwrtr/
 
 | Layer | Owns | Must not own |
 |---|---|---|
-| **apps/macos (Swift)** | Hotkeys, menu bar, permissions UX, AX insert, clipboard paste/restore, failure preview UI, Quit confirm | ASR models, filler/self-repair logic |
-| **typwrtr-core (Rust)** | Session state machine, calling euhadra, language + model paths, last-text buffer, undo payload, UniFFI API | AppKit / AX / NSStatusItem |
-| **euhadra** | ASR + Tier 1/2 processors | Product UX, hotkeys |
+| **apps/macos (Swift)** | Hotkeys, menu bar, permissions UX, AX insert, clipboard paste/restore, failure preview UI, Quit confirm, **dictionary Settings CRUD** | ASR models, filler/self-repair logic, match-policy folding |
+| **typwrtr-core (Rust)** | Session state machine, calling euhadra, language + model paths, last-text buffer, undo payload, UniFFI API, **dictionary load / validate / engine rebuild** | AppKit / AX / NSStatusItem |
+| **euhadra** | ASR + Tier 1/2 processors, **`TermDictionary` match behaviour** | Product UX, hotkeys, dictionary file format or bundled terms |
 
 ### Audio capture placement (dogfood)
 
@@ -113,6 +113,36 @@ today. Note the failure mode if capture ever becomes rate-flexible: euhadra
 **degrades silently**, transcribing unsegmented audio and reporting it only as a
 `Stage::Vad` entry in `diagnostics.failures`, which `dictate` currently discards.
 
+### User term dictionary (2026-08-10)
+
+Listening accuracy stops at the transcript euhadra’s ASR emits. Turning that
+string into the speaker’s preferred spelling is **terminology substitution**,
+and euhadra 0.3.0 exposes it as `TermDictionary` — a `TextProcessor`, not a
+file format and not a shipped word list ([`ux-decisions.md`](./ux-decisions.md) §9a).
+
+**Ownership split**
+
+| Piece | Owner |
+|---|---|
+| Match policy, folding, leftmost-longest, validation errors | euhadra |
+| JSON on disk, Settings CRUD, when to rebuild | Typwrtr |
+| PhonemeCorrector / contextual rewrite | Out of Typwrtr; euhadra’s problem if pursued |
+
+**Pipeline.** Always mount a `TermDictionary` (empty counts) **after**
+`BasicPunctuationRestorer`. Position is revisitable without a product re-grill.
+Entries come from Application Support — one JSON file per active language
+(`TermEntry { term, aliases }`). Language switch loads that language’s file;
+ASR backend switch does **not** change which table is used.
+
+**Reload.** Successful Settings CUD writes the file, then rebuilds
+`DictationEngine` so the next utterance sees the change. Corrupt JSON on
+launch or language switch: skip the load (mount empty), leave the file on
+disk, and surface the failure in Settings — never silently “fix” by
+overwriting.
+
+**Not in this slice:** import/export UI, bundled or Typwrtr-published terms,
+per-backend tables.
+
 ## 4. UniFFI surface (PTT slice)
 
 Minimal, sync-friendly where possible; long work may use callbacks or async bridges later.
@@ -173,6 +203,7 @@ Default dogfood languages: **`ja` recommended path first**, `en` second; experim
 8. Free/VAD (F3) — after PTT dogfood is usable (may pull earlier per product owner). **Shipped 2026-08-08** as the Focus Dictation toggle, with a Swift-side energy detector.
 9. **VAD stage 1** — failing test first: with `RecordingAsr` (euhadra `testing` feature), assert the adapter is handed materially fewer samples than were pushed when the recording is mostly silence. Then `.vad(EarshotVad::new())`, the `vad` feature, and the `NoSpeech` FFI error.
 10. **VAD stage 2** — move endpointing into the core per §3, delete `SilenceVad.swift`.
+11. **User term dictionary** — failing test: alias in mock transcript becomes the preferred term after punctuation. Then load JSON per language, mount `TermDictionary` after punctuation, Settings CRUD → rebuild on CUD ([`ux-decisions.md`](./ux-decisions.md) §9a).
 
 ## 7. Build & test (target commands)
 
@@ -214,3 +245,4 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-09 | **VAD returns to euhadra** in two stages: (1) `.vad(EarshotVad)` on the shared pipeline, no FFI change; (2) endpointing into `PttSession` via a sync Free lifecycle, deleting `SilenceVad.swift`. |
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
 | 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |
+| 2026-08-10 | **User term dictionary:** `TermDictionary` only; speaker-owned JSON per language; Settings CRUD rebuilds the engine; after punctuation; no import UI; phoneme/contextual rewrite deferred to euhadra. |

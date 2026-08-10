@@ -25,7 +25,7 @@ MVP wedge ≈ high local-fit + non-dev UX, moderate shell cost.
 | U3 | **Email / long prose** | Paragraphs with punctuation and filler removal | Tier 1+2 matter; optional later tone pass. |
 | U4 | **Notes / brain dump** | Capture then lightly structure (paragraphs, lists) | ParagraphSplitter; avoid over-formatting. |
 | U5 | **Search bar / URL bar** | Short queries, minimal punctuation | Field-type awareness (Accessibility). |
-| U6 | **Code comments / commit messages** | Technical vocabulary, English or JA | Custom dictionary / phoneme corrector; IDE focus. |
+| U6 | **Code comments / commit messages** | Technical vocabulary, English or JA | Light path: speaker `TermDictionary` (§9a). Phoneme corrector / contextual rewrite: euhadra later, not Typwrtr. |
 | U7 | **Terminal commands** | Spoken shell lines (dangerous) | High risk; probably post-MVP / opt-in only. |
 | U8 | **Voice → structured note** | Meeting-ish dump → bullets / title | See § Realization notes. |
 | U9 | **Correct last insertion** | “Undo” or re-speak replacement | Emitter undo + UX affordance. |
@@ -43,7 +43,7 @@ MVP wedge ≈ high local-fit + non-dev UX, moderate shell cost.
 | Soon in MVP window | **U9** | Undo last insert (buffer) |
 | Before / at public | Free mode (F3) | Focus-gated VAD; see [`ux-decisions.md`](./ux-decisions.md) — may pull earlier |
 | Later | **U2, U3, U11** | Chat/mail polish and hard offline packaging |
-| Soon after (if cheap) | U4, U5, light U6 | Notes / search-field / dictionary |
+| Soon after (if cheap) | U4, U5, **light U6** | Notes / search-field / **speaker term dictionary** ([`ux-decisions.md`](./ux-decisions.md) §9a; dogfood) |
 | Research / post | **U8, U10, U12**, U7 | See realization notes |
 
 ## Decision log
@@ -53,6 +53,7 @@ MVP wedge ≈ high local-fit + non-dev UX, moderate shell cost.
 | 2026-08-06 | Catalogue created; prioritisation pending with product owner. |
 | 2026-08-07 | Push **U2 / U3 / U11** later; keep MVP = **U1** (+ **U9**). Document realization paths for **U8 / U10 / U12**. |
 | 2026-08-07 | Grilling: PTT-first ship cut; Free F3 after dogfood (or earlier if wanted). Details in [`ux-decisions.md`](./ux-decisions.md). |
+| 2026-08-10 | Light **U6**: speaker term dictionary agreed for dogfood; phoneme/contextual rewrite stays euhadra-side. |
 
 ## Realization notes (U8 / U10 / U12)
 

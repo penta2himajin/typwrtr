@@ -1,6 +1,6 @@
 # Typwrtr — UX & Interaction Decisions
 
-Status: **agreed** (grilling sessions, 2026-08-07 and 2026-08-09).  
+Status: **agreed** (grilling sessions, 2026-08-07, 2026-08-09, and 2026-08-10).  
 SSOT for activation, feedback, insertion, privacy UI, and onboarding behaviour.  
 Product positioning / licensing: [`product.md`](./product.md). Use cases: [`use-cases.md`](./use-cases.md).
 
@@ -156,8 +156,48 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 
 - **Single active language** at a time (menu bar switch).  
 - Remember last choice across launches (still “single language”, not bilingual auto).  
-- Custom dictionary: separate future work, not required for language switching.  
-- Per-utterance auto LID (U12): not in this phase.
+- Per-utterance auto LID (U12): not in this phase.  
+- User term dictionary: see §9a (not required to switch language).
+
+### 9a. User term dictionary (Q28–Q39)
+
+**What it is.** An **ASR output transform**, not acoustic error correction.
+ASR tends to emit a stable string for a spoken form; the speaker wants a
+different spelling (product names, coinages, house terms). That substitution
+is `euhadra::dictionary::TermDictionary`. Typwrtr owns the entries and the UX;
+euhadra owns match policy and pipeline ordering.
+
+**What it is not.** `PhonemeCorrector`, contextual model rewrite (DeBERTa-class),
+or any bundled/community term list shipped by Typwrtr. Those belong to euhadra
+(or nowhere) as separate stages if pursued later. Typwrtr does not reimplement
+them.
+
+- **Q28 — Dictionary = terminology substitution only.** Alias → preferred term.
+- **Q29 — Speaker-owned entries only.** No Typwrtr- or euhadra-published
+  dictionary. The product is the input mechanism, not a correction lexicon.
+  Community-published lists may appear later; they are outside this phase.
+- **Q30 / Q31 — One table per active language**, not per ASR backend. Output
+  tendencies are language- (and model-) dependent, but forcing re-registration
+  when the backend changes is a worse experience than sharing one table per
+  language. Backend tags on individual rows are deferred.
+- **Q32 — Storage:** Application Support, one JSON file per language. Hand-edit
+  allowed. Format is Typwrtr’s (euhadra supplies no file format).
+- **Q33 — UI:** Settings list with add / edit / delete (term + aliases). Dogfood.
+- **Q34 — Reload on CUD:** each successful create/update/delete rebuilds the
+  engine so the next utterance sees the change. Not a per-utterance file read.
+- **Q35 — Pipeline position:** after `BasicPunctuationRestorer` for now.
+  Movable later without a product re-grill.
+- **Q36 — Validation:**
+  - In Settings: reject the save if `TermDictionary::new` reports problems;
+    highlight the offending rows; leave the on-disk file unchanged (atomic).
+  - On launch (or language switch) if the JSON is corrupt: **do not load it into
+    the pipeline** (behave as empty) and **do not overwrite** the broken file.
+    Settings must show that this language’s dictionary failed to load so the
+    silence is not mistaken for “terms are active.”
+- **Q37 — Empty dictionary still mounts** as a pipeline stage (no-op match).
+  Keeps the reload path one shape; cost is negligible next to ASR.
+- **Q38 — Ship in dogfood** with Settings CRUD in the same effort as wiring.
+- **Q39 — No import/export UI** this phase. Replacing the JSON by hand is fine.
 
 ## 10. Network & privacy (Q17–Q18)
 
@@ -203,7 +243,7 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 | Q11 | No pre-insert text UI in MVP |
 | Q12 | Free: 1.5s silence → immediate insert |
 | Q13 | 3b temporary PTT override; Free arming unchanged |
-| Q14 | Single language (+ future dictionary) |
+| Q14 | Single language (dictionary is §9a, not required to switch) |
 | Q15 | Default hotkey Control+Shift+D; changeable in menu bar |
 | Q16 | Launch-at-login chosen in wizard |
 | Q17 | Offline-first + update check pull (default on, togglable) |
@@ -217,13 +257,26 @@ Never drop the recognised text on failure without a recovery path. Prefer restor
 | Q25 | Segment end stays 1.5s; PTT has no silence to trim, so revisit via Free |
 | Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
 | Q27 | Capture measurements: debug builds, `os_log`, trimmed duration + count |
+| Q28 | Dictionary = `TermDictionary` substitution only |
+| Q29 | Speaker-owned entries; Typwrtr ships no lexicon |
+| Q30–Q31 | One table per language; not per ASR backend |
+| Q32 | App Support JSON, one file per language |
+| Q33 | Settings CRUD (list + add/edit/delete) |
+| Q34 | Rebuild engine on each successful CUD |
+| Q35 | After punctuation restore; position revisitable |
+| Q36 | Settings: atomic reject; corrupt file: skip load, keep file, surface in UI |
+| Q37 | Empty dictionary still on the pipeline |
+| Q38 | Dogfood ships Settings CRUD with the wiring |
+| Q39 | No import/export UI this phase |
 
 ## 13. Deferred (explicit non-decisions)
 
 - Sentence-final wait / spoken “Enter” commit  
 - Partial or processing text HUD options  
 - Mode-switch hotkey  
-- Custom dictionary UX  
+- Phoneme / contextual (DeBERTa-class) correction as product features  
+- Dictionary import/export UI; Typwrtr-published or bundled term lists  
+- Per-backend dictionary tables or per-row backend tags  
 - Quiet/whisper mode (U10), structured notes (U8), true bilingual auto (U12)  
 - Cooldown between Free segments  
 - Permanent “PTT disables Free arming” behaviour  
