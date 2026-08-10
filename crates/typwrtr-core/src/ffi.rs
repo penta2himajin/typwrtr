@@ -10,7 +10,29 @@ use crate::asr::FixedAsr;
 use crate::dictionary::{self, StoredTerm};
 use crate::engine::DictationEngine;
 use crate::session::{CaptureMetrics, Session, SessionError, SessionStatus};
+use crate::stream_endpoint::{StreamListen, StreamVadEvent};
 use crate::Language;
+
+/// Live Earshot endpointing events for streaming PTT.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiStreamVadEvent {
+    /// No boundary this chunk.
+    None,
+    /// Segmenter opened an utterance.
+    SpeechStarted,
+    /// Segmenter closed an utterance — call [`PttSession::take_stream_segment`].
+    SegmentEnded,
+}
+
+impl From<StreamVadEvent> for FfiStreamVadEvent {
+    fn from(value: StreamVadEvent) -> Self {
+        match value {
+            StreamVadEvent::None => Self::None,
+            StreamVadEvent::SpeechStarted => Self::SpeechStarted,
+            StreamVadEvent::SegmentEnded => Self::SegmentEnded,
+        }
+    }
+}
 
 /// Languages exposed across the FFI boundary (euhadra `Language` set).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
@@ -173,6 +195,12 @@ pub fn should_accept_stream_result(text: String) -> bool {
     crate::stream_gate::should_accept_stream_result(&text)
 }
 
+/// Whether key-up should ASR the leftover streaming buffer (speech since last endpoint).
+#[uniffi::export]
+pub fn should_flush_stream_on_release(saw_speech_since_endpoint: bool) -> bool {
+    crate::stream_gate::should_flush_stream_on_release(saw_speech_since_endpoint)
+}
+
 /// Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
 #[uniffi::export]
 pub fn focus_dictation_silence_seconds() -> f64 {
@@ -221,6 +249,9 @@ impl From<SessionError> for FfiError {
 pub struct PttSession {
     runtime: Runtime,
     inner: Mutex<Session>,
+    /// Streaming PTT live endpointing (Earshot + Segmenter). Separate from the
+    /// async session mutex so ASR on a closed segment does not block mic pumps.
+    stream: std::sync::Mutex<Option<StreamListen>>,
 }
 
 #[uniffi::export]
@@ -390,6 +421,91 @@ impl PttSession {
         self.runtime
             .block_on(async { self.inner.lock().await.take_undo_payload() })
     }
+
+    /// Open Earshot live endpointing for streaming PTT (one key-hold).
+    pub fn start_stream_listen(&self) -> Result<(), FfiError> {
+        let listen = StreamListen::start().map_err(|msg| FfiError::Message { msg })?;
+        let mut slot = self
+            .stream
+            .lock()
+            .map_err(|_| FfiError::Message {
+                msg: "stream listen lock poisoned".into(),
+            })?;
+        *slot = Some(listen);
+        Ok(())
+    }
+
+    /// Pump mic PCM into the live segmenter.
+    pub fn push_stream_pcm_f32(
+        &self,
+        samples: Vec<f32>,
+        sample_rate: u32,
+    ) -> Result<FfiStreamVadEvent, FfiError> {
+        let mut slot = self
+            .stream
+            .lock()
+            .map_err(|_| FfiError::Message {
+                msg: "stream listen lock poisoned".into(),
+            })?;
+        let listen = slot.as_mut().ok_or_else(|| FfiError::Message {
+            msg: "stream listen not started".into(),
+        })?;
+        listen
+            .push(&samples, sample_rate)
+            .map(Into::into)
+            .map_err(|msg| FfiError::Message { msg })
+    }
+
+    /// End the listen. Flushes only if an utterance is still open.
+    pub fn stop_stream_listen(&self) -> Result<FfiStreamVadEvent, FfiError> {
+        let mut slot = self
+            .stream
+            .lock()
+            .map_err(|_| FfiError::Message {
+                msg: "stream listen lock poisoned".into(),
+            })?;
+        let Some(listen) = slot.as_mut() else {
+            return Ok(FfiStreamVadEvent::None);
+        };
+        let event = listen.stop();
+        if !matches!(event, StreamVadEvent::SegmentEnded) {
+            *slot = None;
+        }
+        Ok(event.into())
+    }
+
+    /// Transcribe one closed stream segment (blocking ASR).
+    pub fn take_stream_segment(&self) -> Result<String, FfiError> {
+        let samples = {
+            let mut slot = self
+                .stream
+                .lock()
+                .map_err(|_| FfiError::Message {
+                    msg: "stream listen lock poisoned".into(),
+                })?;
+            let listen = slot.as_mut().ok_or_else(|| FfiError::Message {
+                msg: "stream listen not started".into(),
+            })?;
+            listen.take_closed().ok_or_else(|| FfiError::Message {
+                msg: "no closed stream segment".into(),
+            })?
+        };
+        self.runtime.block_on(async {
+            self.inner
+                .lock()
+                .await
+                .dictate_pcm(samples, 16_000)
+                .await
+                .map_err(Into::into)
+        })
+    }
+
+    /// Drop the stream listen after release handling is done.
+    pub fn finish_stream_listen(&self) {
+        if let Ok(mut slot) = self.stream.lock() {
+            *slot = None;
+        }
+    }
 }
 
 fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, FfiError> {
@@ -399,6 +515,7 @@ fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, F
     Ok(Arc::new(PttSession {
         runtime,
         inner: Mutex::new(Session::with_engine(Arc::new(engine))),
+        stream: std::sync::Mutex::new(None),
     }))
 }
 
@@ -419,5 +536,30 @@ mod tests {
         assert!(!text.to_lowercase().contains("um"), "{text}");
         assert!(text.to_lowercase().contains("hello"), "{text}");
         assert_eq!(session.status(), FfiStatus::Idle);
+    }
+
+    #[test]
+    fn ffi_stream_listen_closes_and_transcribes() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "um hello stream".into())
+                .unwrap();
+        session.start_stream_listen().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(std::iter::repeat_n(0.0, 16_000 * 3 / 2)); // 1.5s silence
+        let chunk = 1_280usize;
+        let mut ended = false;
+        for piece in pcm.chunks(chunk) {
+            let ev = session
+                .push_stream_pcm_f32(piece.to_vec(), 16_000)
+                .unwrap();
+            if matches!(ev, FfiStreamVadEvent::SegmentEnded) {
+                ended = true;
+                break;
+            }
+        }
+        assert!(ended, "expected SegmentEnded after speech+silence");
+        let text = session.take_stream_segment().unwrap();
+        assert!(text.to_lowercase().contains("hello"), "{text}");
+        session.finish_stream_listen();
     }
 }

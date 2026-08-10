@@ -15,6 +15,7 @@ mod ffi;
 mod free_mode;
 mod paths;
 mod session;
+mod stream_endpoint;
 mod stream_gate;
 #[cfg(test)]
 mod test_audio;
@@ -28,14 +29,17 @@ pub use endpoint::{
 };
 pub use ffi::{
     focus_dictation_silence_seconds, load_term_dictionary, save_term_dictionary,
-    should_accept_stream_result, streaming_ptt_silence_seconds, term_dictionary_path,
-    FfiCaptureMetrics, FfiDictionarySnapshot, FfiError, FfiLanguage, FfiStatus, FfiTermEntry,
-    PttSession,
+    should_accept_stream_result, should_flush_stream_on_release, streaming_ptt_silence_seconds,
+    term_dictionary_path, FfiCaptureMetrics, FfiDictionarySnapshot, FfiError, FfiLanguage,
+    FfiStatus, FfiStreamVadEvent, FfiTermEntry, PttSession,
 };
 pub use free_mode::{FocusKind, FreeArmState, FreeAvailability, FreeController};
 pub use paths::{
     resolve_whisper_from_env, resolve_whisper_paths, whisper_language_tag, whisper_model_path,
 };
 pub use session::{CaptureMetrics, Session, SessionError, SessionStatus};
+pub use stream_endpoint::{
+    StreamListen, StreamVadEvent, STREAMING_EARSHOT_ENDPOINT_THRESHOLD,
+};
 
 pub use euhadra::types::{AudioChunk, Language};

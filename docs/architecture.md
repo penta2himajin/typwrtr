@@ -69,7 +69,7 @@ adapter.
 - `SegmenterConfig::threshold` stays `None` so the backend calibrates it.
   `EarshotVad` wants 0.2; euhadra measured `EnergyVad`'s 0.5 applied to it as
   **worse than no detector at all**. Do not hardcode a threshold here.
-- `min_silence` = 1500ms for Focus Dictation / Free to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25). Streaming PTT uses 700ms via the same core SSOT (`STREAMING_PTT_SILENCE_MS`) while the shell energy detector remains.
+- `min_silence` = 1500ms for Focus Dictation / Free pipeline dictate to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25). Streaming PTT live endpointing uses euhadra `SegmenterConfig::default()` (700ms) via `StreamListen`, not the shell energy timer.
 - A capture with no speech now yields `PipelineError::NoSpeech` where an ASR
   hallucination used to be returned. The core turns that into an **empty
   successful result** — `stop_ptt` returns `""`, status goes to idle, and the text
@@ -96,6 +96,15 @@ runtime; `FreeController` stays pure policy with no audio. The UniFFI addition i
 a **synchronous** Free lifecycle (see §4) — deliberately no callback interface and
 no async, because incremental output is deferred, and `Segmenter::push` is itself
 synchronous. Swift becomes a pump: hand over samples, act on the returned event.
+
+**Streaming PTT pilot (2026-08-11):** Stage 2 surface is live for **Push to talk
+(streaming)** only (`start_stream_listen` / `push_stream_pcm_f32` /
+`take_stream_segment` / `stop_stream_listen`). Live endpointing is
+**`EarshotVad` + `Segmenter`** with threshold **0.35** (rlx-vad Earshot segment
+preset; euhadra’s 0.2 WER calibration under-closed on laptop room tone in
+dogfood). Dictate trim still uses backend default 0.2. Focus Dictation still
+uses `SilenceVad.swift`. CaptureLog: `earshot-silence` / `earshot-release`.
+Do not replace live Earshot with EnergyVad without an explicit product decision.
 
 The segmenter is used for **endpointing only**. A closed segment still hands the
 accumulated buffer to `dictate` and lets the pipeline's own detector trim it,
@@ -242,7 +251,7 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-08 | **Menu reorg:** Setup dialog (shared first-run/menu) with Language; Debug holds capture/backend/model path. |
 | 2026-08-08 | **Languages = euhadra 5:** ja Parakeet / en+es Canary / zh Paraformer / ko SenseVoice. |
 | 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
-| 2026-08-09 | **VAD returns to euhadra** in two stages: (1) `.vad(EarshotVad)` on the shared pipeline, no FFI change; (2) endpointing into `PttSession` via a sync Free lifecycle, deleting `SilenceVad.swift`. |
+| 2026-08-11 | Streaming PTT Stage 2 pilot: Earshot+Segmenter live endpointing. Dogfood: 0.2 never closed mid-hold on room tone; live threshold set to 0.35 (rlx-vad Earshot preset). Dictate trim stays at 0.2. Do not swap live path to EnergyVad without an explicit decision. Focus Dictation keeps Swift `SilenceVad`. |
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
 | 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |
 | 2026-08-10 | **User term dictionary:** `TermDictionary` only; speaker-owned JSON per language; Settings CRUD rebuilds the engine; after punctuation; no import UI; phoneme/contextual rewrite deferred to euhadra. |

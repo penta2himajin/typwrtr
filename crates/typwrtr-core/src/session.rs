@@ -292,6 +292,56 @@ impl Session {
         }
         Some(text)
     }
+
+    /// Run the engine on a PCM buffer without the PTT status machine.
+    ///
+    /// Used by streaming listen after Earshot closes a segment (or flushes on
+    /// release). Updates [`Self::last_metrics`] / [`Self::last_text`].
+    pub async fn dictate_pcm(
+        &mut self,
+        samples: Vec<f32>,
+        sample_rate: u32,
+    ) -> Result<String, SessionError> {
+        let engine = self.engine.clone().ok_or_else(|| {
+            SessionError::new("no dictation engine configured; use Session::with_engine")
+        })?;
+        let pushed_samples = samples.len() as u64;
+        let chunks = vec![AudioChunk {
+            samples,
+            sample_rate,
+            channels: 1,
+        }];
+        match engine.dictate(&chunks).await {
+            Ok(dictated) => {
+                self.last_metrics = Some(CaptureMetrics {
+                    pushed_samples,
+                    speech_samples: dictated.speech_samples,
+                    speech_segments: dictated.speech_segments,
+                    sample_rate,
+                });
+                let text = dictated.text;
+                if !text.is_empty() {
+                    self.last_text = Some(text.clone());
+                }
+                self.last_error = None;
+                Ok(text)
+            }
+            Err(err) if err.is_no_speech() => {
+                self.last_metrics = Some(CaptureMetrics {
+                    pushed_samples,
+                    speech_samples: 0,
+                    speech_segments: 0,
+                    sample_rate,
+                });
+                Ok(String::new())
+            }
+            Err(err) => {
+                let session_err = SessionError::from(err);
+                self.last_error = Some(session_err.clone());
+                Err(session_err)
+            }
+        }
+    }
 }
 
 #[cfg(test)]

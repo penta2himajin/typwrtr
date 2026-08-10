@@ -88,7 +88,12 @@ final class ClipboardInserter {
 
         let before = focusedFieldSnapshot()
         if policy == .whileModifiersHeld {
-            return insertWhileModifiersHeld(trimmed, ax: ax, before: before)
+            return insertWhileModifiersHeld(
+                trimmed,
+                ax: ax,
+                preferPaste: electron,
+                before: before
+            )
         }
 
         let preferPaste = electron
@@ -141,13 +146,15 @@ final class ClipboardInserter {
     }
 
     /// Streaming mid-hold: Ctrl/Shift stay down, so the normal wait→clipboard-only
-    /// path never pastes. Prefer AX / unicode (no modifier wait); ⌘V is last resort.
+    /// path never pastes. Match the normal path's Electron rule: never AX/unicode
+    /// then ⌘V (partial AX + paste doubles text in Cursor / browsers).
     private func insertWhileModifiersHeld(
         _ text: String,
         ax: Bool,
+        preferPaste: Bool,
         before: FieldSnapshot
     ) -> Result {
-        if ax, insertViaAccessibility(text) {
+        if ax, !preferPaste, insertViaAccessibility(text) {
             if verifyWithRetries(before: before, expected: text) {
                 NSLog("Typwrtr: inserted via AXSelectedText (while held)")
                 return .pasted
@@ -155,7 +162,7 @@ final class ClipboardInserter {
             NSLog("Typwrtr: AXSelectedText set but field unchanged (while held)")
         }
 
-        if typeViaUnicode(text) {
+        if !preferPaste, typeViaUnicode(text) {
             if verifyWithRetries(before: before, expected: text) || !canVerifyInsert() {
                 NSLog("Typwrtr: typed via CGEvent unicode (while held)")
                 return .pasted

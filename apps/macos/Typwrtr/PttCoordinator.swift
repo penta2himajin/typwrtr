@@ -40,20 +40,12 @@ final class PttCoordinator {
     private var latchedFocusPid: pid_t?
     private var latchedFocusAt: Date?
 
-    /// Push to talk (streaming): segment while the key is held.
+    /// Push to talk (streaming): Earshot live endpointing while the key is held.
     private var streamingPttActive = false
-    private var streamSegment: [Float] = []
-    /// Shorter than Focus Dictation's 1.5s — hold is already an explicit gate
-    /// (see `streaming_ptt_silence_seconds` in core).
-    private var streamVad: SilenceVad = {
-        var vad = SilenceVad()
-        vad.silenceSeconds = streamingPttSilenceSeconds()
-        return vad
-    }()
     private var streamAudioTimer: Timer?
     private var streamInFlight = 0
     private var streamReleasePending = false
-    /// Serial ASR for streaming segments (Session is not concurrent-safe).
+    /// Serial ASR for streaming segments (take_stream_segment is blocking).
     private let streamRecognizeQueue = DispatchQueue(label: "app.typwrtr.ptt-stream")
 
     init(menu: MenuBarModel, session: PttSession, backend: AsrBackend) {
@@ -472,21 +464,21 @@ final class PttCoordinator {
         phase = .recording
         streamingPttActive = true
         streamReleasePending = false
-        streamSegment.removeAll(keepingCapacity: true)
-        streamVad.reset()
         insertTarget = NSWorkspace.shared.frontmostApplication
         menu.setCanUndo(false)
         menu.setStatus(.recording)
         do {
+            try session.startStreamListen()
             try mic.start()
             startStreamAudioTimer()
             refreshStatus()
-            NSLog("Typwrtr: streaming PTT started (silence end = %.1fs)", streamVad.silenceSeconds)
-            CaptureLog.note("streaming PTT started")
+            NSLog("Typwrtr: streaming PTT started (Earshot live endpoint)")
+            CaptureLog.note("streaming PTT started (earshot)")
         } catch {
             phase = .idle
             streamingPttActive = false
             freeSuspendedByPtt = false
+            session.finishStreamListen()
             _ = mic.stop()
             refreshStatus()
             menu.showError("PTT start failed: \(error.localizedDescription)")
@@ -582,31 +574,21 @@ final class PttCoordinator {
         // Keep draining while the key is held, even if a prior segment is recognising.
         guard streamingPttActive else { return }
         let chunk = mic.drain()
-        guard !chunk.isEmpty else { return }
-        streamSegment.append(contentsOf: chunk)
-        switch streamVad.push(samples: chunk) {
-        case .none:
-            break
-        case .speechStarted:
-            // Drop leading silence already classified by the energy detector;
-            // keep a short pad (core SSOT) so EarshotVad still has onset context.
-            let keep = Int(
-                speechStartKeepLen(
-                    bufferLen: UInt64(streamSegment.count),
-                    padSamples: speechStartPadSamples()
-                )
-            )
-            if streamSegment.count > keep {
-                streamSegment = Array(streamSegment.suffix(keep))
+        do {
+            let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
+            switch event {
+            case .none:
+                break
+            case .speechStarted:
+                NSLog("Typwrtr: streaming PTT speechStarted (earshot)")
+                CaptureLog.note("streaming earshot speechStarted")
+            case .segmentEnded:
+                CaptureLog.endpoint(reason: "earshot-silence", samples: chunk.count)
+                enqueueStreamSegment(reason: "earshot-silence")
             }
-            NSLog(
-                "Typwrtr: streaming PTT speechStarted (buf=%d keep=%d)",
-                streamSegment.count,
-                keep
-            )
-            CaptureLog.note("streaming speechStarted buf=\(streamSegment.count) keep=\(keep)")
-        case .segmentEnded:
-            flushStreamSegment(reason: "silence")
+        } catch {
+            NSLog("Typwrtr: streaming push failed: %@", "\(error)")
+            CaptureLog.note("streaming push failed")
         }
     }
 
@@ -615,24 +597,22 @@ final class PttCoordinator {
         _ = mic.stop()
         streamingPttActive = false
         streamReleasePending = true
-        if streamVad.sawSpeech || !streamSegment.isEmpty {
-            flushStreamSegment(reason: "release")
-        } else {
-            NSLog("Typwrtr: streaming PTT release with empty buffer")
+        do {
+            let event = try session.stopStreamListen()
+            if event == .segmentEnded {
+                CaptureLog.endpoint(reason: "earshot-release", samples: 0)
+                enqueueStreamSegment(reason: "earshot-release")
+            } else {
+                CaptureLog.note("streaming release discarded (no open utterance)")
+                NSLog("Typwrtr: streaming PTT release discarded (no open utterance)")
+            }
+        } catch {
+            NSLog("Typwrtr: streaming stop failed: %@", "\(error)")
         }
         finishStreamingPttIfIdle()
     }
 
-    private func flushStreamSegment(reason: String) {
-        let samples = streamSegment
-        streamSegment.removeAll(keepingCapacity: true)
-        streamVad.reset()
-        // Empty only — do not second-guess length. Pipeline EarshotVad trims.
-        guard !samples.isEmpty else {
-            finishStreamingPttIfIdle()
-            return
-        }
-
+    private func enqueueStreamSegment(reason: String) {
         streamInFlight += 1
         if !streamingPttActive {
             phase = .finishing
@@ -640,41 +620,42 @@ final class PttCoordinator {
         }
         let target = insertTarget ?? NSWorkspace.shared.frontmostApplication
         insertTarget = target
-        NSLog(
-            "Typwrtr: streaming PTT segment reason=%@ samples=%d (%.2fs)",
-            reason,
-            samples.count,
-            Double(samples.count) / 16_000.0
-        )
-        CaptureLog.endpoint(reason: reason, samples: samples.count)
+        NSLog("Typwrtr: streaming PTT segment reason=%@", reason)
 
-        // Serialise ASR: Session is not safe for overlapping startPtt/stopPtt.
         streamRecognizeQueue.async { [weak self] in
             guard let self else { return }
-            do {
-                try self.session.startPtt()
-                try self.session.pushPcmF32(samples: samples, sampleRate: 16_000)
-                let text = try self.session.stopPtt()
-                let metrics = self.session.lastCaptureMetrics()
-                CaptureLog.record(metrics, path: "ptt-stream")
-                DispatchQueue.main.async {
-                    self.completeStreamSegment(
-                        text: text,
-                        samples: samples.count,
-                        whileHeld: reason == "silence"
-                    )
+            var results: [(text: String, samples: Int)] = []
+            while true {
+                do {
+                    let text = try self.session.takeStreamSegment()
+                    let metrics = self.session.lastCaptureMetrics()
+                    CaptureLog.record(metrics, path: "ptt-stream")
+                    let samples = Int(metrics?.pushedSamples ?? 0)
+                    results.append((text, samples))
+                } catch {
+                    break
                 }
-            } catch {
-                DispatchQueue.main.async {
+            }
+            DispatchQueue.main.async {
+                if results.isEmpty {
                     self.streamInFlight = max(0, self.streamInFlight - 1)
-                    try? self.session.cancel()
-                    NSLog("Typwrtr: streaming PTT failed: %@", "\(error)")
                     if self.streamingPttActive {
                         self.phase = .recording
                         self.menu.setStatus(.recording)
                     } else {
                         self.finishStreamingPttIfIdle()
                     }
+                    return
+                }
+                if results.count > 1 {
+                    self.streamInFlight += results.count - 1
+                }
+                for item in results {
+                    self.completeStreamSegment(
+                        text: item.text,
+                        samples: item.samples,
+                        whileHeld: reason == "earshot-silence"
+                    )
                 }
             }
         }
@@ -727,6 +708,7 @@ final class PttCoordinator {
     private func finishStreamingPttIfIdle() {
         guard !streamingPttActive, streamInFlight == 0, streamReleasePending else { return }
         streamReleasePending = false
+        session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
         refreshStatus()

@@ -764,6 +764,11 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func clearBuffer() 
     
     /**
+     * Drop the stream listen after release handling is done.
+     */
+    func finishStreamListen() 
+    
+    /**
      * What the detector made of the last capture. Debug measurement only.
      */
     func lastCaptureMetrics()  -> FfiCaptureMetrics?
@@ -779,9 +784,19 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func pushPcmF32(samples: [Float], sampleRate: UInt32) throws 
     
     /**
+     * Pump mic PCM into the live segmenter.
+     */
+    func pushStreamPcmF32(samples: [Float], sampleRate: UInt32) throws  -> FfiStreamVadEvent
+    
+    /**
      * Start PTT.
      */
     func startPtt() throws 
+    
+    /**
+     * Open Earshot live endpointing for streaming PTT (one key-hold).
+     */
+    func startStreamListen() throws 
     
     /**
      * Current status.
@@ -792,6 +807,16 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
      * Stop PTT and return cleaned text.
      */
     func stopPtt() throws  -> String
+    
+    /**
+     * End the listen. Flushes only if an utterance is still open.
+     */
+    func stopStreamListen() throws  -> FfiStreamVadEvent
+    
+    /**
+     * Transcribe one closed stream segment (blocking ASR).
+     */
+    func takeStreamSegment() throws  -> String
     
     /**
      * Take the undo payload (clears the text buffer).
@@ -970,6 +995,15 @@ open func clearBuffer()  {try! rustCall() {
 }
     
     /**
+     * Drop the stream listen after release handling is done.
+     */
+open func finishStreamListen()  {try! rustCall() {
+    uniffi_typwrtr_core_fn_method_pttsession_finish_stream_listen(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
      * What the detector made of the last capture. Debug measurement only.
      */
 open func lastCaptureMetrics() -> FfiCaptureMetrics?  {
@@ -1001,10 +1035,31 @@ open func pushPcmF32(samples: [Float], sampleRate: UInt32)throws   {try rustCall
 }
     
     /**
+     * Pump mic PCM into the live segmenter.
+     */
+open func pushStreamPcmF32(samples: [Float], sampleRate: UInt32)throws  -> FfiStreamVadEvent  {
+    return try  FfiConverterTypeFfiStreamVadEvent_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_method_pttsession_push_stream_pcm_f32(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),
+        FfiConverterUInt32.lower(sampleRate),$0
+    )
+})
+}
+    
+    /**
      * Start PTT.
      */
 open func startPtt()throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
     uniffi_typwrtr_core_fn_method_pttsession_start_ptt(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Open Earshot live endpointing for streaming PTT (one key-hold).
+     */
+open func startStreamListen()throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_method_pttsession_start_stream_listen(self.uniffiClonePointer(),$0
     )
 }
 }
@@ -1025,6 +1080,26 @@ open func status() -> FfiStatus  {
 open func stopPtt()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
     uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * End the listen. Flushes only if an utterance is still open.
+     */
+open func stopStreamListen()throws  -> FfiStreamVadEvent  {
+    return try  FfiConverterTypeFfiStreamVadEvent_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_method_pttsession_stop_stream_listen(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Transcribe one closed stream segment (blocking ASR).
+     */
+open func takeStreamSegment()throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_method_pttsession_take_stream_segment(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -1687,6 +1762,95 @@ extension FfiStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Live Earshot endpointing events for streaming PTT.
+ */
+
+public enum FfiStreamVadEvent {
+    
+    /**
+     * No boundary this chunk.
+     */
+    case none
+    /**
+     * Segmenter opened an utterance.
+     */
+    case speechStarted
+    /**
+     * Segmenter closed an utterance — call [`PttSession::take_stream_segment`].
+     */
+    case segmentEnded
+}
+
+
+#if compiler(>=6)
+extension FfiStreamVadEvent: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiStreamVadEvent: FfiConverterRustBuffer {
+    typealias SwiftType = FfiStreamVadEvent
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiStreamVadEvent {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .none
+        
+        case 2: return .speechStarted
+        
+        case 3: return .segmentEnded
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiStreamVadEvent, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .none:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .speechStarted:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .segmentEnded:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStreamVadEvent_lift(_ buf: RustBuffer) throws -> FfiStreamVadEvent {
+    return try FfiConverterTypeFfiStreamVadEvent.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStreamVadEvent_lower(_ value: FfiStreamVadEvent) -> RustBuffer {
+    return FfiConverterTypeFfiStreamVadEvent.lower(value)
+}
+
+
+extension FfiStreamVadEvent: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Accessibility focus classification supplied by the shell (stub inputs in tests).
  */
 
@@ -2035,6 +2199,16 @@ public func shouldAcceptStreamResult(text: String) -> Bool  {
 })
 }
 /**
+ * Whether key-up should ASR the leftover streaming buffer (speech since last endpoint).
+ */
+public func shouldFlushStreamOnRelease(sawSpeechSinceEndpoint: Bool) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_should_flush_stream_on_release(
+        FfiConverterBool.lower(sawSpeechSinceEndpoint),$0
+    )
+})
+}
+/**
  * Samples to keep from a rolling buffer once energy VAD reports speech started.
  */
 public func speechStartKeepLen(bufferLen: UInt64, padSamples: UInt64) -> UInt64  {
@@ -2101,6 +2275,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_func_should_accept_stream_result() != 51866) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_func_should_flush_stream_on_release() != 49480) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_func_speech_start_keep_len() != 19505) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2137,6 +2314,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_method_pttsession_clear_buffer() != 36423) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_finish_stream_listen() != 11923) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_method_pttsession_last_capture_metrics() != 19726) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2146,13 +2326,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_method_pttsession_push_pcm_f32() != 45717) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_push_stream_pcm_f32() != 62086) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_method_pttsession_start_ptt() != 26484) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_start_stream_listen() != 3474) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_status() != 58209) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_stop_ptt() != 1751) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_stop_stream_listen() != 45573) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_take_stream_segment() != 24571) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload() != 32124) {

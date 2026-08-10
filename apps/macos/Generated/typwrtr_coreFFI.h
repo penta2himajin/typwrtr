@@ -357,6 +357,11 @@ void uniffi_typwrtr_core_fn_method_pttsession_cancel(void*_Nonnull ptr, RustCall
 void uniffi_typwrtr_core_fn_method_pttsession_clear_buffer(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_FINISH_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_FINISH_STREAM_LISTEN
+void uniffi_typwrtr_core_fn_method_pttsession_finish_stream_listen(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_last_capture_metrics(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -372,9 +377,19 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_last_text(void*_Nonnull ptr,
 void uniffi_typwrtr_core_fn_method_pttsession_push_pcm_f32(void*_Nonnull ptr, RustBuffer samples, uint32_t sample_rate, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_push_stream_pcm_f32(void*_Nonnull ptr, RustBuffer samples, uint32_t sample_rate, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_PTT
 void uniffi_typwrtr_core_fn_method_pttsession_start_ptt(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_STREAM_LISTEN
+void uniffi_typwrtr_core_fn_method_pttsession_start_stream_listen(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_STATUS
@@ -385,6 +400,16 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_status(void*_Nonnull ptr, Ru
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_STOP_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_STOP_PTT
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_STOP_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_STOP_STREAM_LISTEN
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_stream_listen(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_stream_segment(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
@@ -411,6 +436,11 @@ void uniffi_typwrtr_core_fn_func_save_term_dictionary(RustBuffer language, RustB
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_ACCEPT_STREAM_RESULT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_ACCEPT_STREAM_RESULT
 int8_t uniffi_typwrtr_core_fn_func_should_accept_stream_result(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
+int8_t uniffi_typwrtr_core_fn_func_should_flush_stream_on_release(int8_t saw_speech_since_endpoint, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_KEEP_LEN
@@ -739,6 +769,12 @@ uint16_t uniffi_typwrtr_core_checksum_func_should_accept_stream_result(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
+uint16_t uniffi_typwrtr_core_checksum_func_should_flush_stream_on_release(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_KEEP_LEN
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_KEEP_LEN
 uint16_t uniffi_typwrtr_core_checksum_func_speech_start_keep_len(void
@@ -811,6 +847,12 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_clear_buffer(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_FINISH_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_FINISH_STREAM_LISTEN
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_finish_stream_listen(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_LAST_CAPTURE_METRICS
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_last_capture_metrics(void
@@ -829,9 +871,21 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_push_pcm_f32(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_push_stream_pcm_f32(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_PTT
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_start_ptt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_STREAM_LISTEN
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_start_stream_listen(void
     
 );
 #endif
@@ -844,6 +898,18 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_status(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_PTT
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_stop_ptt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_STREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_STOP_STREAM_LISTEN
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_stop_stream_listen(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_take_stream_segment(void
     
 );
 #endif
