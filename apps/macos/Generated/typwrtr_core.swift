@@ -1193,6 +1193,190 @@ public func FfiConverterTypeFfiCaptureMetrics_lower(_ value: FfiCaptureMetrics) 
 
 
 /**
+ * What Settings should show for the active language's dictionary.
+ */
+public struct FfiDictionarySnapshot {
+    /**
+     * Entries when the file loaded cleanly; empty when missing or corrupt.
+     */
+    public var entries: [FfiTermEntry]
+    /**
+     * True when the on-disk file was skipped (Q36).
+     */
+    public var loadFailed: Bool
+    /**
+     * Why the load failed, when [`load_failed`](Self::load_failed).
+     */
+    public var failureMessage: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Entries when the file loaded cleanly; empty when missing or corrupt.
+         */entries: [FfiTermEntry], 
+        /**
+         * True when the on-disk file was skipped (Q36).
+         */loadFailed: Bool, 
+        /**
+         * Why the load failed, when [`load_failed`](Self::load_failed).
+         */failureMessage: String?) {
+        self.entries = entries
+        self.loadFailed = loadFailed
+        self.failureMessage = failureMessage
+    }
+}
+
+#if compiler(>=6)
+extension FfiDictionarySnapshot: Sendable {}
+#endif
+
+
+extension FfiDictionarySnapshot: Equatable, Hashable {
+    public static func ==(lhs: FfiDictionarySnapshot, rhs: FfiDictionarySnapshot) -> Bool {
+        if lhs.entries != rhs.entries {
+            return false
+        }
+        if lhs.loadFailed != rhs.loadFailed {
+            return false
+        }
+        if lhs.failureMessage != rhs.failureMessage {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(entries)
+        hasher.combine(loadFailed)
+        hasher.combine(failureMessage)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiDictionarySnapshot: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiDictionarySnapshot {
+        return
+            try FfiDictionarySnapshot(
+                entries: FfiConverterSequenceTypeFfiTermEntry.read(from: &buf), 
+                loadFailed: FfiConverterBool.read(from: &buf), 
+                failureMessage: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiDictionarySnapshot, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeFfiTermEntry.write(value.entries, into: &buf)
+        FfiConverterBool.write(value.loadFailed, into: &buf)
+        FfiConverterOptionString.write(value.failureMessage, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiDictionarySnapshot_lift(_ buf: RustBuffer) throws -> FfiDictionarySnapshot {
+    return try FfiConverterTypeFfiDictionarySnapshot.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiDictionarySnapshot_lower(_ value: FfiDictionarySnapshot) -> RustBuffer {
+    return FfiConverterTypeFfiDictionarySnapshot.lower(value)
+}
+
+
+/**
+ * One speaker dictionary entry across the FFI boundary.
+ */
+public struct FfiTermEntry {
+    /**
+     * Preferred spelling.
+     */
+    public var term: String
+    /**
+     * ASR outputs that should become [`term`](Self::term).
+     */
+    public var aliases: [String]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Preferred spelling.
+         */term: String, 
+        /**
+         * ASR outputs that should become [`term`](Self::term).
+         */aliases: [String]) {
+        self.term = term
+        self.aliases = aliases
+    }
+}
+
+#if compiler(>=6)
+extension FfiTermEntry: Sendable {}
+#endif
+
+
+extension FfiTermEntry: Equatable, Hashable {
+    public static func ==(lhs: FfiTermEntry, rhs: FfiTermEntry) -> Bool {
+        if lhs.term != rhs.term {
+            return false
+        }
+        if lhs.aliases != rhs.aliases {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(term)
+        hasher.combine(aliases)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiTermEntry: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiTermEntry {
+        return
+            try FfiTermEntry(
+                term: FfiConverterString.read(from: &buf), 
+                aliases: FfiConverterSequenceString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiTermEntry, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.term, into: &buf)
+        FfiConverterSequenceString.write(value.aliases, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiTermEntry_lift(_ buf: RustBuffer) throws -> FfiTermEntry {
+    return try FfiConverterTypeFfiTermEntry.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiTermEntry_lower(_ value: FfiTermEntry) -> RustBuffer {
+    return FfiConverterTypeFfiTermEntry.lower(value)
+}
+
+
+/**
  * FFI-visible error.
  */
 public enum FfiError: Swift.Error {
@@ -1745,6 +1929,87 @@ fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
     }
 }
 
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]
+
+    public static func write(_ value: [String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterString.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [String]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterString.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiTermEntry: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiTermEntry]
+
+    public static func write(_ value: [FfiTermEntry], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiTermEntry.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiTermEntry] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiTermEntry]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiTermEntry.read(from: &buf))
+        }
+        return seq
+    }
+}
+/**
+ * Load the speaker dictionary for Settings (does not mutate a live session).
+ */
+public func loadTermDictionary(language: FfiLanguage) -> FfiDictionarySnapshot  {
+    return try!  FfiConverterTypeFfiDictionarySnapshot_lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_load_term_dictionary(
+        FfiConverterTypeFfiLanguage_lower(language),$0
+    )
+})
+}
+/**
+ * Validate and write the speaker dictionary. Caller must recreate the session
+ * so the next utterance picks up the change (Q34).
+ */
+public func saveTermDictionary(language: FfiLanguage, entries: [FfiTermEntry])throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_func_save_term_dictionary(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterSequenceTypeFfiTermEntry.lower(entries),$0
+    )
+}
+}
+/**
+ * Absolute path of the JSON file for `language` (hand-edit / debug).
+ */
+public func termDictionaryPath(language: FfiLanguage) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_term_dictionary_path(
+        FfiConverterTypeFfiLanguage_lower(language),$0
+    )
+})
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -1759,6 +2024,15 @@ private let initializationResult: InitializationResult = {
     let scaffolding_contract_version = ffi_typwrtr_core_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_load_term_dictionary() != 42573) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_save_term_dictionary() != 27364) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_term_dictionary_path() != 51010) {
+        return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_freecontroller_arm() != 27330) {
         return InitializationResult.apiChecksumMismatch

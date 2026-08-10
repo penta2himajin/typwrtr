@@ -392,6 +392,21 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(void*_Nonnull ptr, 
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_undo_payload(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
+RustBuffer uniffi_typwrtr_core_fn_func_load_term_dictionary(RustBuffer language, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SAVE_TERM_DICTIONARY
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SAVE_TERM_DICTIONARY
+void uniffi_typwrtr_core_fn_func_save_term_dictionary(RustBuffer language, RustBuffer entries, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TERM_DICTIONARY_PATH
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TERM_DICTIONARY_PATH
+RustBuffer uniffi_typwrtr_core_fn_func_term_dictionary_path(RustBuffer language, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUSTBUFFER_ALLOC
 #define UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUSTBUFFER_ALLOC
 RustBuffer ffi_typwrtr_core_rustbuffer_alloc(uint64_t size, RustCallStatus *_Nonnull out_status
@@ -670,6 +685,24 @@ void ffi_typwrtr_core_rust_future_free_void(uint64_t handle
 #ifndef UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUST_FUTURE_COMPLETE_VOID
 #define UNIFFI_FFIDEF_FFI_TYPWRTR_CORE_RUST_FUTURE_COMPLETE_VOID
 void ffi_typwrtr_core_rust_future_complete_void(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_LOAD_TERM_DICTIONARY
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_LOAD_TERM_DICTIONARY
+uint16_t uniffi_typwrtr_core_checksum_func_load_term_dictionary(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SAVE_TERM_DICTIONARY
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SAVE_TERM_DICTIONARY
+uint16_t uniffi_typwrtr_core_checksum_func_save_term_dictionary(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_TERM_DICTIONARY_PATH
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_TERM_DICTIONARY_PATH
+uint16_t uniffi_typwrtr_core_checksum_func_term_dictionary_path(void
+    
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_FREECONTROLLER_ARM

@@ -5,6 +5,8 @@ import AppKit
 enum SetupDialog {
     /// Called when the user changes language inside the dialog (recreate ASR session).
     static var onLanguageChanged: ((AppLanguage) -> Void)?
+    /// Called after a successful dictionary save (recreate session so terms apply — Q34).
+    static var onDictionaryChanged: (() -> Void)?
     /// Called when Setup toggles Free arming (F3 / wizard mode choice).
     static var onFreeArmChanged: ((Bool) -> Void)?
 
@@ -52,6 +54,8 @@ enum SetupDialog {
                 + sectionGap
                 + blockHeader
                 + section
+                + gap
+                + rowHeight
                 + sectionGap
                 + section
         }
@@ -423,6 +427,20 @@ enum SetupDialog {
             addSubview(downloadButton)
             applyPackUI(for: initial)
 
+            y -= Metrics.gap
+            y -= Metrics.rowHeight
+            let dictionary = NSButton(
+                title: "Dictionary…",
+                target: self,
+                action: #selector(openDictionary)
+            )
+            dictionary.font = .systemFont(ofSize: 12)
+            dictionary.bezelStyle = .rounded
+            dictionary.controlSize = .small
+            dictionary.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+            styleOutlineButton(dictionary)
+            addSubview(dictionary)
+
             y -= Metrics.sectionGap
             y -= Metrics.blockTitleHeight
             let autoTitle = NSTextField(labelWithString: "Auto Launch")
@@ -594,6 +612,14 @@ enum SetupDialog {
             // WIP languages (Korean): preview "Soon" only — do not activate ASR.
             guard lang.isSelectable else { return }
             onLanguage(lang)
+        }
+
+        @objc private func openDictionary() {
+            let lang = selectedLanguage()
+            // Editing a WIP language's file is fine; activation stays gated elsewhere.
+            DictionaryPanel.runModal(language: lang.isSelectable ? lang : AppLanguage.current) {
+                SetupDialog.onDictionaryChanged?()
+            }
         }
 
         @objc private func openMic() {

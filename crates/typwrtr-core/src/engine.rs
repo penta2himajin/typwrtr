@@ -13,6 +13,7 @@ use euhadra::traits::AsrAdapter;
 use euhadra::vad::{EarshotVad, SegmenterConfig};
 use euhadra::whisper_local::WhisperLocal;
 
+use crate::dictionary::{self, StoredTerm};
 use crate::paths::{
     canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_paraformer_zh_dir,
     resolve_paraformer_zh_from_env, resolve_parakeet_dir, resolve_parakeet_ja_from_env,
@@ -100,19 +101,48 @@ fn segmenter_config() -> SegmenterConfig {
 impl DictationEngine {
     /// Build a pipeline for `language` using the given ASR adapter.
     ///
+    /// Loads the speaker term dictionary for `language` from Application
+    /// Support (empty when missing or corrupt — see ux-decisions Q36/Q37).
     /// Voice activity detection runs ahead of the adapter, so silence never
     /// reaches it — a recogniser handed silence invents fluent text.
     pub fn new(language: Language, asr: impl AsrAdapter + 'static) -> Result<Self, EngineError> {
+        let entries = dictionary::load(language).entries_for_pipeline();
+        Self::with_terms(language, asr, entries)
+    }
+
+    /// Build with an explicit term list (tests and CUD rebuild paths).
+    pub fn with_terms(
+        language: Language,
+        asr: impl AsrAdapter + 'static,
+        entries: impl IntoIterator<Item = euhadra::dictionary::TermEntry>,
+    ) -> Result<Self, EngineError> {
+        let dictionary = dictionary::term_dictionary(language, entries.into_iter().collect())
+            .map_err(EngineError::new)?;
         let pipeline = Pipeline::builder()
             .asr(asr)
             .filter(FillerFilter::for_language(language))
             .processor(SelfCorrectionDetector::new())
             .processor(BasicPunctuationRestorer)
+            // After punctuation so the preferred spelling is the final form (Q35).
+            .processor(dictionary)
             .vad(EarshotVad::new())
             .segmenter_config(segmenter_config())
             .build()
             .map_err(EngineError::from)?;
         Ok(Self { pipeline, language })
+    }
+
+    /// Terms currently intended for `language` (for Settings / tests).
+    pub fn load_stored_terms(language: Language) -> dictionary::DictionaryLoad {
+        dictionary::load(language)
+    }
+
+    /// Validate and persist terms for `language` (Q36 atomic save).
+    pub fn save_stored_terms(
+        language: Language,
+        entries: Vec<StoredTerm>,
+    ) -> Result<(), EngineError> {
+        dictionary::save(language, entries).map_err(EngineError::new)
     }
 
     /// Build using euhadra [`WhisperLocal`] (whisper.cpp CLI).
@@ -284,6 +314,30 @@ mod tests {
         let text = engine.dictate(&[voiced_chunk(1.0)]).await.unwrap().text;
         assert!(!text.contains("えーと"), "filler left: {text}");
         assert!(text.contains("今日は天気がいい"), "content lost: {text}");
+    }
+
+    /// Speaker terminology sits after punctuation: ASR said the common noun,
+    /// the dictionary emits the preferred spelling (ux-decisions Q28/Q35).
+    #[tokio::test]
+    async fn term_dictionary_replaces_alias_after_punctuation() {
+        use euhadra::dictionary::TermEntry;
+
+        let engine = DictationEngine::with_terms(
+            Language::Japanese,
+            MockAsr::new("タイプライターで書く"),
+            vec![TermEntry {
+                term: "typwrtr".into(),
+                aliases: vec!["タイプライター".into()],
+            }],
+        )
+        .unwrap();
+
+        let text = engine.dictate(&[voiced_chunk(1.0)]).await.unwrap().text;
+        assert!(text.contains("typwrtr"), "preferred term missing: {text}");
+        assert!(
+            !text.contains("タイプライター"),
+            "alias left in place: {text}"
+        );
     }
 
     /// The point of adopting euhadra's detector: a recogniser handed silence

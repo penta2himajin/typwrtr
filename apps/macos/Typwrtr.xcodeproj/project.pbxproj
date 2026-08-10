@@ -26,6 +26,7 @@
 		9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
 		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
+		E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */; };
 		F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC57C97C2F91AEF6301000DF /* SetupChecker.swift */; };
 /* End PBXBuildFile section */
 
@@ -48,6 +49,7 @@
 		B7F8EE7B5753924349571354 /* PackDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackDownloader.swift; sourceTree = "<group>"; };
 		BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryPanel.swift; sourceTree = "<group>"; };
 		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
 		E745C13D85505A8ECC7E3BF9 /* SilenceVad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceVad.swift; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 				85B91393F5CBC50C3C4B8208 /* Assets.xcassets */,
 				01718668FF16CF01984BDF93 /* CaptureLog.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
+				C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */,
 				7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */,
 				B5F0BD526E6949E60246A91D /* FocusWatcher.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
@@ -202,6 +205,7 @@
 				1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */,
 				7DFCDDBC82E76DFE02BB68AE /* CaptureLog.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
+				E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */,
 				9134229092E1413975D36E2D /* FocusProbe.swift in Sources */,
 				967556A32E8666562F752864 /* FocusWatcher.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,

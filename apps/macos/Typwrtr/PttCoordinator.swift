@@ -78,6 +78,9 @@ final class PttCoordinator {
         SetupDialog.onLanguageChanged = { [weak self] language in
             self?.applyLanguage(language)
         }
+        SetupDialog.onDictionaryChanged = { [weak self] in
+            self?.applyLanguage(AppLanguage.current)
+        }
         SetupDialog.onFreeArmChanged = { [weak self] armed in
             self?.setFreeArmed(armed)
         }

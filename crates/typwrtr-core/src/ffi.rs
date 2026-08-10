@@ -7,6 +7,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 use crate::asr::FixedAsr;
+use crate::dictionary::{self, StoredTerm};
 use crate::engine::DictationEngine;
 use crate::session::{CaptureMetrics, Session, SessionError, SessionStatus};
 use crate::Language;
@@ -84,6 +85,86 @@ impl From<CaptureMetrics> for FfiCaptureMetrics {
             sample_rate: value.sample_rate,
         }
     }
+}
+
+/// One speaker dictionary entry across the FFI boundary.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FfiTermEntry {
+    /// Preferred spelling.
+    pub term: String,
+    /// ASR outputs that should become [`term`](Self::term).
+    pub aliases: Vec<String>,
+}
+
+impl From<StoredTerm> for FfiTermEntry {
+    fn from(value: StoredTerm) -> Self {
+        Self {
+            term: value.term,
+            aliases: value.aliases,
+        }
+    }
+}
+
+impl From<FfiTermEntry> for StoredTerm {
+    fn from(value: FfiTermEntry) -> Self {
+        Self {
+            term: value.term,
+            aliases: value.aliases,
+        }
+    }
+}
+
+/// What Settings should show for the active language's dictionary.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FfiDictionarySnapshot {
+    /// Entries when the file loaded cleanly; empty when missing or corrupt.
+    pub entries: Vec<FfiTermEntry>,
+    /// True when the on-disk file was skipped (Q36).
+    pub load_failed: bool,
+    /// Why the load failed, when [`load_failed`](Self::load_failed).
+    pub failure_message: Option<String>,
+}
+
+/// Absolute path of the JSON file for `language` (hand-edit / debug).
+#[uniffi::export]
+pub fn term_dictionary_path(language: FfiLanguage) -> String {
+    dictionary::dictionary_path(language.into())
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Load the speaker dictionary for Settings (does not mutate a live session).
+#[uniffi::export]
+pub fn load_term_dictionary(language: FfiLanguage) -> FfiDictionarySnapshot {
+    let loaded = dictionary::load(language.into());
+    match loaded {
+        dictionary::DictionaryLoad::Ready(entries) => FfiDictionarySnapshot {
+            entries: entries.into_iter().map(Into::into).collect(),
+            load_failed: false,
+            failure_message: None,
+        },
+        dictionary::DictionaryLoad::Empty => FfiDictionarySnapshot {
+            entries: Vec::new(),
+            load_failed: false,
+            failure_message: None,
+        },
+        dictionary::DictionaryLoad::Corrupt { message } => FfiDictionarySnapshot {
+            entries: Vec::new(),
+            load_failed: true,
+            failure_message: Some(message),
+        },
+    }
+}
+
+/// Validate and write the speaker dictionary. Caller must recreate the session
+/// so the next utterance picks up the change (Q34).
+#[uniffi::export]
+pub fn save_term_dictionary(
+    language: FfiLanguage,
+    entries: Vec<FfiTermEntry>,
+) -> Result<(), FfiError> {
+    let stored: Vec<StoredTerm> = entries.into_iter().map(Into::into).collect();
+    dictionary::save(language.into(), stored).map_err(|msg| FfiError::Message { msg })
 }
 
 /// FFI-visible error.
