@@ -424,15 +424,12 @@ impl PttSession {
 
     /// Open Earshot live endpointing for streaming PTT (one key-hold).
     pub fn start_stream_listen(&self) -> Result<(), FfiError> {
-        let listen = StreamListen::start().map_err(|msg| FfiError::Message { msg })?;
-        let mut slot = self
-            .stream
-            .lock()
-            .map_err(|_| FfiError::Message {
-                msg: "stream listen lock poisoned".into(),
-            })?;
-        *slot = Some(listen);
-        Ok(())
+        install_stream_listen(&self.stream, StreamListen::start())
+    }
+
+    /// Open Earshot live endpointing for Focus Dictation (1.5s silence).
+    pub fn start_focus_listen(&self) -> Result<(), FfiError> {
+        install_stream_listen(&self.stream, StreamListen::start_focus())
     }
 
     /// Pump mic PCM into the live segmenter.
@@ -441,12 +438,9 @@ impl PttSession {
         samples: Vec<f32>,
         sample_rate: u32,
     ) -> Result<FfiStreamVadEvent, FfiError> {
-        let mut slot = self
-            .stream
-            .lock()
-            .map_err(|_| FfiError::Message {
-                msg: "stream listen lock poisoned".into(),
-            })?;
+        let mut slot = self.stream.lock().map_err(|_| FfiError::Message {
+            msg: "stream listen lock poisoned".into(),
+        })?;
         let listen = slot.as_mut().ok_or_else(|| FfiError::Message {
             msg: "stream listen not started".into(),
         })?;
@@ -458,12 +452,9 @@ impl PttSession {
 
     /// End the listen. Flushes only if an utterance is still open.
     pub fn stop_stream_listen(&self) -> Result<FfiStreamVadEvent, FfiError> {
-        let mut slot = self
-            .stream
-            .lock()
-            .map_err(|_| FfiError::Message {
-                msg: "stream listen lock poisoned".into(),
-            })?;
+        let mut slot = self.stream.lock().map_err(|_| FfiError::Message {
+            msg: "stream listen lock poisoned".into(),
+        })?;
         let Some(listen) = slot.as_mut() else {
             return Ok(FfiStreamVadEvent::None);
         };
@@ -477,12 +468,9 @@ impl PttSession {
     /// Transcribe one closed stream segment (blocking ASR).
     pub fn take_stream_segment(&self) -> Result<String, FfiError> {
         let samples = {
-            let mut slot = self
-                .stream
-                .lock()
-                .map_err(|_| FfiError::Message {
-                    msg: "stream listen lock poisoned".into(),
-                })?;
+            let mut slot = self.stream.lock().map_err(|_| FfiError::Message {
+                msg: "stream listen lock poisoned".into(),
+            })?;
             let listen = slot.as_mut().ok_or_else(|| FfiError::Message {
                 msg: "stream listen not started".into(),
             })?;
@@ -519,6 +507,18 @@ fn ptt_session_from_engine(engine: DictationEngine) -> Result<Arc<PttSession>, F
     }))
 }
 
+fn install_stream_listen(
+    slot: &std::sync::Mutex<Option<StreamListen>>,
+    listen: Result<StreamListen, String>,
+) -> Result<(), FfiError> {
+    let listen = listen.map_err(|msg| FfiError::Message { msg })?;
+    let mut guard = slot.lock().map_err(|_| FfiError::Message {
+        msg: "stream listen lock poisoned".into(),
+    })?;
+    *guard = Some(listen);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -539,25 +539,31 @@ mod tests {
     }
 
     #[test]
-    fn ffi_stream_listen_closes_and_transcribes() {
+    fn ffi_focus_listen_uses_longer_silence() {
         let session =
-            PttSession::with_fixed_transcript(FfiLanguage::English, "um hello stream".into())
+            PttSession::with_fixed_transcript(FfiLanguage::English, "um hello focus".into())
                 .unwrap();
-        session.start_stream_listen().unwrap();
-        let mut pcm = voiced_samples(1.0);
-        pcm.extend(std::iter::repeat_n(0.0, 16_000 * 3 / 2)); // 1.5s silence
+        session.start_focus_listen().unwrap();
+        let mut pcm = voiced_samples(0.8);
+        pcm.extend(std::iter::repeat_n(0.0, 16_000)); // 1.0s — below focus 1.5s
         let chunk = 1_280usize;
+        for piece in pcm.chunks(chunk) {
+            let ev = session.push_stream_pcm_f32(piece.to_vec(), 16_000).unwrap();
+            assert!(
+                !matches!(ev, FfiStreamVadEvent::SegmentEnded),
+                "focus must not close at 1.0s silence"
+            );
+        }
+        pcm = std::iter::repeat_n(0.0, 16_000).collect(); // +1.0s → past 1.5s
         let mut ended = false;
         for piece in pcm.chunks(chunk) {
-            let ev = session
-                .push_stream_pcm_f32(piece.to_vec(), 16_000)
-                .unwrap();
+            let ev = session.push_stream_pcm_f32(piece.to_vec(), 16_000).unwrap();
             if matches!(ev, FfiStreamVadEvent::SegmentEnded) {
                 ended = true;
                 break;
             }
         }
-        assert!(ended, "expected SegmentEnded after speech+silence");
+        assert!(ended, "focus must close after ~1.5s silence");
         let text = session.take_stream_segment().unwrap();
         assert!(text.to_lowercase().contains("hello"), "{text}");
         session.finish_stream_listen();

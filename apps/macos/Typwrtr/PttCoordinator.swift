@@ -22,16 +22,10 @@ final class PttCoordinator {
     /// Frontmost app at PTT-down / Free segment start — restore before paste.
     private var insertTarget: NSRunningApplication?
 
-    // Free / VAD
+    // Free / Focus Dictation (Earshot live endpointing in core)
     private var freeSuspendedByPtt = false
     private var freeMicOpen = false
-    private var freeFinishing = false
-    private var freeSegment: [Float] = []
-    private var freeVad: SilenceVad = {
-        var vad = SilenceVad()
-        vad.silenceSeconds = focusDictationSilenceSeconds()
-        return vad
-    }()
+    private var freeInFlight = 0
     private var focusWatcher = FocusWatcher()
     /// Drains mic / VAD while Free is listening (independent of AX focus watches).
     private var freeAudioTimer: Timer?
@@ -45,7 +39,7 @@ final class PttCoordinator {
     private var streamAudioTimer: Timer?
     private var streamInFlight = 0
     private var streamReleasePending = false
-    /// Serial ASR for streaming segments (take_stream_segment is blocking).
+    /// Serial ASR for streaming / Focus closed segments (take_stream_segment is blocking).
     private let streamRecognizeQueue = DispatchQueue(label: "app.typwrtr.ptt-stream")
 
     init(menu: MenuBarModel, session: PttSession, backend: AsrBackend) {
@@ -113,7 +107,7 @@ final class PttCoordinator {
 
     /// Recreate the ASR session for a new language (idle only).
     func applyLanguage(_ language: AppLanguage) {
-        guard phase == .idle, !freeFinishing, streamInFlight == 0, !streamingPttActive else {
+        guard phase == .idle, freeInFlight == 0, streamInFlight == 0, !streamingPttActive else {
             menu.showError("Finish the current dictation before changing language.")
             return
         }
@@ -168,7 +162,7 @@ final class PttCoordinator {
     }
 
     private func pollFreeFocus() {
-        if freeSuspendedByPtt || freeFinishing || phase != .idle {
+        if freeSuspendedByPtt || phase != .idle {
             return
         }
 
@@ -271,16 +265,17 @@ final class PttCoordinator {
         }
         micAuthorized = true
         do {
+            try session.startFocusListen()
             try mic.start()
             freeMicOpen = true
-            freeSegment.removeAll(keepingCapacity: true)
-            freeVad.reset()
             insertTarget = NSWorkspace.shared.frontmostApplication
             menu.setFreeListeningIcon(true)
             startFreeAudioTimer()
-            NSLog("Typwrtr: Free mic open")
+            NSLog("Typwrtr: Free mic open (Earshot focus listen)")
+            CaptureLog.note("focus listen started (earshot)")
         } catch {
             freeMicOpen = false
+            session.finishStreamListen()
             NSLog("Typwrtr: Free mic start failed: %@", error.localizedDescription)
             menu.setFocusDictationStatus("Microphone failed")
         }
@@ -292,8 +287,10 @@ final class PttCoordinator {
         _ = mic.stop()
         freeMicOpen = false
         if abandon {
-            freeSegment.removeAll(keepingCapacity: true)
-            freeVad.reset()
+            session.finishStreamListen()
+        } else {
+            _ = try? session.stopStreamListen()
+            session.finishStreamListen()
         }
         menu.setFreeListeningIcon(false)
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
@@ -314,65 +311,76 @@ final class PttCoordinator {
     }
 
     private func processFreeAudio() {
-        guard freeMicOpen, !freeFinishing else { return }
+        // Keep draining while Focus is listening, even if a prior segment is recognising.
+        guard freeMicOpen else { return }
         let chunk = mic.drain()
-        guard !chunk.isEmpty else { return }
-        freeSegment.append(contentsOf: chunk)
-        switch freeVad.push(samples: chunk) {
-        case .none, .speechStarted:
-            break
-        case .segmentEnded:
-            finalizeFreeSegment()
+        do {
+            let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
+            switch event {
+            case .none:
+                break
+            case .speechStarted:
+                NSLog("Typwrtr: Focus Dictation speechStarted (earshot)")
+                CaptureLog.note("focus earshot speechStarted")
+            case .segmentEnded:
+                CaptureLog.endpoint(reason: "earshot-silence", samples: chunk.count)
+                enqueueFreeSegment()
+            }
+        } catch {
+            NSLog("Typwrtr: Focus push failed: %@", "\(error)")
+            CaptureLog.note("focus push failed")
         }
     }
 
-    private func finalizeFreeSegment() {
-        guard !freeFinishing else { return }
-        freeFinishing = true
-        let samples = freeSegment
-        freeSegment.removeAll(keepingCapacity: true)
-        freeVad.reset()
-        stopFreeMic(abandon: false)
-
-        guard !samples.isEmpty else {
-            freeFinishing = false
-            pollFreeFocus()
-            return
-        }
-
+    private func enqueueFreeSegment() {
+        freeInFlight += 1
         menu.setStatus(.processing)
         let target = insertTarget ?? NSWorkspace.shared.frontmostApplication
         insertTarget = target
+        NSLog("Typwrtr: Focus Dictation segment")
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        streamRecognizeQueue.async { [weak self] in
             guard let self else { return }
-            do {
-                try self.session.startPtt()
-                try self.session.pushPcmF32(samples: samples, sampleRate: 16_000)
-                let text = try self.session.stopPtt()
-                let metrics = self.session.lastCaptureMetrics()
-                CaptureLog.record(metrics, path: "free")
-                DispatchQueue.main.async {
-                    self.freeFinishing = false
-                    self.refreshStatus()
-                    self.menu.setLastCapture(samples: samples.count, sampleRate: 16_000)
-                    self.insertStreamResult(text: text, path: "free")
-                    self.pollFreeFocus()
+            var results: [(text: String, samples: Int)] = []
+            while true {
+                do {
+                    let text = try self.session.takeStreamSegment()
+                    let metrics = self.session.lastCaptureMetrics()
+                    CaptureLog.record(metrics, path: "free")
+                    let samples = Int(metrics?.pushedSamples ?? 0)
+                    results.append((text, samples))
+                } catch {
+                    break
                 }
-            } catch {
-                DispatchQueue.main.async {
-                    self.freeFinishing = false
-                    try? self.session.cancel()
+            }
+            DispatchQueue.main.async {
+                if results.isEmpty {
+                    self.freeInFlight = max(0, self.freeInFlight - 1)
                     self.refreshStatus()
-                    NSLog("Typwrtr: Free segment failed: %@", "\(error)")
-                    self.pollFreeFocus()
+                    return
+                }
+                if results.count > 1 {
+                    self.freeInFlight += results.count - 1
+                }
+                for item in results {
+                    self.completeFreeSegment(text: item.text, samples: item.samples)
                 }
             }
         }
     }
 
+    private func completeFreeSegment(text: String, samples: Int) {
+        freeInFlight = max(0, freeInFlight - 1)
+        refreshStatus()
+        menu.setLastCapture(samples: samples, sampleRate: 16_000)
+        insertStreamResult(text: text, path: "free")
+        if freeMicOpen {
+            menu.setStatus(.recording)
+        }
+    }
+
     func undoLast() {
-        guard phase == .idle, !freeFinishing, streamInFlight == 0 else { return }
+        guard phase == .idle, freeInFlight == 0, streamInFlight == 0 else { return }
         guard let text = session.takeUndoPayload() else {
             menu.setCanUndo(false)
             return
@@ -399,7 +407,7 @@ final class PttCoordinator {
     }
 
     func confirmQuitIfBusy() -> NSApplication.TerminateReply {
-        if freeFinishing || freeMicOpen || streamingPttActive || streamInFlight > 0 {
+        if freeInFlight > 0 || freeMicOpen || streamingPttActive || streamInFlight > 0 {
             let alert = NSAlert()
             alert.messageText = "Discard and quit?"
             alert.informativeText = "Typwrtr is still listening or processing."
@@ -421,7 +429,7 @@ final class PttCoordinator {
     }
 
     private func beginPtt() {
-        guard phase == .idle, !freeFinishing, streamInFlight == 0 else { return }
+        guard phase == .idle, freeInFlight == 0, streamInFlight == 0 else { return }
         guard micAuthorized || AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
             menu.showError("Microphone permission is not granted.")
             return

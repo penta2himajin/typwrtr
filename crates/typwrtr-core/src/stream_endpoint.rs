@@ -1,4 +1,4 @@
-//! Live Earshot + Segmenter endpointing for streaming PTT (VAD stage 2 pilot).
+//! Live Earshot + Segmenter endpointing (VAD stage 2).
 //!
 //! The segmenter decides *when* a phrase ends. Closed PCM is the mic window
 //! accumulated since the previous close (or listen start) — not a slice on
@@ -6,14 +6,16 @@
 //! pipeline Earshot again for trim / NoSpeech (backend default threshold 0.2).
 //!
 //! Live endpointing uses a higher score cutoff than dictate trim: see
-//! [`streaming_live_config`]. Focus Dictation still uses the Swift energy
-//! detector until a later stage.
+//! [`live_config`]. Streaming PTT and Focus Dictation share this path; only
+//! `min_silence` differs (700 ms vs 1500 ms).
 
 use std::time::Duration;
 
 use euhadra::vad::{EarshotVad, Segmenter, SegmenterConfig, VadBackend, VadStream};
 
-use crate::endpoint::{SPEECH_START_PAD_SAMPLES, STREAMING_PTT_SILENCE_MS};
+use crate::endpoint::{
+    FOCUS_DICTATION_SILENCE_MS, SPEECH_START_PAD_SAMPLES, STREAMING_PTT_SILENCE_MS,
+};
 
 /// What the shell should do after pumping PCM into a stream listen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,25 +54,47 @@ pub struct StreamListen {
     was_speaking: bool,
 }
 
-/// Segmenter policy for streaming live endpointing.
+/// Which product mode opened this listen (silence budget only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamListenMode {
+    /// Push to talk (streaming): ~700 ms silence.
+    Streaming,
+    /// Focus Dictation / Free: 1500 ms silence (Q25).
+    FocusDictation,
+}
+
+/// Segmenter policy for live endpointing.
 ///
 /// - `threshold`: [`STREAMING_EARSHOT_ENDPOINT_THRESHOLD`] (rlx-vad Earshot preset)
-/// - `min_silence`: [`STREAMING_PTT_SILENCE_MS`] (euhadra `SegmenterConfig` default ballpark)
+/// - `min_silence`: mode-specific ([`STREAMING_PTT_SILENCE_MS`] or
+///   [`FOCUS_DICTATION_SILENCE_MS`])
 /// - other fields: euhadra `SegmenterConfig::default()`
-fn streaming_live_config() -> SegmenterConfig {
+fn live_config(mode: StreamListenMode) -> SegmenterConfig {
     let mut config = SegmenterConfig::default();
     config.threshold = Some(STREAMING_EARSHOT_ENDPOINT_THRESHOLD);
-    config.min_silence = Duration::from_millis(STREAMING_PTT_SILENCE_MS);
+    config.min_silence = Duration::from_millis(match mode {
+        StreamListenMode::Streaming => STREAMING_PTT_SILENCE_MS,
+        StreamListenMode::FocusDictation => FOCUS_DICTATION_SILENCE_MS,
+    });
     config
 }
 
 impl StreamListen {
     /// Open a listening period with Earshot + streaming endpoint config.
     pub fn start() -> Result<Self, String> {
+        Self::start_mode(StreamListenMode::Streaming)
+    }
+
+    /// Open a listening period with Focus Dictation silence (1500 ms).
+    pub fn start_focus() -> Result<Self, String> {
+        Self::start_mode(StreamListenMode::FocusDictation)
+    }
+
+    fn start_mode(mode: StreamListenMode) -> Result<Self, String> {
         let vad = EarshotVad::new();
         let sample_rate = 16_000;
         let segmenter =
-            Segmenter::new(&vad, sample_rate, streaming_live_config()).map_err(|e| e.to_string())?;
+            Segmenter::new(&vad, sample_rate, live_config(mode)).map_err(|e| e.to_string())?;
         let frame_size = vad.frame_size();
         let stream = vad.start();
         Ok(Self {
@@ -206,10 +230,8 @@ impl StreamListen {
     }
 
     fn trim_utterance_to_speech_pad(&mut self) {
-        let keep = crate::endpoint::speech_start_keep_len(
-            self.utterance.len(),
-            SPEECH_START_PAD_SAMPLES,
-        );
+        let keep =
+            crate::endpoint::speech_start_keep_len(self.utterance.len(), SPEECH_START_PAD_SAMPLES);
         if self.utterance.len() > keep {
             self.utterance = self.utterance[self.utterance.len() - keep..].to_vec();
         }
@@ -350,5 +372,33 @@ mod tests {
         }
         assert!(ended, "empty pumps must be able to close on silence");
         assert!(listen.take_closed().is_some());
+    }
+
+    #[test]
+    fn focus_mode_needs_longer_silence_than_streaming() {
+        // ~1.0s gap: streaming should close; focus (1.5s) should still be open.
+        let mut pcm = voiced_samples(0.8);
+        pcm.extend(silence(1.0));
+
+        let mut streaming = StreamListen::start().unwrap();
+        let stream_events = push_all(&mut streaming, &pcm);
+        assert!(
+            stream_events.contains(&StreamVadEvent::SegmentEnded),
+            "streaming (~0.7s) must close after 1.0s silence: {stream_events:?}"
+        );
+
+        let mut focus = StreamListen::start_focus().unwrap();
+        let focus_events = push_all(&mut focus, &pcm);
+        assert!(
+            !focus_events.contains(&StreamVadEvent::SegmentEnded),
+            "focus (1.5s) must stay open after 1.0s silence: {focus_events:?}"
+        );
+        assert!(focus.is_speaking());
+
+        let after = push_all(&mut focus, &silence(0.7));
+        assert!(
+            after.contains(&StreamVadEvent::SegmentEnded),
+            "focus must close after reaching ~1.5s silence: {after:?}"
+        );
     }
 }

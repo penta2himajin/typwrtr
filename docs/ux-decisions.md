@@ -86,8 +86,8 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   - **Streaming PTT** uses **~0.7s** silence (core `STREAMING_PTT_SILENCE_MS`) —
     the hold is already an explicit consent gate, so euhadra's default is enough
     and mid-hold inserts should not wait for Focus Dictation's 1.5s margin.
-  - **Focus Dictation / Free** still uses 1.5s until measured on real audio after
-    VAD stage 2; do not shorten that path in the same change as the detector swap.
+  - **Focus Dictation / Free** uses 1.5s via `start_focus_listen` (sample-clock
+    Earshot segmenter), not wall-time energy VAD.
 - **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
   is force-segmented after 30s with no pause. Previously such an utterance
   produced a single insert, and the buffer grew without bound. The cap is
@@ -122,8 +122,8 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 **Dogfood (2026-08-08 / 2026-08-10):** shared **Typwrtr Settings** dialog covers permissions, **mode**, language + in-app pack download, and launch-at-login. Modes:
 
 - **Push to talk (batch)** — hold ⌃⇧D; release inserts the whole capture once.
-- **Push to talk (streaming)** — hold ⌃⇧D; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.35** (rlx-vad `SegmentParams::earshot` preset for Earshot segmentation); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Focus Dictation still uses the Swift energy detector. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
-- **Focus Dictation** — armed + text-field focus; silence ends each phrase (F3). Menu toggle matches this mode only.
+- **Push to talk (streaming)** — hold ⌃⇧D; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.35** (rlx-vad `SegmentParams::earshot` preset for Earshot segmentation); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
+- **Focus Dictation** — armed + text-field focus; **same Earshot live endpointing** with **1.5s** silence (Q25); one listening period spans many segments. Menu toggle matches this mode only.
 
 Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean remains WIP.
 

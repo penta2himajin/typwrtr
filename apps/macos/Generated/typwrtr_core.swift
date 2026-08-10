@@ -789,6 +789,11 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func pushStreamPcmF32(samples: [Float], sampleRate: UInt32) throws  -> FfiStreamVadEvent
     
     /**
+     * Open Earshot live endpointing for Focus Dictation (1.5s silence).
+     */
+    func startFocusListen() throws 
+    
+    /**
      * Start PTT.
      */
     func startPtt() throws 
@@ -1044,6 +1049,15 @@ open func pushStreamPcmF32(samples: [Float], sampleRate: UInt32)throws  -> FfiSt
         FfiConverterUInt32.lower(sampleRate),$0
     )
 })
+}
+    
+    /**
+     * Open Earshot live endpointing for Focus Dictation (1.5s silence).
+     */
+open func startFocusListen()throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_method_pttsession_start_focus_listen(self.uniffiClonePointer(),$0
+    )
+}
 }
     
     /**
@@ -2327,6 +2341,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_push_stream_pcm_f32() != 62086) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_start_focus_listen() != 65269) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_start_ptt() != 26484) {

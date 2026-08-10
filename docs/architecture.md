@@ -97,24 +97,26 @@ a **synchronous** Free lifecycle (see §4) — deliberately no callback interfac
 no async, because incremental output is deferred, and `Segmenter::push` is itself
 synchronous. Swift becomes a pump: hand over samples, act on the returned event.
 
-**Streaming PTT pilot (2026-08-11):** Stage 2 surface is live for **Push to talk
-(streaming)** only (`start_stream_listen` / `push_stream_pcm_f32` /
-`take_stream_segment` / `stop_stream_listen`). Live endpointing is
-**`EarshotVad` + `Segmenter`** with threshold **0.35** (rlx-vad Earshot segment
-preset; euhadra’s 0.2 WER calibration under-closed on laptop room tone in
-dogfood). Dictate trim still uses backend default 0.2. Focus Dictation still
-uses `SilenceVad.swift`. CaptureLog: `earshot-silence` / `earshot-release`.
-Do not replace live Earshot with EnergyVad without an explicit product decision.
+**Streaming PTT + Focus Dictation (2026-08-11):** Stage 2 surface is live for
+**Push to talk (streaming)** and **Focus Dictation** (`start_stream_listen` /
+`start_focus_listen` / `push_stream_pcm_f32` / `take_stream_segment` /
+`stop_stream_listen`). Live endpointing is **`EarshotVad` + `Segmenter`** with
+threshold **0.35** (rlx-vad Earshot segment preset; euhadra’s 0.2 WER calibration
+under-closed on laptop room tone in dogfood). Dictate trim still uses backend
+default 0.2. Silence budgets: streaming ≈ **700 ms**, Focus Dictation **1500 ms**
+(Q25). CaptureLog: `earshot-silence` / `earshot-release`. `SilenceVad.swift` is
+deleted. Do not replace live Earshot with EnergyVad without an explicit product
+decision.
 
 The segmenter is used for **endpointing only**. A closed segment still hands the
 accumulated buffer to `dictate` and lets the pipeline's own detector trim it,
 rather than slicing on `SpeechSegment` bounds — one pipeline configuration serves
 both paths, and running the 40 KiB network twice is not worth a second code path.
 
-Deleting `SilenceVad.swift` also removes two latent bugs it had: the silence
-clock ran on wall time rather than sample count, and a segment could only close
-when a non-empty low-level chunk arrived, so a mic that stopped delivering never
-ended one.
+Deleting the old shell energy detector also removed two latent bugs it had: the
+silence clock ran on wall time rather than sample count, and a segment could only
+close when a non-empty low-level chunk arrived, so a mic that stopped delivering
+never ended one.
 
 **Rate constraint.** `EarshotVad` is 16 kHz only. `MicCapture` converts to 16 kHz
 mono f32 and reports the rate as a hardcoded constant, so the constraint holds
@@ -170,24 +172,20 @@ Minimal, sync-friendly where possible; long work may use callbacks or async brid
 
 Swift owns **emit** (AX/clipboard). Core returns text + metadata; it does not call macOS pasteboard itself in the dogfood slice (keeps UniFFI free of AppKit). Clipboard emitters inside euhadra remain available for Rust CLI tests only.
 
-### Free lifecycle (stage 2, synchronous — names indicative)
+### Free lifecycle (stage 2, synchronous)
+
+Focus Dictation reuses the stream-listen surface with a longer silence budget:
 
 | API | Role |
 |---|---|
-| `start_free()` | Open a listening period: fresh `VadStream` + `Segmenter`, empty buffer |
-| `push_free_pcm_f32(samples, sample_rate) -> FreeVadEvent` | Accumulate, frame, score, segment. Returns `None` / `SpeechStarted` / `SegmentEnded` |
-| `take_free_segment() -> Result<String, FfiError>` | Transcribe the closed segment and return cleaned text. Blocking — Swift calls it off the main queue |
-| `stop_free()` | Close the listening period; discard any open buffer |
+| `start_focus_listen()` | Open a listening period: Earshot `VadStream` + `Segmenter` (1500 ms silence) |
+| `push_stream_pcm_f32(samples, sample_rate) -> StreamVadEvent` | Accumulate, frame, score, segment. Returns `None` / `SpeechStarted` / `SegmentEnded` |
+| `take_stream_segment() -> Result<String, FfiError>` | Transcribe the closed segment and return cleaned text. Blocking — Swift calls it off the main queue |
+| `stop_stream_listen()` / `finish_stream_listen()` | Close or drop the listening period |
 
-Every call is synchronous, matching the existing `block_on`-per-call model. The
-whole surface today is sync with no callback interfaces and no async, and stage 2
-does not change that: the segmenter reports a closed utterance as a return value,
-not as a pushed event. One listening period spans many segments, so the stream and
-segmenter must outlive a single `SegmentEnded`.
-
-`status()` is shared with the PTT state machine, so Free's processing state has to
-map onto the same idle / recording / processing / error values the menu already
-renders.
+Streaming PTT uses `start_stream_listen()` (700 ms silence) with the same push /
+take / stop methods. Names `start_free` / `push_free_pcm` from earlier drafts are
+folded into this shared surface.
 
 ## 5. Model acquisition
 
@@ -211,7 +209,7 @@ Default dogfood languages: **`ja` recommended path first**, `en` second; experim
 7. **Wizard** — mode, permissions, language+**in-app model fetch**, launch-at-login (reuses `scripts/` logic).  
 8. Free/VAD (F3) — after PTT dogfood is usable (may pull earlier per product owner). **Shipped 2026-08-08** as the Focus Dictation toggle, with a Swift-side energy detector.
 9. **VAD stage 1** — failing test first: with `RecordingAsr` (euhadra `testing` feature), assert the adapter is handed materially fewer samples than were pushed when the recording is mostly silence. Then `.vad(EarshotVad::new())`, the `vad` feature, and the `NoSpeech` FFI error.
-10. **VAD stage 2** — move endpointing into the core per §3, delete `SilenceVad.swift`.
+10. **VAD stage 2** — move endpointing into the core per §3, delete `SilenceVad.swift`. **Done 2026-08-11** (streaming + Focus Dictation share Earshot live listen).
 11. **User term dictionary** — failing test: alias in mock transcript becomes the preferred term after punctuation. Then load JSON per language, mount `TermDictionary` after punctuation, Settings CRUD → rebuild on CUD ([`ux-decisions.md`](./ux-decisions.md) §9a).
 
 ## 7. Build & test (target commands)
@@ -251,7 +249,8 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-08 | **Menu reorg:** Setup dialog (shared first-run/menu) with Language; Debug holds capture/backend/model path. |
 | 2026-08-08 | **Languages = euhadra 5:** ja Parakeet / en+es Canary / zh Paraformer / ko SenseVoice. |
 | 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
-| 2026-08-11 | Streaming PTT Stage 2 pilot: Earshot+Segmenter live endpointing. Dogfood: 0.2 never closed mid-hold on room tone; live threshold set to 0.35 (rlx-vad Earshot preset). Dictate trim stays at 0.2. Do not swap live path to EnergyVad without an explicit decision. Focus Dictation keeps Swift `SilenceVad`. |
+| 2026-08-11 | Streaming PTT Stage 2 pilot: Earshot+Segmenter live endpointing. Dogfood: 0.2 never closed mid-hold on room tone; live threshold set to 0.35 (rlx-vad Earshot preset). Dictate trim stays at 0.2. Do not swap live path to EnergyVad without an explicit decision. |
+| 2026-08-11 | **VAD stage 2 complete:** Focus Dictation uses `start_focus_listen` (same Earshot live path, 1500 ms silence). `SilenceVad.swift` deleted. |
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
 | 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |
 | 2026-08-10 | **User term dictionary:** `TermDictionary` only; speaker-owned JSON per language; Settings CRUD rebuilds the engine; after punctuation; no import UI; phoneme/contextual rewrite deferred to euhadra. |

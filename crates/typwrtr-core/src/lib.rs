@@ -22,11 +22,11 @@ mod test_audio;
 
 pub use asr::FixedAsr;
 pub use dictionary::{dictionaries_dir, dictionary_path, DictionaryLoad, StoredTerm};
-pub use engine::{Dictated, DictationEngine, EngineError, SharedEngine};
 pub use endpoint::{
     speech_start_keep_len, FOCUS_DICTATION_SILENCE_MS, SPEECH_START_PAD_SAMPLES,
     STREAMING_PTT_SILENCE_MS,
 };
+pub use engine::{Dictated, DictationEngine, EngineError, SharedEngine};
 pub use ffi::{
     focus_dictation_silence_seconds, load_term_dictionary, save_term_dictionary,
     should_accept_stream_result, should_flush_stream_on_release, streaming_ptt_silence_seconds,
@@ -39,7 +39,7 @@ pub use paths::{
 };
 pub use session::{CaptureMetrics, Session, SessionError, SessionStatus};
 pub use stream_endpoint::{
-    StreamListen, StreamVadEvent, STREAMING_EARSHOT_ENDPOINT_THRESHOLD,
+    StreamListen, StreamListenMode, StreamVadEvent, STREAMING_EARSHOT_ENDPOINT_THRESHOLD,
 };
 
 pub use euhadra::types::{AudioChunk, Language};

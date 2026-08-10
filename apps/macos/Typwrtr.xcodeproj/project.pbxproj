@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		057A720754396FA349C3816C /* SilenceVad.swift in Sources */ = {isa = PBXBuildFile; fileRef = E745C13D85505A8ECC7E3BF9 /* SilenceVad.swift */; };
 		1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */; };
 		3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5372EDEE73516D53C10A5810 /* SessionFactory.swift */; };
 		40852E40CE4BFD6B4474F1C8 /* PackDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F8EE7B5753924349571354 /* PackDownloader.swift */; };
@@ -54,7 +53,6 @@
 		C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryPanel.swift; sourceTree = "<group>"; };
 		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
-		E745C13D85505A8ECC7E3BF9 /* SilenceVad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceVad.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -105,7 +103,6 @@
 				5372EDEE73516D53C10A5810 /* SessionFactory.swift */,
 				CC57C97C2F91AEF6301000DF /* SetupChecker.swift */,
 				1763BAD2270C05C48F5224E1 /* SetupDialog.swift */,
-				E745C13D85505A8ECC7E3BF9 /* SilenceVad.swift */,
 				8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */,
 			);
 			path = Typwrtr;
@@ -222,7 +219,6 @@
 				3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */,
 				F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */,
 				4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */,
-				057A720754396FA349C3816C /* SilenceVad.swift in Sources */,
 				9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */,
 				7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */,
 			);

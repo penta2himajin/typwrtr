@@ -382,6 +382,11 @@ void uniffi_typwrtr_core_fn_method_pttsession_push_pcm_f32(void*_Nonnull ptr, Ru
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_push_stream_pcm_f32(void*_Nonnull ptr, RustBuffer samples, uint32_t sample_rate, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_FOCUS_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_FOCUS_LISTEN
+void uniffi_typwrtr_core_fn_method_pttsession_start_focus_listen(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_PTT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_START_PTT
 void uniffi_typwrtr_core_fn_method_pttsession_start_ptt(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -874,6 +879,12 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_push_pcm_f32(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_PUSH_STREAM_PCM_F32
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_push_stream_pcm_f32(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_FOCUS_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_START_FOCUS_LISTEN
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_start_focus_listen(void
     
 );
 #endif

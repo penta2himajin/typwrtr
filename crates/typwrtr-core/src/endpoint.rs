@@ -56,6 +56,9 @@ mod tests {
             speech_start_keep_len(44_895, SPEECH_START_PAD_SAMPLES),
             SPEECH_START_PAD_SAMPLES
         );
-        assert_eq!(speech_start_keep_len(1_000, SPEECH_START_PAD_SAMPLES), 1_000);
+        assert_eq!(
+            speech_start_keep_len(1_000, SPEECH_START_PAD_SAMPLES),
+            1_000
+        );
     }
 }
