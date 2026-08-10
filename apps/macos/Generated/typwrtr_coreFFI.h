@@ -392,6 +392,12 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_ptt(void*_Nonnull ptr, 
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_undo_payload(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
+double uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
 RustBuffer uniffi_typwrtr_core_fn_func_load_term_dictionary(RustBuffer language, RustCallStatus *_Nonnull out_status
@@ -400,6 +406,28 @@ RustBuffer uniffi_typwrtr_core_fn_func_load_term_dictionary(RustBuffer language,
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SAVE_TERM_DICTIONARY
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SAVE_TERM_DICTIONARY
 void uniffi_typwrtr_core_fn_func_save_term_dictionary(RustBuffer language, RustBuffer entries, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_ACCEPT_STREAM_RESULT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SHOULD_ACCEPT_STREAM_RESULT
+int8_t uniffi_typwrtr_core_fn_func_should_accept_stream_result(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_KEEP_LEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_KEEP_LEN
+uint64_t uniffi_typwrtr_core_fn_func_speech_start_keep_len(uint64_t buffer_len, uint64_t pad_samples, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_PAD_SAMPLES
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_PAD_SAMPLES
+uint64_t uniffi_typwrtr_core_fn_func_speech_start_pad_samples(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_STREAMING_PTT_SILENCE_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_STREAMING_PTT_SILENCE_SECONDS
+double uniffi_typwrtr_core_fn_func_streaming_ptt_silence_seconds(RustCallStatus *_Nonnull out_status
+    
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TERM_DICTIONARY_PATH
@@ -687,6 +715,12 @@ void ffi_typwrtr_core_rust_future_free_void(uint64_t handle
 void ffi_typwrtr_core_rust_future_complete_void(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
+uint16_t uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_LOAD_TERM_DICTIONARY
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_LOAD_TERM_DICTIONARY
 uint16_t uniffi_typwrtr_core_checksum_func_load_term_dictionary(void
@@ -696,6 +730,30 @@ uint16_t uniffi_typwrtr_core_checksum_func_load_term_dictionary(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SAVE_TERM_DICTIONARY
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SAVE_TERM_DICTIONARY
 uint16_t uniffi_typwrtr_core_checksum_func_save_term_dictionary(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_ACCEPT_STREAM_RESULT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_ACCEPT_STREAM_RESULT
+uint16_t uniffi_typwrtr_core_checksum_func_should_accept_stream_result(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_KEEP_LEN
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_KEEP_LEN
+uint16_t uniffi_typwrtr_core_checksum_func_speech_start_keep_len(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_PAD_SAMPLES
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SPEECH_START_PAD_SAMPLES
+uint16_t uniffi_typwrtr_core_checksum_func_speech_start_pad_samples(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_STREAMING_PTT_SILENCE_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_STREAMING_PTT_SILENCE_SECONDS
+uint16_t uniffi_typwrtr_core_checksum_func_streaming_ptt_silence_seconds(void
     
 );
 #endif

@@ -68,7 +68,7 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   and the previous wording ("Speak longer, or check that ASR is …") wrongly sent
   them to inspect their model setup. **Free: ignore entirely** — while armed,
   stretches of silence are the normal case, not a failure.
-- **Q25 — Segment end stays 1.5s for now, but the value is not UX-derived.**
+- **Q25 — Segment end stays 1.5s for Focus Dictation, but the value is not UX-derived.**
   It was a margin for the old energy detector: its threshold had been lowered to
   catch quiet speakers, which made it read mid-utterance dips as silence, so a
   long grace period was needed to avoid cutting people off mid-sentence. A real
@@ -80,13 +80,14 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
     which **0.00–0.07s was trimmed**, one utterance each. Read that as an upper
     bound rather than proof of clean captures: segment bounds carry 200ms of
     `speech_pad` either side, so any silence inside that margin is deliberately
-    kept and reports as 0. Trimming on PTT is therefore bounded by the pad width
-    and is negligible either way — the key release already ends the capture, so
-    **the 1.5s value never applies to this path**.
-  - **The value only matters for Free, which is still unmeasured** — its mic opens
-    on focus, so it is where both the trimming and the segment-end value earn
-    their keep. Defer the change until Free runs on real audio; stage 2 is where
-    that measurement becomes available.
+    kept and reports as 0. Trimming on **batch** PTT is therefore bounded by the
+    pad width and is negligible either way — the key release already ends the
+    capture, so **the 1.5s value never applies to batch PTT**.
+  - **Streaming PTT** uses **~0.7s** silence (core `STREAMING_PTT_SILENCE_MS`) —
+    the hold is already an explicit consent gate, so euhadra's default is enough
+    and mid-hold inserts should not wait for Focus Dictation's 1.5s margin.
+  - **Focus Dictation / Free** still uses 1.5s until measured on real audio after
+    VAD stage 2; do not shorten that path in the same change as the detector swap.
 - **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
   is force-segmented after 30s with no pause. Previously such an utterance
   produced a single insert, and the buffer grew without bound. The cap is
@@ -118,7 +119,13 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 
 **Model download:** tied to language choice; start in-wizard with progress; do not pretend ready until required model is present (disable or block start).
 
-**Dogfood (2026-08-08):** shared **Typwrtr Settings** dialog covers permissions, **mode** (PTT-only vs Arm Free), language + in-app pack download, and launch-at-login. Free/VAD (F3) is presented in the menu as a checked **Focus Dictation** runtime toggle in its own section between hotkeys and Setup; a smaller secondary line appears only while enabled (`Listening`, `Waiting for text field`, `Unavailable here`, or a permission failure). The former separate `Free: …` status and `Arm/Disarm Free` item are removed. The setup command is **Finish Setup…** while required setup is incomplete and **Settings…** afterward; both use the standard macOS **⌘,** shortcut. The dialog title remains **Typwrtr Settings** in both states. AX focus gate uses **Accessibility**, not VoiceOver, with app-switch watching + light probes (no window-tree walk); segment end is 1.5s silence and PTT temporarily suspends Focus Dictation. Korean remains WIP (no in-app SenseVoice export).
+**Dogfood (2026-08-08 / 2026-08-10):** shared **Typwrtr Settings** dialog covers permissions, **mode**, language + in-app pack download, and launch-at-login. Modes:
+
+- **Push to talk (batch)** — hold ⌃⇧D; release inserts the whole capture once.
+- **Push to talk (streaming)** — hold ⌃⇧D; **~0.7s silence** ends a segment and inserts while the key stays down; release flushes the tail (key-gated, shorter than Focus Dictation’s 1.5s). Experimental dogfood slice; uses the same Swift energy detector as Focus Dictation until VAD stage 2. Mid-stream failures are logged, never modal. On `speechStarted`, the shell drops leading silence from the rolling buffer (short pad from core); pipeline `EarshotVad` (`SpeechOnly`) still trims for ASR. Do not add a second shell min-speech / length gate. **Mid-hold insert** must not wait for the PTT chord to release (that path previously left text on the clipboard only); use AX / unicode / synthetic modifier-ups + ⌘V while the key is down.
+- **Focus Dictation** — armed + text-field focus; silence ends each phrase (F3). Menu toggle matches this mode only.
+
+Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean remains WIP.
 
 **Settings window:** not required while the surface stays small; menu bar is the primary control surface. Add a settings window when complexity demands it.
 
@@ -254,7 +261,7 @@ them.
 | Q22 | ja/en recommended; zh/es/ko experimental |
 | Q23 | Silence never reaches the ASR adapter (detection ahead of it, both paths) |
 | Q24 | No-speech capture: PTT returns to idle silently; Free ignores it |
-| Q25 | Segment end stays 1.5s; PTT has no silence to trim, so revisit via Free |
+| Q25 | Focus Dictation segment end 1.5s; streaming PTT uses ~0.7s (core SSOT) |
 | Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
 | Q27 | Capture measurements: debug builds, `os_log`, trimmed duration + count |
 | Q28 | Dictionary = `TermDictionary` substitution only |

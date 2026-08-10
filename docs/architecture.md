@@ -69,7 +69,7 @@ adapter.
 - `SegmenterConfig::threshold` stays `None` so the backend calibrates it.
   `EarshotVad` wants 0.2; euhadra measured `EnergyVad`'s 0.5 applied to it as
   **worse than no detector at all**. Do not hardcode a threshold here.
-- `min_silence` = 1500ms to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25).
+- `min_silence` = 1500ms for Focus Dictation / Free to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25). Streaming PTT uses 700ms via the same core SSOT (`STREAMING_PTT_SILENCE_MS`) while the shell energy detector remains.
 - A capture with no speech now yields `PipelineError::NoSpeech` where an ASR
   hallucination used to be returned. The core turns that into an **empty
   successful result** — `stop_ptt` returns `""`, status goes to idle, and the text

@@ -19,6 +19,14 @@ final class ClipboardInserter {
         case clipboardOnly
     }
 
+    /// How aggressively to insert when the PTT chord may still be held.
+    enum Policy {
+        /// Batch PTT / Free: wait for Ctrl/Shift/etc. before ⌘V.
+        case waitForModifiers
+        /// Streaming mid-hold: never bail solely because the hotkey is down.
+        case whileModifiersHeld
+    }
+
     /// Marks synthetic paste/type events so our own session tap can ignore them.
     static let pasteEventTag: Int64 = 0x5457_5254 // 'TWRT'
 
@@ -37,7 +45,11 @@ final class ClipboardInserter {
     ]
 
     @discardableResult
-    func insert(_ text: String, into target: NSRunningApplication? = nil) -> Result {
+    func insert(
+        _ text: String,
+        into target: NSRunningApplication? = nil,
+        policy: Policy = .waitForModifiers
+    ) -> Result {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .emptyText }
 
@@ -58,14 +70,15 @@ final class ClipboardInserter {
         let flagsBefore = CGEventSource.flagsState(.combinedSessionState)
         let electron = isElectronLike(front)
         NSLog(
-            "Typwrtr: insert target frontmost=%@ pid=%d ax=%d post=%d secure=%d electron=%d flags=0x%llx",
+            "Typwrtr: insert target frontmost=%@ pid=%d ax=%d post=%d secure=%d electron=%d flags=0x%llx policy=%@",
             front?.bundleIdentifier ?? "(nil)",
             front?.processIdentifier ?? -1,
             ax ? 1 : 0,
             post ? 1 : 0,
             secure ? 1 : 0,
             electron ? 1 : 0,
-            flagsBefore.rawValue
+            flagsBefore.rawValue,
+            policy == .whileModifiersHeld ? "whileHeld" : "waitMods"
         )
 
         if secure {
@@ -74,7 +87,11 @@ final class ClipboardInserter {
         }
 
         let before = focusedFieldSnapshot()
-        let preferPaste = isElectronLike(front)
+        if policy == .whileModifiersHeld {
+            return insertWhileModifiersHeld(trimmed, ax: ax, before: before)
+        }
+
+        let preferPaste = electron
 
         // 1) Direct AX write for native fields only. Electron often partially
         // applies AX then we also ⌘V → doubled text.
@@ -121,6 +138,67 @@ final class ClipboardInserter {
 
         NSLog("Typwrtr: insert failed — clipboard only")
         return .clipboardOnly
+    }
+
+    /// Streaming mid-hold: Ctrl/Shift stay down, so the normal wait→clipboard-only
+    /// path never pastes. Prefer AX / unicode (no modifier wait); ⌘V is last resort.
+    private func insertWhileModifiersHeld(
+        _ text: String,
+        ax: Bool,
+        before: FieldSnapshot
+    ) -> Result {
+        if ax, insertViaAccessibility(text) {
+            if verifyWithRetries(before: before, expected: text) {
+                NSLog("Typwrtr: inserted via AXSelectedText (while held)")
+                return .pasted
+            }
+            NSLog("Typwrtr: AXSelectedText set but field unchanged (while held)")
+        }
+
+        if typeViaUnicode(text) {
+            if verifyWithRetries(before: before, expected: text) || !canVerifyInsert() {
+                NSLog("Typwrtr: typed via CGEvent unicode (while held)")
+                return .pasted
+            }
+        }
+
+        // Tell the event system Ctrl/Shift are up so ⌘V is not delivered as
+        // ⌃⇧⌘V. Tagged so HotkeyMonitor's tap ignores them (won't end PTT).
+        synthesizeBlockingModifierUps()
+        if synthesizeCommandV(preferHID: true) {
+            if verifyWithRetries(before: before, expected: text) {
+                NSLog("Typwrtr: pasted via ⌘V (while held, verified)")
+            } else {
+                NSLog("Typwrtr: pasted via ⌘V (while held, unverified)")
+            }
+            return .pasted
+        }
+
+        NSLog("Typwrtr: insert while held failed — clipboard only")
+        return .clipboardOnly
+    }
+
+    /// Best-effort: tell the event system Ctrl/Shift are up so ⌘V is not
+    /// delivered as ⌃⇧⌘V while the physical PTT chord is still held.
+    private func synthesizeBlockingModifierUps() {
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        let pairs: [(CGEventFlags, CGKeyCode)] = [
+            (.maskControl, 0x3B), // left control
+            (.maskShift, 0x38), // left shift
+            (.maskAlternate, 0x3A),
+        ]
+        var ts = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+        for (mask, key) in pairs where !flags.intersection(mask).isEmpty {
+            guard let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
+            else { continue }
+            up.flags = []
+            up.timestamp = ts
+            up.setIntegerValueField(.eventSourceUserData, value: Self.pasteEventTag)
+            up.post(tap: .cghidEventTap)
+            ts &+= 200_000
+        }
+        usleep(5_000)
     }
 
     private func verifyWithRetries(before: FieldSnapshot, expected: String) -> Bool {

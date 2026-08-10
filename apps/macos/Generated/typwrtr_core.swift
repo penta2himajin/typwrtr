@@ -448,6 +448,22 @@ fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterDouble: FfiConverterPrimitive {
+    typealias FfiType = Double
+    typealias SwiftType = Double
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Double {
+        return try lift(readDouble(&buf))
+    }
+
+    public static func write(_ value: Double, into buf: inout [UInt8]) {
+        writeDouble(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterBool : FfiConverter {
     typealias FfiType = Int8
     typealias SwiftType = Bool
@@ -1979,6 +1995,15 @@ fileprivate struct FfiConverterSequenceTypeFfiTermEntry: FfiConverterRustBuffer 
     }
 }
 /**
+ * Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
+ */
+public func focusDictationSilenceSeconds() -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds($0
+    )
+})
+}
+/**
  * Load the speaker dictionary for Settings (does not mutate a live session).
  */
 public func loadTermDictionary(language: FfiLanguage) -> FfiDictionarySnapshot  {
@@ -1998,6 +2023,45 @@ public func saveTermDictionary(language: FfiLanguage, entries: [FfiTermEntry])th
         FfiConverterSequenceTypeFfiTermEntry.lower(entries),$0
     )
 }
+}
+/**
+ * Whether a streamed / Free segment's transcript should be pasted (empty → no, Q24).
+ */
+public func shouldAcceptStreamResult(text: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_should_accept_stream_result(
+        FfiConverterString.lower(text),$0
+    )
+})
+}
+/**
+ * Samples to keep from a rolling buffer once energy VAD reports speech started.
+ */
+public func speechStartKeepLen(bufferLen: UInt64, padSamples: UInt64) -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_speech_start_keep_len(
+        FfiConverterUInt64.lower(bufferLen),
+        FfiConverterUInt64.lower(padSamples),$0
+    )
+})
+}
+/**
+ * Default pad samples for [`speech_start_keep_len`] (~200 ms @ 16 kHz).
+ */
+public func speechStartPadSamples() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_speech_start_pad_samples($0
+    )
+})
+}
+/**
+ * Silence seconds that end a streaming PTT segment (shorter than Focus Dictation).
+ */
+public func streamingPttSilenceSeconds() -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_streaming_ptt_silence_seconds($0
+    )
+})
 }
 /**
  * Absolute path of the JSON file for `language` (hand-edit / debug).
@@ -2025,10 +2089,25 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds() != 52781) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_func_load_term_dictionary() != 42573) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_save_term_dictionary() != 27364) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_should_accept_stream_result() != 51866) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_speech_start_keep_len() != 19505) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_speech_start_pad_samples() != 9485) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_streaming_ptt_silence_seconds() != 52162) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_term_dictionary_path() != 51010) {

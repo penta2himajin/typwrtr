@@ -7,6 +7,8 @@ enum SetupDialog {
     static var onLanguageChanged: ((AppLanguage) -> Void)?
     /// Called after a successful dictionary save (recreate session so terms apply — Q34).
     static var onDictionaryChanged: (() -> Void)?
+    /// Called when Setup picks a listening mode.
+    static var onDictationModeChanged: ((DictationMode) -> Void)?
     /// Called when Setup toggles Free arming (F3 / wizard mode choice).
     static var onFreeArmChanged: ((Bool) -> Void)?
 
@@ -49,8 +51,9 @@ enum SetupDialog {
                 + gap * 2
                 + sectionGap
                 + blockHeader
-                + rowHeight * 2
-                + gap
+                + rowHeight * 3
+                + gap * 2
+                + 28
                 + sectionGap
                 + blockHeader
                 + section
@@ -317,8 +320,8 @@ enum SetupDialog {
         private let w = Metrics.bodyWidth
         /// Left-to-right fill drawn under the Download title while fetching.
         private var progressFill: CALayer?
-        private var pttOnlyButton: NSButton!
-        private var freeModeButton: NSButton!
+        private var modeButtons: [DictationMode: NSButton] = [:]
+        private var modeHint: NSTextField!
 
         init(
             status: SetupStatus,
@@ -356,31 +359,31 @@ enum SetupDialog {
 
             y -= Metrics.sectionGap
             addBlockHeader("Mode", y: &y)
-            let freeArmed = MenuBarModel.freeArmedPreference
-            y -= Metrics.rowHeight
-            let pttOnly = NSButton(
-                radioButtonWithTitle: "Push to talk only",
-                target: self,
-                action: #selector(modePttOnly)
-            )
-            pttOnly.font = .systemFont(ofSize: 12)
-            pttOnly.state = freeArmed ? .off : .on
-            pttOnly.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
-            addSubview(pttOnly)
-            pttOnlyButton = pttOnly
-
-            y -= Metrics.gap
-            y -= Metrics.rowHeight
-            let freeMode = NSButton(
-                radioButtonWithTitle: "Arm Free (focus-gated)",
-                target: self,
-                action: #selector(modeArmFree)
-            )
-            freeMode.font = .systemFont(ofSize: 12)
-            freeMode.state = freeArmed ? .on : .off
-            freeMode.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
-            addSubview(freeMode)
-            freeModeButton = freeMode
+            let selected = DictationMode.current
+            for mode in DictationMode.allCases {
+                y -= Metrics.rowHeight
+                let button = NSButton(
+                    radioButtonWithTitle: mode.settingsTitle,
+                    target: self,
+                    action: #selector(modeChanged(_:))
+                )
+                button.font = .systemFont(ofSize: 12)
+                button.state = mode == selected ? .on : .off
+                button.tag = mode.tag
+                button.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+                addSubview(button)
+                modeButtons[mode] = button
+                y -= Metrics.gap
+            }
+            y += Metrics.gap // last gap is before hint, not between radios
+            y -= 28
+            let hint = NSTextField(wrappingLabelWithString: selected.settingsHint)
+            hint.font = .systemFont(ofSize: 10)
+            hint.textColor = .secondaryLabelColor
+            hint.maximumNumberOfLines = 2
+            hint.frame = NSRect(x: 0, y: y, width: w, height: 28)
+            addSubview(hint)
+            modeHint = hint
             // Standalone NSButtons do not auto-group; keep exclusive state ourselves.
 
             y -= Metrics.sectionGap
@@ -638,18 +641,14 @@ enum SetupDialog {
             Permissions.openInputMonitoringSettings()
         }
 
-        @objc private func modePttOnly() {
-            pttOnlyButton.state = .on
-            freeModeButton.state = .off
-            MenuBarModel.freeArmedPreference = false
-            SetupDialog.onFreeArmChanged?(false)
-        }
-
-        @objc private func modeArmFree() {
-            pttOnlyButton.state = .off
-            freeModeButton.state = .on
-            MenuBarModel.freeArmedPreference = true
-            SetupDialog.onFreeArmChanged?(true)
+        @objc private func modeChanged(_ sender: NSButton) {
+            guard let mode = DictationMode.from(tag: sender.tag) else { return }
+            for (candidate, button) in modeButtons {
+                button.state = candidate == mode ? .on : .off
+            }
+            modeHint.stringValue = mode.settingsHint
+            MenuBarModel.shared.setDictationMode(mode)
+            SetupDialog.onDictationModeChanged?(mode)
         }
 
         private func selectedLanguage() -> AppLanguage {

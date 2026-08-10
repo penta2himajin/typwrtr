@@ -167,6 +167,36 @@ pub fn save_term_dictionary(
     dictionary::save(language.into(), stored).map_err(|msg| FfiError::Message { msg })
 }
 
+/// Whether a streamed / Free segment's transcript should be pasted (empty → no, Q24).
+#[uniffi::export]
+pub fn should_accept_stream_result(text: String) -> bool {
+    crate::stream_gate::should_accept_stream_result(&text)
+}
+
+/// Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
+#[uniffi::export]
+pub fn focus_dictation_silence_seconds() -> f64 {
+    crate::endpoint::focus_dictation_silence_seconds()
+}
+
+/// Silence seconds that end a streaming PTT segment (shorter than Focus Dictation).
+#[uniffi::export]
+pub fn streaming_ptt_silence_seconds() -> f64 {
+    crate::endpoint::streaming_ptt_silence_seconds()
+}
+
+/// Samples to keep from a rolling buffer once energy VAD reports speech started.
+#[uniffi::export]
+pub fn speech_start_keep_len(buffer_len: u64, pad_samples: u64) -> u64 {
+    crate::endpoint::speech_start_keep_len(buffer_len as usize, pad_samples as usize) as u64
+}
+
+/// Default pad samples for [`speech_start_keep_len`] (~200 ms @ 16 kHz).
+#[uniffi::export]
+pub fn speech_start_pad_samples() -> u64 {
+    crate::endpoint::SPEECH_START_PAD_SAMPLES as u64
+}
+
 /// FFI-visible error.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Error, thiserror::Error)]
 pub enum FfiError {

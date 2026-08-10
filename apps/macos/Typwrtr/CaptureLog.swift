@@ -43,4 +43,37 @@ enum CaptureLog {
             )
         #endif
     }
+
+    /// Streaming endpointing: why a buffer was closed (`silence` vs `release`).
+    static func endpoint(reason: String, samples: Int, sampleRate: Double = 16_000) {
+        #if DEBUG
+            let seconds = sampleRate > 0 ? Double(samples) / sampleRate : 0
+            log.info(
+                """
+                endpoint reason=\(reason, privacy: .public) \
+                samples=\(samples, privacy: .public) \
+                seconds=\(seconds, format: .fixed(precision: 2), privacy: .public)
+                """
+            )
+        #endif
+    }
+
+    static func note(_ message: String) {
+        #if DEBUG
+            log.info("\(message, privacy: .public)")
+        #endif
+    }
+
+    /// Insert outcome without the transcript (char count only).
+    static func insert(path: String, outcome: String, chars: Int) {
+        #if DEBUG
+            log.info(
+                """
+                insert path=\(path, privacy: .public) \
+                outcome=\(outcome, privacy: .public) \
+                chars=\(chars, privacy: .public)
+                """
+            )
+        #endif
+    }
 }

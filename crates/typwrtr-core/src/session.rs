@@ -128,7 +128,19 @@ impl Session {
     }
 
     /// Begin PTT recording.
+    ///
+    /// If a previous capture left the session in `Recording` or `Processing`
+    /// (e.g. a cancelled stream segment), recover to idle first so streamed
+    /// segments can start without a modal "cannot start PTT from …" failure.
     pub fn start_ptt(&mut self) -> Result<(), SessionError> {
+        if matches!(
+            self.status,
+            SessionStatus::Recording | SessionStatus::Processing
+        ) {
+            self.status = SessionStatus::Idle;
+            self.last_error = None;
+            self.chunks.clear();
+        }
         match self.status {
             SessionStatus::Idle | SessionStatus::Error => {
                 self.status = SessionStatus::Recording;
@@ -330,10 +342,28 @@ mod tests {
     }
 
     #[test]
-    fn cannot_start_while_recording() {
+    fn start_ptt_recovers_from_stuck_recording() {
         let mut s = Session::new();
         s.start_ptt().unwrap();
-        assert!(s.start_ptt().is_err());
+        // Streamed segments must be able to start again if a prior capture
+        // aborted without stop_ptt (otherwise the shell shows a modal error
+        // and a later segment's hallucination pastes after dismiss).
+        s.start_ptt().unwrap();
+        assert_eq!(s.status(), SessionStatus::Recording);
+    }
+
+    #[tokio::test]
+    async fn sequential_stream_segments_do_not_leave_session_stuck() {
+        let engine =
+            Arc::new(DictationEngine::new(Language::English, MockAsr::new("one")).unwrap());
+        let mut s = Session::with_engine(engine);
+        for _ in 0..3 {
+            s.start_ptt().unwrap();
+            s.push_audio(voiced_chunk(0.5)).unwrap();
+            let text = s.stop_ptt().await.unwrap();
+            assert!(text.to_lowercase().contains("one"), "got: {text}");
+            assert_eq!(s.status(), SessionStatus::Idle);
+        }
     }
 
     #[tokio::test]

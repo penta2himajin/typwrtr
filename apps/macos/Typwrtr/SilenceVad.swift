@@ -1,6 +1,10 @@
 import Foundation
 
-/// Simple energy VAD: after speech, 1.5s below threshold ends a Free segment (Q12).
+/// Simple energy VAD: after speech, silence below threshold ends a segment.
+///
+/// Silence duration comes from core (`focusDictationSilenceSeconds` /
+/// `streamingPttSilenceSeconds`). Endpointing only — trimming for ASR is
+/// euhadra `EarshotVad` on the pipeline (`FinalPass::SpeechOnly`).
 struct SilenceVad {
     var silenceSeconds: TimeInterval = 1.5
     /// RMS above this counts as speech (16 kHz mono f32). Lowered for quiet mics.

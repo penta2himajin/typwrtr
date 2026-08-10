@@ -24,15 +24,25 @@ final class MenuBarModel: ObservableObject {
 
     static let freeArmedKey = "typwrtr.freeArmed"
 
+    /// Legacy boolean mirror of Focus Dictation; prefer ``DictationMode.current``.
     static var freeArmedPreference: Bool {
-        get { UserDefaults.standard.bool(forKey: freeArmedKey) }
-        set { UserDefaults.standard.set(newValue, forKey: freeArmedKey) }
+        get { DictationMode.current.isFocusDictation }
+        set {
+            // Only flip Focus Dictation on/off; do not clobber streaming from this setter.
+            if newValue {
+                DictationMode.current = .focusDictation
+            } else if DictationMode.current.isFocusDictation {
+                DictationMode.current = .pushToTalk
+            }
+        }
     }
 
     /// Set by PttCoordinator.
     var onUndoRequested: (() -> Void)?
     var onLanguageSelected: ((AppLanguage) -> Void)?
     var onFreeArmChanged: ((Bool) -> Void)?
+    /// Called when Settings (or menu) changes the listening mode.
+    var onDictationModeChanged: ((DictationMode) -> Void)?
 
     func setFreeArmed(_ armed: Bool) {
         let apply = {
@@ -53,6 +63,18 @@ final class MenuBarModel: ObservableObject {
         } else {
             DispatchQueue.main.async(execute: apply)
         }
+    }
+
+    func setDictationMode(_ mode: DictationMode) {
+        DictationMode.current = mode
+        setFreeArmed(mode.isFocusDictation)
+        onDictationModeChanged?(mode)
+        onFreeArmChanged?(mode.isFocusDictation)
+    }
+
+    func setFocusDictationEnabled(_ enabled: Bool) {
+        // Menu toggle only arms/disarms Focus Dictation; streaming stays in Settings.
+        setDictationMode(enabled ? .focusDictation : .pushToTalk)
     }
 
     func setFreeAvailability(_ availability: FreeAvailability) {
@@ -105,11 +127,6 @@ final class MenuBarModel: ObservableObject {
         }
     }
 
-    func setFocusDictationEnabled(_ enabled: Bool) {
-        Self.freeArmedPreference = enabled
-        setFreeArmed(enabled)
-        onFreeArmChanged?(enabled)
-    }
     func setCanUndo(_ enabled: Bool) {
         DispatchQueue.main.async {
             self.canUndo = enabled
