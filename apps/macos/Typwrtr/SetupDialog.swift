@@ -277,23 +277,40 @@ enum SetupDialog {
             y -= Metrics.chromeGap
             y -= Metrics.buttonRowHeight
 
-            let btnW: CGFloat = 72
+            let btnH = Metrics.buttonRowHeight
             let btnGap: CGFloat = 8
-            var bx = Metrics.panelWidth - Metrics.padding - btnW
+            let doneW: CGFloat = 72
+            let licensesW: CGFloat = 88
+            var bx = Metrics.panelWidth - Metrics.padding - doneW
 
             let done = NSButton(title: "Done", target: self, action: #selector(doneTapped))
             done.bezelStyle = .rounded
             done.keyEquivalent = "\r"
-            done.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
+            done.frame = NSRect(x: bx, y: y, width: doneW, height: btnH)
             contentHost.addSubview(done)
 
+            bx -= btnGap + licensesW
+            let licenses = NSButton(
+                title: "Licenses…",
+                target: self,
+                action: #selector(openLicenses)
+            )
+            licenses.bezelStyle = .rounded
+            licenses.frame = NSRect(x: bx, y: y, width: licensesW, height: btnH)
+            contentHost.addSubview(licenses)
+
             if isFirstRun {
-                bx -= btnGap + btnW
+                let laterW: CGFloat = 72
+                bx -= btnGap + laterW
                 let later = NSButton(title: "Later", target: self, action: #selector(laterTapped))
                 later.bezelStyle = .rounded
-                later.frame = NSRect(x: bx, y: y, width: btnW, height: Metrics.buttonRowHeight)
+                later.frame = NSRect(x: bx, y: y, width: laterW, height: btnH)
                 contentHost.addSubview(later)
             }
+        }
+
+        @objc private func openLicenses() {
+            LicensesPanel.runModal()
         }
 
         @objc private func doneTapped() {
@@ -409,11 +426,8 @@ enum SetupDialog {
             for lang in AppLanguage.allCases {
                 languagePopup.addItem(withTitle: lang.displayName)
                 languagePopup.lastItem?.representedObject = lang.rawValue
-                // Keep WIP languages visible and pickable so Download can show "Soon";
-                // activation is gated in `languageChanged` / `AppLanguage.current`.
             }
-            let initial = language.isSelectable ? language : AppLanguage.current
-            languagePopup.selectItem(withTitle: initial.displayName)
+            languagePopup.selectItem(withTitle: language.displayName)
             languagePopup.target = self
             languagePopup.action = #selector(languageChanged(_:))
             addSubview(languagePopup)
@@ -428,7 +442,7 @@ enum SetupDialog {
             )
             styleOutlineButton(downloadButton)
             addSubview(downloadButton)
-            applyPackUI(for: initial)
+            applyPackUI(for: language)
 
             y -= Metrics.gap
             y -= Metrics.rowHeight
@@ -440,8 +454,13 @@ enum SetupDialog {
             dictionary.font = .systemFont(ofSize: 12)
             dictionary.bezelStyle = .rounded
             dictionary.controlSize = .small
-            dictionary.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
-            styleOutlineButton(dictionary)
+            // Match Permission rows: system rounded bezel (not the Download outline).
+            dictionary.frame = NSRect(
+                x: 0,
+                y: y,
+                width: w,
+                height: Metrics.rowHeight
+            )
             addSubview(dictionary)
 
             y -= Metrics.sectionGap
@@ -592,11 +611,6 @@ enum SetupDialog {
 
         private func applyPackUI(for language: AppLanguage) {
             clearDownloadProgress()
-            if !language.isSelectable {
-                downloadButton.isEnabled = false
-                setOutlineAppearance(downloadButton, emphasized: false, title: "Soon")
-                return
-            }
             let ready = SetupChecker.languagePackReady(for: language)
             if ready {
                 downloadButton.isEnabled = false
@@ -612,15 +626,11 @@ enum SetupDialog {
                   let lang = AppLanguage(rawValue: raw)
             else { return }
             applyPackUI(for: lang)
-            // WIP languages (Korean): preview "Soon" only — do not activate ASR.
-            guard lang.isSelectable else { return }
             onLanguage(lang)
         }
 
         @objc private func openDictionary() {
-            let lang = selectedLanguage()
-            // Editing a WIP language's file is fine; activation stays gated elsewhere.
-            DictionaryPanel.runModal(language: lang.isSelectable ? lang : AppLanguage.current) {
+            DictionaryPanel.runModal(language: selectedLanguage()) {
                 SetupDialog.onDictionaryChanged?()
             }
         }

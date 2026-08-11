@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use euhadra::canary::{CanaryAdapter, CanaryConfig};
+use euhadra::dolphin::DolphinAdapter;
 use euhadra::paraformer::ParaformerAdapter;
 use euhadra::parakeet::ParakeetAdapter;
 use euhadra::prelude::*;
@@ -15,10 +16,11 @@ use euhadra::whisper_local::WhisperLocal;
 
 use crate::dictionary::{self, StoredTerm};
 use crate::paths::{
-    canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_paraformer_zh_dir,
-    resolve_paraformer_zh_from_env, resolve_parakeet_dir, resolve_parakeet_ja_from_env,
-    resolve_sensevoice_dir, resolve_sensevoice_from_env, resolve_whisper_from_env,
-    resolve_whisper_paths, whisper_language_tag,
+    canary_uses_int8, resolve_canary_dir, resolve_canary_from_env, resolve_dolphin_ko_dir,
+    resolve_dolphin_ko_from_env, resolve_paraformer_zh_dir, resolve_paraformer_zh_from_env,
+    resolve_parakeet_dir, resolve_parakeet_ja_from_env, resolve_sensevoice_dir,
+    resolve_sensevoice_from_env, resolve_whisper_from_env, resolve_whisper_paths,
+    whisper_language_tag,
 };
 
 /// Errors while building or running the dictation pipeline.
@@ -217,7 +219,7 @@ impl DictationEngine {
         Self::with_paraformer_zh(language, dir)
     }
 
-    /// Build using euhadra [`SenseVoiceAdapter`] (ko).
+    /// Build using euhadra [`SenseVoiceAdapter`] (legacy ko).
     pub fn with_sensevoice(
         language: Language,
         model_dir: impl AsRef<Path>,
@@ -233,6 +235,22 @@ impl DictationEngine {
     pub fn with_sensevoice_from_env(language: Language) -> Result<Self, EngineError> {
         let dir = resolve_sensevoice_from_env()?;
         Self::with_sensevoice(language, dir)
+    }
+
+    /// Build using euhadra [`DolphinAdapter`] (Korean path).
+    pub fn with_dolphin(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let dir = resolve_dolphin_ko_dir(model_dir)?;
+        let asr = DolphinAdapter::load(&dir).map_err(|e| EngineError::new(e.to_string()))?;
+        Self::new(language, asr)
+    }
+
+    /// Dolphin-ko from env / conventional dogfood paths.
+    pub fn with_dolphin_from_env(language: Language) -> Result<Self, EngineError> {
+        let dir = resolve_dolphin_ko_from_env()?;
+        Self::with_dolphin(language, dir)
     }
 
     /// Active language.

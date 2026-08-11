@@ -29,7 +29,7 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 
 ## Dogfood notes
 
-- **ASR:** euhadra L1 packs — **ja** Parakeet-ja, **en/es** Canary-180M-Flash, **zh** Paraformer, **ko** SenseVoice. Choose Language in Setup; models are selected automatically.
+- **ASR:** euhadra L1 packs — **ja** Parakeet-ja, **en/es** Canary-180M-Flash, **zh** Paraformer, **ko** Dolphin small CTC. Choose Language in Setup; models are selected automatically.
 - Model discovery (no `open --env` required): UserDefaults → env → `~/Library/Application Support/Typwrtr/models/<pack>` → `~/repos/typwrtr/models/...`.
 - Setup from repo root:
 
@@ -37,7 +37,7 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 ./scripts/fetch-models.sh parakeet-ja   # Japanese (~2.4 GB)
 ./scripts/fetch-models.sh canary        # English + Spanish (~213 MB INT8)
 ./scripts/fetch-models.sh paraformer-zh # Chinese (~238 MB)
-./scripts/fetch-models.sh sensevoice-ko # Korean (needs EUHADRA_ROOT + Python)
+./scripts/fetch-models.sh dolphin-ko     # Korean (curl-only INT8 CTC)
 ```
 
 - **Onboarding (dogfood):** shared **Setup** dialog on first incomplete launch and from menu **Setup…** (language, permissions, language-pack install, launch-at-login). Users choose **Language**; models are selected automatically. **Debug** submenu has Last capture / backend / model folder.

@@ -344,13 +344,24 @@ impl PttSession {
         ptt_session_from_engine(engine)
     }
 
-    /// Build using euhadra `SenseVoiceAdapter` (ko).
+    /// Build using euhadra `SenseVoiceAdapter` (legacy ko).
     #[uniffi::constructor]
     pub fn with_sensevoice(
         language: FfiLanguage,
         model_dir: String,
     ) -> Result<Arc<Self>, FfiError> {
         let engine = DictationEngine::with_sensevoice(language.into(), model_dir).map_err(|e| {
+            FfiError::Message {
+                msg: e.message().to_string(),
+            }
+        })?;
+        ptt_session_from_engine(engine)
+    }
+
+    /// Build using euhadra `DolphinAdapter` (Korean path).
+    #[uniffi::constructor]
+    pub fn with_dolphin(language: FfiLanguage, model_dir: String) -> Result<Arc<Self>, FfiError> {
+        let engine = DictationEngine::with_dolphin(language.into(), model_dir).map_err(|e| {
             FfiError::Message {
                 msg: e.message().to_string(),
             }

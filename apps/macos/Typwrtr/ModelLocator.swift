@@ -10,7 +10,7 @@ enum ModelLocator {
     static let parakeetFolderName = "parakeet-tdt_ctc-0.6b-ja"
     static let canaryFolderName = "canary-180m-flash-onnx"
     static let paraformerFolderName = "paraformer-zh"
-    static let sensevoiceFolderName = "sensevoice-small-onnx"
+    static let dolphinKoFolderName = "dolphin-ko"
 
     static var applicationSupportModels: String {
         NSString(string: "~/Library/Application Support/Typwrtr/models")
@@ -43,7 +43,7 @@ enum ModelLocator {
         case .japanese: return findParakeetJaDir() != nil
         case .english, .spanish: return findCanaryDir() != nil
         case .chinese: return findParaformerZhDir() != nil
-        case .korean: return findSensevoiceDir() != nil
+        case .korean: return findDolphinKoDir() != nil
         }
     }
 
@@ -70,12 +70,10 @@ enum ModelLocator {
             && FileManager.default.fileExists(atPath: base.appendingPathComponent("tokens.json"))
     }
 
-    static func isSensevoiceBundlePresent(at dir: String) -> Bool {
+    static func isDolphinKoBundlePresent(at dir: String) -> Bool {
         let base = dir as NSString
         return FileManager.default.fileExists(atPath: base.appendingPathComponent("model.int8.onnx"))
-            && FileManager.default.fileExists(atPath: base.appendingPathComponent("am.mvn"))
             && FileManager.default.fileExists(atPath: base.appendingPathComponent("tokens.txt"))
-            && FileManager.default.fileExists(atPath: base.appendingPathComponent("metadata.json"))
     }
 
     static func findParakeetJaDir() -> String? {
@@ -122,12 +120,12 @@ enum ModelLocator {
         ).first { isParaformerBundlePresent(at: $0) }
     }
 
-    static func findSensevoiceDir() -> String? {
+    static func findDolphinKoDir() -> String? {
         packCandidates(
-            folder: sensevoiceFolderName,
-            envKeys: ["TYPWRTR_SENSEVOICE_DIR", "SENSEVOICE_DIR"],
+            folder: dolphinKoFolderName,
+            envKeys: ["TYPWRTR_DOLPHIN_KO_DIR", "DOLPHIN_KO_DIR"],
             savedKey: nil
-        ).first { isSensevoiceBundlePresent(at: $0) }
+        ).first { isDolphinKoBundlePresent(at: $0) }
     }
 
     // MARK: - Folder picker (Debug)

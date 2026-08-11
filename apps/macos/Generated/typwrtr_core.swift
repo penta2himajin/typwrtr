@@ -895,6 +895,18 @@ public static func withCanary(language: FfiLanguage, modelDir: String)throws  ->
 }
     
     /**
+     * Build using euhadra `DolphinAdapter` (Korean path).
+     */
+public static func withDolphin(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_dolphin(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
+    )
+})
+}
+    
+    /**
      * Build a session whose ASR always returns `fixed_transcript` (then Tier 1+2 run).
      *
      * Dogfood / UI development without on-disk models.
@@ -944,7 +956,7 @@ public static func withParakeetJaFromEnv(language: FfiLanguage)throws  -> PttSes
 }
     
     /**
-     * Build using euhadra `SenseVoiceAdapter` (ko).
+     * Build using euhadra `SenseVoiceAdapter` (legacy ko).
      */
 public static func withSensevoice(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
     return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
@@ -2373,6 +2385,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_canary() != 35209) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_dolphin() != 35353) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2385,7 +2400,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_parakeet_ja_from_env() != 51186) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_sensevoice() != 40) {
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_sensevoice() != 21614) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_whisper_from_env() != 6381) {

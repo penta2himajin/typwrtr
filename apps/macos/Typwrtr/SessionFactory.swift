@@ -4,7 +4,7 @@ enum AsrBackend: Equatable {
     case parakeetJa(modelDir: String)
     case canary(modelDir: String)
     case paraformerZh(modelDir: String)
-    case sensevoice(modelDir: String)
+    case dolphin(modelDir: String)
     case whisperLocal(cli: String, model: String)
     case fixedTranscript
 
@@ -17,8 +17,8 @@ enum AsrBackend: Equatable {
             return "Backend: Canary-180M-Flash (ONNX)"
         case .paraformerZh:
             return "Backend: Paraformer-zh (ONNX)"
-        case .sensevoice:
-            return "Backend: SenseVoice-Small (ONNX)"
+        case .dolphin:
+            return "Backend: Dolphin-ko (ONNX)"
         case .whisperLocal:
             return "Backend: WhisperLocal (ggml-tiny)"
         case .fixedTranscript:
@@ -38,7 +38,7 @@ enum SessionFactory {
         case .chinese:
             if let s = tryParaformer(language: language) { return s }
         case .korean:
-            if let s = trySensevoice(language: language) { return s }
+            if let s = tryDolphin(language: language) { return s }
         }
         NSLog("Typwrtr: no model for %@ — FixedAsr fallback", language.displayName)
         let session = try! PttSession.withFixedTranscript(
@@ -93,17 +93,17 @@ enum SessionFactory {
         }
     }
 
-    private static func trySensevoice(language: AppLanguage) -> (PttSession, AsrBackend)? {
-        guard let dir = ModelLocator.findSensevoiceDir() else {
-            NSLog("Typwrtr: SenseVoice missing")
+    private static func tryDolphin(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findDolphinKoDir() else {
+            NSLog("Typwrtr: Dolphin-ko missing")
             return nil
         }
         do {
-            let session = try PttSession.withSensevoice(language: language.ffi, modelDir: dir)
-            NSLog("Typwrtr: using SenseVoice at %@", dir)
-            return (session, .sensevoice(modelDir: dir))
+            let session = try PttSession.withDolphin(language: language.ffi, modelDir: dir)
+            NSLog("Typwrtr: using Dolphin-ko at %@", dir)
+            return (session, .dolphin(modelDir: dir))
         } catch {
-            NSLog("Typwrtr: SenseVoice failed (\(error))")
+            NSLog("Typwrtr: Dolphin-ko failed (\(error))")
             return nil
         }
     }

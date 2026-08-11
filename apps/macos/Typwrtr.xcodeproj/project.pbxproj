@@ -14,6 +14,7 @@
 		4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1763BAD2270C05C48F5224E1 /* SetupDialog.swift */; };
 		4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */; };
 		52CF598067F742FA9C29EA6F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 85B91393F5CBC50C3C4B8208 /* Assets.xcassets */; };
+		55F28353C8E06FC7342A0186 /* LicensesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */; };
 		78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */; };
 		79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B3BEF526BAABBC14F79762 /* DictationMode.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
@@ -36,6 +37,7 @@
 		1763BAD2270C05C48F5224E1 /* SetupDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupDialog.swift; sourceTree = "<group>"; };
 		30BE96FA6232566689AD5380 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		48DB62DEC33DAAF144CF18C9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
+		4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicensesPanel.swift; sourceTree = "<group>"; };
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
 		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
 		7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusProbe.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */,
 				B5F0BD526E6949E60246A91D /* FocusWatcher.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
+				4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */,
 				E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */,
 				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
 				8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */,
@@ -210,6 +213,7 @@
 				9134229092E1413975D36E2D /* FocusProbe.swift in Sources */,
 				967556A32E8666562F752864 /* FocusWatcher.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
+				55F28353C8E06FC7342A0186 /* LicensesPanel.swift in Sources */,
 				78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */,
 				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
 				450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */,

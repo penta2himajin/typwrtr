@@ -21,8 +21,11 @@ pub const DEFAULT_CANARY_SUBDIR: &str = "models/canary-180m-flash-onnx";
 /// Paraformer-large Chinese — euhadra `setup_paraformer_zh.sh`.
 pub const DEFAULT_PARAFORMER_ZH_SUBDIR: &str = "models/paraformer-zh";
 
-/// SenseVoice-Small ONNX (ko) — euhadra `setup_sensevoice.sh`.
+/// SenseVoice-Small ONNX (legacy ko) — euhadra `setup_sensevoice.sh`.
 pub const DEFAULT_SENSEVOICE_SUBDIR: &str = "models/sensevoice-small-onnx";
+
+/// Dolphin small CTC ONNX (ko) — euhadra `setup_dolphin_ko.sh`.
+pub const DEFAULT_DOLPHIN_KO_SUBDIR: &str = "models/dolphin-ko";
 
 /// Pick the ggml file for a language under a model directory.
 pub fn whisper_model_path(model_dir: &Path, language: Language) -> PathBuf {
@@ -271,6 +274,45 @@ pub fn resolve_sensevoice_from_env() -> Result<PathBuf, EngineError> {
     resolve_sensevoice_dir(dir)
 }
 
+/// Validate Dolphin small CTC ONNX bundle (Korean path).
+pub fn resolve_dolphin_ko_dir(model_dir: impl AsRef<Path>) -> Result<PathBuf, EngineError> {
+    let dir = model_dir.as_ref().to_path_buf();
+    if !dir.is_dir() {
+        return Err(EngineError::new(format!(
+            "Dolphin-ko model dir not found at {}",
+            dir.display()
+        )));
+    }
+    for required in ["model.int8.onnx", "tokens.txt"] {
+        let p = dir.join(required);
+        if !p.is_file() {
+            return Err(EngineError::new(format!(
+                "Dolphin-ko bundle incomplete: missing {} under {}",
+                required,
+                dir.display()
+            )));
+        }
+    }
+    Ok(dir)
+}
+
+/// Resolve Dolphin-ko from env / conventional dogfood paths.
+pub fn resolve_dolphin_ko_from_env() -> Result<PathBuf, EngineError> {
+    let dir = std::env::var_os("TYPWRTR_DOLPHIN_KO_DIR")
+        .or_else(|| std::env::var_os("DOLPHIN_KO_DIR"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("TYPWRTR_MODELS_DIR").map(|d| PathBuf::from(d).join("dolphin-ko"))
+        })
+        .or_else(default_dolphin_ko_candidate)
+        .ok_or_else(|| {
+            EngineError::new(
+                "Dolphin-ko dir not set (TYPWRTR_DOLPHIN_KO_DIR) and default models path missing",
+            )
+        })?;
+    resolve_dolphin_ko_dir(dir)
+}
+
 fn default_cli_candidate() -> Option<PathBuf> {
     let p = PathBuf::from(DEFAULT_WHISPER_CLI_REL);
     p.is_file().then_some(p)
@@ -298,6 +340,11 @@ fn default_paraformer_zh_candidate() -> Option<PathBuf> {
 
 fn default_sensevoice_candidate() -> Option<PathBuf> {
     let p = PathBuf::from(DEFAULT_SENSEVOICE_SUBDIR);
+    p.is_dir().then_some(p)
+}
+
+fn default_dolphin_ko_candidate() -> Option<PathBuf> {
+    let p = PathBuf::from(DEFAULT_DOLPHIN_KO_SUBDIR);
     p.is_dir().then_some(p)
 }
 
@@ -360,6 +407,24 @@ mod tests {
         }
         let ok = resolve_canary_dir(&dir).expect("int8 bundle");
         assert!(canary_uses_int8(&ok));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_dolphin_ko_requires_model_and_tokens() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("typwrtr-dolphin-{stamp}"));
+        fs::create_dir_all(&dir).unwrap();
+        let err = resolve_dolphin_ko_dir(&dir).expect_err("empty dir should fail");
+        assert!(err.message().contains("missing"), "{}", err.message());
+
+        fs::write(dir.join("model.int8.onnx"), b"x").unwrap();
+        fs::write(dir.join("tokens.txt"), b"<blank> 0\n").unwrap();
+        let ok = resolve_dolphin_ko_dir(&dir).expect("complete bundle");
+        assert_eq!(ok, dir);
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -148,20 +148,25 @@ PY
     echo "TYPWRTR_MODELS_DIR=$DEST"
     ;;
   sensevoice-ko)
-    # euhadra scripts/setup_sensevoice.sh (Python FunASR export — heavy).
-    dir="${SENSEVOICE_DIR:-$DEST/sensevoice-small-onnx}"
-    setup="$EUHADRA_ROOT/scripts/setup_sensevoice.sh"
-    if [[ ! -x "$setup" && ! -f "$setup" ]]; then
-      echo "[fetch-models] SenseVoice needs euhadra's setup_sensevoice.sh" >&2
-      echo "  Set EUHADRA_ROOT to your euhadra checkout, then re-run." >&2
-      echo "  Expected: $setup" >&2
-      exit 3
+    echo "[fetch-models] sensevoice-ko is legacy; Typwrtr Korean uses dolphin-ko" >&2
+    echo "  Re-run: $0 dolphin-ko" >&2
+    exit 3
+    ;;
+  dolphin-ko)
+    # euhadra scripts/setup_dolphin_ko.sh — curl-only INT8 CTC (~250 MB).
+    dir="${DOLPHIN_KO_DIR:-$DEST/dolphin-ko}"
+    mkdir -p "$dir"
+    base="https://huggingface.co/csukuangfj/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/resolve/main"
+    for f in tokens.txt model.int8.onnx; do
+      fetch "$base/$f" "$dir/$f"
+    done
+    if [[ ! -s "$dir/model.int8.onnx" || ! -s "$dir/tokens.txt" ]]; then
+      echo "[fetch-models] incomplete Dolphin-ko bundle under $dir" >&2
+      exit 4
     fi
-    echo "[fetch-models] delegating to $setup"
-    SENSEVOICE_DIR="$dir" bash "$setup"
-    echo "[fetch-models] sensevoice-ko ready under $dir"
-    echo "TYPWRTR_SENSEVOICE_DIR=$dir"
-    echo "SENSEVOICE_DIR=$dir"
+    echo "[fetch-models] dolphin-ko ready under $dir"
+    echo "TYPWRTR_DOLPHIN_KO_DIR=$dir"
+    echo "DOLPHIN_KO_DIR=$dir"
     echo "TYPWRTR_MODELS_DIR=$DEST"
     ;;
   help|-h|--help)
@@ -171,7 +176,7 @@ Usage: $0 <kind>
   parakeet-ja     Japanese — nvidia Parakeet-ja ONNX (~2.4 GB)
   canary          English + Spanish — Canary-180M-Flash INT8 (~213 MB)
   paraformer-zh   Chinese — FunASR Paraformer-large quant (~238 MB)
-  sensevoice-ko   Korean — SenseVoice-Small ONNX via euhadra setup (Python)
+  dolphin-ko      Korean — Dolphin small CTC INT8 (~250 MB)
   whisper-tiny    legacy Whisper ggml-tiny + whisper-cli
   whisper-cli     build whisper-cli only
 

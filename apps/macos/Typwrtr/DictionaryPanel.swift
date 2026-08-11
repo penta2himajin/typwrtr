@@ -16,32 +16,32 @@ enum DictionaryPanel {
         panel.title = "Dictionary — \(language.displayName)"
         panel.isFloatingPanel = true
         panel.level = .floating
+        panel.isReleasedWhenClosed = false
         panel.center()
 
-        let host = EditorView(language: language, onSaved: onSaved) {
-            NSApp.stopModal()
-            panel.orderOut(nil)
-        }
+        let host = EditorView(language: language, onSaved: onSaved)
         host.frame = NSRect(x: 0, y: 0, width: 420, height: 360)
         panel.contentView = host
+        // Same as Licenses: red close must `stopModal` or Settings freezes.
+        panel.delegate = host
         panel.makeKeyAndOrderFront(nil)
         NSApp.runModal(for: panel)
+        panel.orderOut(nil)
+        panel.delegate = nil
     }
 
-    fileprivate final class EditorView: NSView, NSTableViewDataSource, NSTableViewDelegate {
+    fileprivate final class EditorView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate {
         private let language: AppLanguage
         private let onSaved: () -> Void
-        private let onClose: () -> Void
         private var entries: [FfiTermEntry] = []
         private var loadFailedMessage: String?
         private let table = NSTableView()
         private let statusLabel = NSTextField(labelWithString: "")
         private let scroll = NSScrollView()
 
-        init(language: AppLanguage, onSaved: @escaping () -> Void, onClose: @escaping () -> Void) {
+        init(language: AppLanguage, onSaved: @escaping () -> Void) {
             self.language = language
             self.onSaved = onSaved
-            self.onClose = onClose
             super.init(frame: .zero)
             wantsLayer = true
             build()
@@ -172,7 +172,12 @@ enum DictionaryPanel {
         }
 
         @objc private func close() {
-            onClose()
+            NSApp.stopModal()
+        }
+
+        func windowShouldClose(_ sender: NSWindow) -> Bool {
+            NSApp.stopModal()
+            return true
         }
 
         private func prompt(term: String, aliases: String) -> FfiTermEntry? {

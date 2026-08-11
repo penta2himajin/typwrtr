@@ -18,7 +18,7 @@ enum PackDownloader {
             switch self {
             case .unsupported(let lang):
                 return """
-                \(lang.displayName) needs euhadra’s SenseVoice setup (Python).
+                In-app download is not available for \(lang.displayName).
 
                 Run in the typwrtr repo:
                   \(lang.fetchCommand)
@@ -57,9 +57,9 @@ enum PackDownloader {
             .appendingPathComponent(language.packFolderName, isDirectory: true)
     }
 
-    /// Whether Download can fetch this pack in-app (Korean still needs the script).
+    /// Whether Download can fetch this pack in-app.
     static func isInAppDownloadSupported(for language: AppLanguage) -> Bool {
-        language != .korean
+        true
     }
 
     /// Download missing files. `progress` is 0…1 (may be called off the main queue).
@@ -169,7 +169,14 @@ enum PackDownloader {
             ]
 
         case .korean:
-            throw DownloadError.unsupported(language)
+            // euhadra scripts/setup_dolphin_ko.sh — small INT8 CTC (~250 MB).
+            let base = URL(
+                string: "https://huggingface.co/csukuangfj/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/resolve/main"
+            )!
+            return [
+                RemoteFile(url: base.appendingPathComponent("tokens.txt"), localName: "tokens.txt", expectedBytes: 500_000),
+                RemoteFile(url: base.appendingPathComponent("model.int8.onnx"), localName: "model.int8.onnx", expectedBytes: 250_000_000),
+            ]
         }
     }
 

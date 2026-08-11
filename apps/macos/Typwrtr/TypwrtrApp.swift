@@ -42,13 +42,17 @@ struct TypwrtrApp: App {
             }
             .keyboardShortcut("q")
         } label: {
-            if menu.symbolName == "mic" {
-                Image("MenuBarIcon")
-                    .renderingMode(.template)
+            // Keep SF Symbols only for active listening (filled mic) and error.
+            // Idle, processing, and any other chrome use the Typwrtr menu asset.
+            if menu.symbolName == "mic.fill"
+                || menu.symbolName == "exclamationmark.triangle.fill"
+            {
+                Image(systemName: menu.symbolName)
                     .accessibilityLabel("Typwrtr")
                     .help(menu.toolTip)
             } else {
-                Image(systemName: menu.symbolName)
+                Image("MenuBarIcon")
+                    .renderingMode(.template)
                     .accessibilityLabel("Typwrtr")
                     .help(menu.toolTip)
             }
