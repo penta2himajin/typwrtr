@@ -227,7 +227,9 @@ Pre-push hook (fmt/clippy) when Rust is present: `git config core.hooksPath git-
 
 ## 8. License
 
-Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.0`** in `crates/typwrtr-core/Cargo.toml`. Root `LICENSE` remains MIT until dual files are added deliberately.
+Dual-licensed **`MIT OR Apache-2.0`**, matching euhadra. Root texts:
+[`LICENSE-MIT`](../LICENSE-MIT) and [`LICENSE-APACHE`](../LICENSE-APACHE).
+Workspace `Cargo.toml` already declares `license = "MIT OR Apache-2.0"`.
 
 ## 9. Decision log
 
@@ -249,6 +251,7 @@ Match euhadra for the core crate when dual-licensing: prefer **`MIT OR Apache-2.
 | 2026-08-08 | **Menu reorg:** Setup dialog (shared first-run/menu) with Language; Debug holds capture/backend/model path. |
 | 2026-08-08 | **Languages = euhadra 5:** ja Parakeet / en+es Canary / zh Paraformer / ko SenseVoice. |
 | 2026-08-11 | **Korean path → Dolphin:** Typwrtr selects `DolphinAdapter` + in-app `dolphin-ko` pack (euhadra §I). SenseVoice FFI kept as legacy. |
+| 2026-08-11 | Root dual-license files: `LICENSE-MIT` + `LICENSE-APACHE` (matches Cargo.toml `MIT OR Apache-2.0`). |
 | 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
 | 2026-08-11 | Streaming PTT Stage 2 pilot: Earshot+Segmenter live endpointing. Dogfood: 0.2 never closed mid-hold on room tone; live threshold set to 0.35 (rlx-vad Earshot preset). Dictate trim stays at 0.2. Do not swap live path to EnergyVad without an explicit decision. |
 | 2026-08-11 | **VAD stage 2 complete:** Focus Dictation uses `start_focus_listen` (same Earshot live path, 1500 ms silence). `SilenceVad.swift` deleted. |

@@ -79,6 +79,5 @@ Aligned with [`use-cases.md`](./use-cases.md) and [`ux-decisions.md`](./ux-decis
 
 ## 8. Open follow-ups
 
-1. Exact SPDX dual files at repo root if adopting `MIT OR Apache-2.0` everywhere.
-2. Landing-page copy and Gumroad product setup (post-dogfood).
-3. Confirm audio-capture placement (Swift vs euhadra `mic`) during PTT impl — see architecture decision log.
+1. Landing-page copy and Gumroad product setup (post-dogfood).
+2. Confirm audio-capture placement (Swift vs euhadra `mic`) during PTT impl — see architecture decision log.
