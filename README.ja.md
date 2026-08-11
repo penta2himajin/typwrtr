@@ -33,4 +33,9 @@ AGENTS.md
 
 ## ライセンス
 
-MIT。`LICENSE` を参照。公開済みの [euhadra](https://crates.io/crates/euhadra) に合わせて Apache-2.0 とのデュアルにする可能性がある。
+次のいずれかでライセンスされます。
+
+- Apache License, Version 2.0（[`LICENSE-APACHE`](LICENSE-APACHE) または http://www.apache.org/licenses/LICENSE-2.0）
+- MIT license（[`LICENSE-MIT`](LICENSE-MIT) または http://opensource.org/licenses/MIT）
+
+お好みの方を選んでください。
