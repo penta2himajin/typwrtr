@@ -4,7 +4,7 @@ import Carbon
 import Carbon.HIToolbox
 import CoreGraphics
 
-/// Control + Shift + D hold-to-talk (ux-decisions default hotkey).
+/// Hold-to-talk for the selected ``PttHotkey`` preset (default ⌃⇧D).
 ///
 /// Order: CGEvent tap (best, swallows) → Carbon hotkey (reliable press/release) → NSEvent monitors.
 final class HotkeyMonitor {
@@ -19,24 +19,26 @@ final class HotkeyMonitor {
     private var carbonHandler: EventHandlerRef?
     private var carbonPttHotKey: EventHotKeyRef?
     private var carbonUndoHotKey: EventHotKeyRef?
-    private var dDown = false
+    private var pttDown = false
     private var didPrompt = false
+    private var preset: PttHotkey = .current
 
     private let hotKeySignature: OSType = 0x5457_5254 // 'TWRT'
     private let pttHotKeyID: UInt32 = 1
     private let undoHotKeyID: UInt32 = 2
 
     func start() {
+        preset = .current
         requestPermissions()
 
         if installTap() {
             _ = installCarbonUndoHotKey()
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap) · Undo ⌃⇧Z")
+            setReadyStatus(via: "event tap")
             return
         }
 
         if installCarbonHotKeys(includePtt: true) {
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (Carbon) · Undo ⌃⇧Z")
+            setReadyStatus(via: "Carbon")
             showPermissionHelpIfNeeded()
             return
         }
@@ -44,12 +46,40 @@ final class HotkeyMonitor {
         NSLog("Typwrtr: Carbon hotkey failed — NSEvent monitors")
         installEventMonitors()
         _ = installCarbonUndoHotKey()
-        MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (monitor) · Undo ⌃⇧Z")
+        setReadyStatus(via: "monitor")
         showPermissionHelpIfNeeded()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             self?.retryTap()
         }
+    }
+
+    /// Tear down listeners and re-bind to ``PttHotkey.current``.
+    func restart() {
+        stop()
+        start()
+    }
+
+    private func stop() {
+        if pttDown {
+            pttDown = false
+            onPttUp?()
+        }
+        removeEventMonitors()
+        uninstallCarbonHotKeys()
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+            runLoopSource = nil
+        }
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            self.tap = nil
+        }
+    }
+
+    private func setReadyStatus(via path: String) {
+        let symbol = preset.displaySymbol
+        MenuBarModel.shared.setHotkeyStatus("Hotkey: \(symbol) ready (\(path)) · Undo ⌃⇧Z")
     }
 
     private func retryTap() {
@@ -62,7 +92,7 @@ final class HotkeyMonitor {
                 self.carbonPttHotKey = nil
             }
             _ = installCarbonUndoHotKey()
-            MenuBarModel.shared.setHotkeyStatus("Hotkey: ⌃⇧D ready (event tap) · Undo ⌃⇧Z")
+            setReadyStatus(via: "event tap")
         }
     }
 
@@ -199,8 +229,8 @@ final class HotkeyMonitor {
         if includePtt, carbonPttHotKey == nil {
             let id = EventHotKeyID(signature: hotKeySignature, id: pttHotKeyID)
             let reg = RegisterEventHotKey(
-                UInt32(kVK_ANSI_D),
-                UInt32(controlKey | shiftKey),
+                preset.keyCode,
+                preset.carbonModifiers,
                 id,
                 GetApplicationEventTarget(),
                 0,
@@ -272,13 +302,13 @@ final class HotkeyMonitor {
         }
 
         if kind == UInt32(kEventHotKeyPressed) {
-            if !dDown {
-                dDown = true
+            if !pttDown {
+                pttDown = true
                 DispatchQueue.main.async { [weak self] in self?.onPttDown?() }
             }
         } else if kind == UInt32(kEventHotKeyReleased) {
-            if dDown {
-                dDown = false
+            if pttDown {
+                pttDown = false
                 DispatchQueue.main.async { [weak self] in self?.onPttUp?() }
             }
         }
@@ -316,7 +346,7 @@ final class HotkeyMonitor {
     }
 
     private func isPttChord(_ event: NSEvent) -> Bool {
-        chordMods(event) && event.keyCode == UInt16(kVK_ANSI_D)
+        chordMods(event) && event.keyCode == UInt16(preset.keyCode)
     }
 
     private func isUndoChord(_ event: NSEvent) -> Bool {
@@ -343,24 +373,24 @@ final class HotkeyMonitor {
         let controlHeld = mods.contains(.control)
         let shiftHeld = mods.contains(.shift)
         let chordMods = controlHeld && shiftHeld && !mods.contains(.command) && !mods.contains(.option)
-        let isD = event.keyCode == UInt16(kVK_ANSI_D)
+        let isPttKey = event.keyCode == UInt16(preset.keyCode)
         let isZ = event.keyCode == UInt16(kVK_ANSI_Z)
 
         switch event.type {
         case .keyDown where isZ && chordMods && !event.isARepeat:
             onUndo?()
-        case .keyDown where isD && chordMods && !event.isARepeat:
-            if !dDown {
-                dDown = true
+        case .keyDown where isPttKey && chordMods && !event.isARepeat:
+            if !pttDown {
+                pttDown = true
                 onPttDown?()
             }
-        case .keyUp where isD && (dDown || chordMods):
-            if dDown {
-                dDown = false
+        case .keyUp where isPttKey && (pttDown || chordMods):
+            if pttDown {
+                pttDown = false
                 onPttUp?()
             }
-        case .flagsChanged where dDown && (!controlHeld || !shiftHeld):
-            dDown = false
+        case .flagsChanged where pttDown && (!controlHeld || !shiftHeld):
+            pttDown = false
             onPttUp?()
         default:
             break
@@ -381,7 +411,7 @@ final class HotkeyMonitor {
         }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let isD = keyCode == Int64(kVK_ANSI_D)
+        let isPttKey = keyCode == Int64(preset.keyCode)
         let isZ = keyCode == Int64(kVK_ANSI_Z)
         let mods = event.flags.intersection([.maskControl, .maskAlternate, .maskCommand, .maskShift])
         let controlHeld = mods.contains(.maskControl)
@@ -396,21 +426,21 @@ final class HotkeyMonitor {
                 DispatchQueue.main.async { [weak self] in self?.onUndo?() }
             }
             return nil
-        case .keyDown where isD && chordMods:
+        case .keyDown where isPttKey && chordMods:
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-            if !isRepeat, !dDown {
-                dDown = true
+            if !isRepeat, !pttDown {
+                pttDown = true
                 DispatchQueue.main.async { [weak self] in self?.onPttDown?() }
             }
             return nil
-        case .keyUp where isD && (dDown || chordMods):
-            if dDown {
-                dDown = false
+        case .keyUp where isPttKey && (pttDown || chordMods):
+            if pttDown {
+                pttDown = false
                 DispatchQueue.main.async { [weak self] in self?.onPttUp?() }
             }
             return nil
-        case .flagsChanged where dDown && (!controlHeld || !shiftHeld):
-            dDown = false
+        case .flagsChanged where pttDown && (!controlHeld || !shiftHeld):
+            pttDown = false
             DispatchQueue.main.async { [weak self] in self?.onPttUp?() }
             return Unmanaged.passUnretained(event)
         default:

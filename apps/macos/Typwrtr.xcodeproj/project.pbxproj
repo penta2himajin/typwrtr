@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */; };
 		3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5372EDEE73516D53C10A5810 /* SessionFactory.swift */; };
+		3FE94FCEF806AB1260B48962 /* PttHotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15F6462F6B12066646DE68F /* PttHotkey.swift */; };
 		40852E40CE4BFD6B4474F1C8 /* PackDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F8EE7B5753924349571354 /* PackDownloader.swift */; };
 		450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */; };
 		4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1763BAD2270C05C48F5224E1 /* SetupDialog.swift */; };
@@ -52,6 +53,7 @@
 		B7F8EE7B5753924349571354 /* PackDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackDownloader.swift; sourceTree = "<group>"; };
 		BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		C15F6462F6B12066646DE68F /* PttHotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttHotkey.swift; sourceTree = "<group>"; };
 		C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryPanel.swift; sourceTree = "<group>"; };
 		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 				B7F8EE7B5753924349571354 /* PackDownloader.swift */,
 				48DB62DEC33DAAF144CF18C9 /* Permissions.swift */,
 				515965794E00F3EC78F3479B /* PttCoordinator.swift */,
+				C15F6462F6B12066646DE68F /* PttHotkey.swift */,
 				5372EDEE73516D53C10A5810 /* SessionFactory.swift */,
 				CC57C97C2F91AEF6301000DF /* SetupChecker.swift */,
 				1763BAD2270C05C48F5224E1 /* SetupDialog.swift */,
@@ -220,6 +223,7 @@
 				40852E40CE4BFD6B4474F1C8 /* PackDownloader.swift in Sources */,
 				8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */,
 				E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */,
+				3FE94FCEF806AB1260B48962 /* PttHotkey.swift in Sources */,
 				3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */,
 				F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */,
 				4B57ADD302EBBD0F9A77607F /* SetupDialog.swift in Sources */,

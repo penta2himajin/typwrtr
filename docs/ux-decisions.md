@@ -98,7 +98,8 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 - Default: **`Control + Shift + D`** (hold for PTT; D = Dictate).  
   - Rationale: `Option+letter` inserts macOS special characters (e.g. `⌥V` → √); `Ctrl+V` / `Ctrl+Option+V` can leak control characters when the event tap is unavailable; `⌘⇧D` collides with Finder → Desktop.  
   - Chord is **swallowed** system-wide via CGEvent tap (needs Accessibility).  
-- Changeable from the **menu bar** (presets may include Right Command alone with “no other key” rules; not the default).  
+- Changeable from **Settings → Mode → Hotkey** (preset popup; persists in UserDefaults). MVP presets: **`⌃⇧D`** (default), **`⌃⇧Space`**. Undo stays **`⌃⇧Z`**.  
+  - Right Command alone / freeform recorder remain deferred (modifier-only chords need different event handling).  
 - No dedicated “switch mode” hotkey in MVP.
 
 ## 4. Onboarding wizard (Q9–Q10, Q16, Q21–Q22)
@@ -121,11 +122,11 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 
 **Dogfood (2026-08-08 / 2026-08-10 / 2026-08-11):** shared **Typwrtr Settings** dialog covers permissions, **mode**, language + in-app pack download, dictionary CRUD, **Licenses…** (attribution dialog for Typwrtr / euhadra / model weights), and launch-at-login. Modes:
 
-- **Push to talk (batch)** — hold ⌃⇧D; release inserts the whole capture once.
-- **Push to talk (streaming)** — hold ⌃⇧D; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.35** (rlx-vad `SegmentParams::earshot` preset for Earshot segmentation); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
+- **Push to talk (batch)** — hold the PTT hotkey (default ⌃⇧D; Settings → Mode → Hotkey); release inserts the whole capture once.
+- **Push to talk (streaming)** — hold the PTT hotkey; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.35** (rlx-vad `SegmentParams::earshot` preset for Earshot segmentation); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
 - **Focus Dictation** — armed + text-field focus; **same Earshot live endpointing** with **1.5s** silence (Q25); one listening period spans many segments. Menu toggle matches this mode only.
 
-Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean uses **Dolphin small CTC** (euhadra `DolphinAdapter`, Apache-2.0) with in-app pack download.
+Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean uses **Dolphin small CTC** (euhadra `DolphinAdapter`, Apache-2.0) with in-app pack download. **Hotkey** popup under Mode selects PTT presets (`⌃⇧D`, `⌃⇧Space`); Undo stays `⌃⇧Z`.
 
 **Settings window:** not required while the surface stays small; menu bar is the primary control surface. Add a settings window when complexity demands it.
 

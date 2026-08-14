@@ -2,8 +2,8 @@ import Foundation
 
 /// How Typwrtr listens and when it inserts (Settings → Mode).
 ///
-/// - ``pushToTalk``: hold ⌃⇧D, release → one insert (classic).
-/// - ``pushToTalkStreaming``: hold ⌃⇧D; silence ends a segment and inserts
+/// - ``pushToTalk``: hold PTT hotkey, release → one insert (classic).
+/// - ``pushToTalkStreaming``: hold PTT; silence ends a segment and inserts
 ///   while the key stays down; release flushes the tail (key-gated Free).
 /// - ``focusDictation``: armed + text-field focus; silence ends segments (F3).
 enum DictationMode: String, CaseIterable {
@@ -25,13 +25,14 @@ enum DictationMode: String, CaseIterable {
         }
     }
 
-    /// Short hint under the Mode radios.
+    /// Short hint under the Mode radios (uses current PTT preset).
     var settingsHint: String {
+        let chord = PttHotkey.current.displaySymbol
         switch self {
         case .pushToTalk:
-            return "Hold ⌃⇧D; release to insert the whole capture once."
+            return "Hold \(chord); release to insert the whole capture once."
         case .pushToTalkStreaming:
-            return "Hold ⌃⇧D; pauses insert while held; release ends."
+            return "Hold \(chord); pauses insert while held; release ends."
         case .focusDictation:
             return "While a text field is focused; silence ends each phrase."
         }

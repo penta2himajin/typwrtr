@@ -12,15 +12,21 @@ final class MenuBarModel: ObservableObject {
     @Published var statusTitle = "Status: idle"
     @Published var extraTitle = "Tw"
     @Published var symbolName = "mic"
-    @Published var toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+    @Published var toolTip = "Typwrtr — idle (hold \(PttHotkey.current.displaySymbol))"
     @Published var hotkeyReady = false
     @Published var hotkeyStatus = "Hotkey: starting…"
+    /// Menu accelerator + labels follow Settings → Hotkey.
+    @Published var pttHotkey = PttHotkey.current
     @Published var lastTextTitle = "Last: —"
     @Published var canUndo = false
     @Published var setupComplete = false
     @Published var freeArmed = false
     /// Secondary line below the Focus Dictation toggle; hidden while off.
     @Published var focusDictationStatus: String?
+
+    private var idleToolTip: String {
+        "Typwrtr — idle (hold \(pttHotkey.displaySymbol))"
+    }
 
     static let freeArmedKey = "typwrtr.freeArmed"
 
@@ -54,8 +60,22 @@ final class MenuBarModel: ObservableObject {
                     self.symbolName = "mic"
                     self.extraTitle = "Tw"
                     self.statusTitle = "Status: idle"
-                    self.toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+                    self.toolTip = self.idleToolTip
                 }
+            }
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func setPttHotkey(_ hotkey: PttHotkey) {
+        let apply = {
+            self.pttHotkey = hotkey
+            if self.statusTitle == "Status: idle" {
+                self.toolTip = self.idleToolTip
             }
         }
         if Thread.isMainThread {
@@ -117,7 +137,7 @@ final class MenuBarModel: ObservableObject {
                 self.symbolName = "mic"
                 self.extraTitle = "Tw"
                 self.statusTitle = "Status: idle"
-                self.toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+                self.toolTip = self.idleToolTip
             }
         }
         if Thread.isMainThread {
@@ -177,7 +197,7 @@ final class MenuBarModel: ObservableObject {
                 self.symbolName = "mic"
                 self.extraTitle = "Tw"
                 self.statusTitle = "Status: idle"
-                self.toolTip = "Typwrtr — idle (hold ⌃⇧D)"
+                self.toolTip = self.idleToolTip
             case .recording:
                 self.symbolName = "mic.fill"
                 self.extraTitle = "●Tw"
@@ -223,7 +243,8 @@ final class MenuBarModel: ObservableObject {
     }
 
     func setHotkeyReady(_ ready: Bool) {
-        setHotkeyStatus(ready ? "Hotkey: ⌃⇧D ready" : "Hotkey: not armed")
+        let symbol = pttHotkey.displaySymbol
+        setHotkeyStatus(ready ? "Hotkey: \(symbol) ready" : "Hotkey: not armed")
     }
 
     func showError(_ message: String) {

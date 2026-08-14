@@ -9,6 +9,8 @@ enum SetupDialog {
     static var onDictionaryChanged: (() -> Void)?
     /// Called when Setup picks a listening mode.
     static var onDictationModeChanged: ((DictationMode) -> Void)?
+    /// Called when Setup picks a PTT hotkey preset.
+    static var onPttHotkeyChanged: ((PttHotkey) -> Void)?
     /// Called when Setup toggles Free arming (F3 / wizard mode choice).
     static var onFreeArmChanged: ((Bool) -> Void)?
 
@@ -44,7 +46,7 @@ enum SetupDialog {
             blockTitleHeight + titleToContent + rowHeight
         }
 
-        /// Body height for Permission + Mode + General.
+        /// Body height for Permission + Mode (+ Hotkey) + General.
         static var bodyHeight: CGFloat {
             blockHeader
                 + rowHeight * 3
@@ -54,6 +56,10 @@ enum SetupDialog {
                 + rowHeight * 3
                 + gap * 2
                 + 28
+                + gap
+                + blockTitleHeight
+                + titleToContent
+                + rowHeight
                 + sectionGap
                 + blockHeader
                 + section
@@ -339,6 +345,10 @@ enum SetupDialog {
         private var progressFill: CALayer?
         private var modeButtons: [DictationMode: NSButton] = [:]
         private var modeHint: NSTextField!
+        /// Top of the Mode radio stack (y after the Mode block header).
+        private var modeStackTop: CGFloat = 0
+        private let modeHintHeight: CGFloat = 28
+        private let hotkeyPopup: NSPopUpButton
 
         init(
             status: SetupStatus,
@@ -347,6 +357,7 @@ enum SetupDialog {
         ) {
             self.onLanguage = onLanguage
             self.languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+            self.hotkeyPopup = NSPopUpButton(frame: .zero, pullsDown: false)
             self.downloadButton = NSButton(title: "Download", target: nil, action: nil)
             super.init(frame: NSRect(x: 0, y: 0, width: w, height: Metrics.bodyHeight))
 
@@ -376,9 +387,9 @@ enum SetupDialog {
 
             y -= Metrics.sectionGap
             addBlockHeader("Mode", y: &y)
+            modeStackTop = y
             let selected = DictationMode.current
             for mode in DictationMode.allCases {
-                y -= Metrics.rowHeight
                 let button = NSButton(
                     radioButtonWithTitle: mode.settingsTitle,
                     target: self,
@@ -387,21 +398,40 @@ enum SetupDialog {
                 button.font = .systemFont(ofSize: 12)
                 button.state = mode == selected ? .on : .off
                 button.tag = mode.tag
-                button.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+                button.toolTip = mode.settingsHint
                 addSubview(button)
                 modeButtons[mode] = button
-                y -= Metrics.gap
             }
-            y += Metrics.gap // last gap is before hint, not between radios
-            y -= 28
             let hint = NSTextField(wrappingLabelWithString: selected.settingsHint)
             hint.font = .systemFont(ofSize: 10)
             hint.textColor = .secondaryLabelColor
             hint.maximumNumberOfLines = 2
-            hint.frame = NSRect(x: 0, y: y, width: w, height: 28)
             addSubview(hint)
             modeHint = hint
             // Standalone NSButtons do not auto-group; keep exclusive state ourselves.
+            y = layoutModeStack(selected: selected)
+
+            y -= Metrics.gap
+            y -= Metrics.blockTitleHeight
+            let hotkeyTitle = NSTextField(labelWithString: "Hotkey")
+            hotkeyTitle.font = .systemFont(ofSize: 11, weight: .semibold)
+            hotkeyTitle.textColor = .secondaryLabelColor
+            hotkeyTitle.frame = NSRect(x: 0, y: y, width: w, height: Metrics.blockTitleHeight)
+            addSubview(hotkeyTitle)
+
+            y -= Metrics.titleToContent
+            y -= Metrics.rowHeight
+            hotkeyPopup.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+            hotkeyPopup.font = .systemFont(ofSize: 12)
+            hotkeyPopup.controlSize = .small
+            for hotkey in PttHotkey.allCases {
+                hotkeyPopup.addItem(withTitle: hotkey.settingsTitle)
+                hotkeyPopup.lastItem?.representedObject = hotkey.rawValue
+            }
+            hotkeyPopup.selectItem(withTitle: PttHotkey.current.settingsTitle)
+            hotkeyPopup.target = self
+            hotkeyPopup.action = #selector(hotkeyChanged(_:))
+            addSubview(hotkeyPopup)
 
             y -= Metrics.sectionGap
             addBlockHeader("General", y: &y)
@@ -656,9 +686,57 @@ enum SetupDialog {
             for (candidate, button) in modeButtons {
                 button.state = candidate == mode ? .on : .off
             }
-            modeHint.stringValue = mode.settingsHint
+            _ = layoutModeStack(selected: mode)
             MenuBarModel.shared.setDictationMode(mode)
             SetupDialog.onDictationModeChanged?(mode)
+        }
+
+        @objc private func hotkeyChanged(_ sender: NSPopUpButton) {
+            guard let raw = sender.selectedItem?.representedObject as? String,
+                  let hotkey = PttHotkey(rawValue: raw)
+            else { return }
+            PttHotkey.current = hotkey
+            refreshModeCopy()
+            MenuBarModel.shared.setPttHotkey(hotkey)
+            SetupDialog.onPttHotkeyChanged?(hotkey)
+        }
+
+        /// Place radios + the selected-mode hint; total stack height stays fixed.
+        @discardableResult
+        private func layoutModeStack(selected: DictationMode) -> CGFloat {
+            var y = modeStackTop
+            let modes = DictationMode.allCases
+            for (index, mode) in modes.enumerated() {
+                y -= Metrics.rowHeight
+                modeButtons[mode]?.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
+                if mode == selected {
+                    y -= modeHintHeight
+                    modeHint.stringValue = mode.settingsHint
+                    // Indent under the radio title (past the circle).
+                    modeHint.frame = NSRect(
+                        x: Metrics.markWidth,
+                        y: y,
+                        width: w - Metrics.markWidth,
+                        height: modeHintHeight
+                    )
+                }
+                if index < modes.count - 1 {
+                    y -= Metrics.gap
+                }
+            }
+            refreshModeToolTips()
+            return y
+        }
+
+        private func refreshModeCopy() {
+            modeHint.stringValue = DictationMode.current.settingsHint
+            refreshModeToolTips()
+        }
+
+        private func refreshModeToolTips() {
+            for mode in DictationMode.allCases {
+                modeButtons[mode]?.toolTip = mode.settingsHint
+            }
         }
 
         private func selectedLanguage() -> AppLanguage {

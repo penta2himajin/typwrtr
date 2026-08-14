@@ -11,7 +11,7 @@ struct TypwrtrApp: App {
             Text(menu.lastTextTitle)
             Divider()
             Button("Push to talk") {}
-                .keyboardShortcut("d", modifiers: [.control, .shift])
+                .keyboardShortcut(menu.pttHotkey.menuKeyEquivalent, modifiers: [.control, .shift])
                 .disabled(true)
             Button("Undo last insert") {
                 menu.onUndoRequested?()

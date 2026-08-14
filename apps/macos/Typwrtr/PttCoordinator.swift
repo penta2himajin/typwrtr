@@ -93,16 +93,27 @@ final class PttCoordinator {
         SetupDialog.onDictationModeChanged = { [weak self] mode in
             self?.applyDictationMode(mode)
         }
+        SetupDialog.onPttHotkeyChanged = { [weak self] hotkey in
+            self?.applyPttHotkey(hotkey)
+        }
         SetupDialog.onFreeArmChanged = { [weak self] armed in
             self?.setFreeArmed(armed)
         }
         menu.setCanUndo(session.lastText() != nil)
+        menu.setPttHotkey(PttHotkey.current)
         hotkey.start()
         focusWatcher.onFocusPossiblyChanged = { [weak self] in
             self?.pollFreeFocus()
         }
         applyDictationMode(DictationMode.current)
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
+    }
+
+    /// Re-bind the system-wide PTT chord after Settings changes the preset.
+    func applyPttHotkey(_ hotkey: PttHotkey) {
+        PttHotkey.current = hotkey
+        menu.setPttHotkey(hotkey)
+        self.hotkey.restart()
     }
 
     /// Recreate the ASR session for a new language (idle only).
