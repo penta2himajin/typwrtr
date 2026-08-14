@@ -51,7 +51,7 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 ```bash
 # From repo root
 ./scripts/create-dogfood-cert.sh   # once
-./scripts/install-dogfood.sh       # build, install to ~/Applications, launch
+./scripts/install-dogfood.sh       # Release → /Applications; look at the right-side menu bar (no Dock icon)
 ```
 
 Pass `--reset-permissions` to clear this app's TCC grants and be prompted again.
@@ -79,7 +79,7 @@ re-sign the installed copy with `--sign -`; `install-dogfood.sh` copies with
 check by hand:
 
 ```bash
-codesign -d --requirements - ~/Applications/Typwrtr.app   # expect identifier + certificate leaf
+codesign -d --requirements - /Applications/Typwrtr.app   # expect identifier + certificate leaf
 ```
 
 

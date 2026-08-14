@@ -198,7 +198,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\ncd \"$SRCROOT/../..\"\n# Prefer repo-local target/ so Xcode LIBRARY_SEARCH_PATHS resolve.\nunset CARGO_TARGET_DIR\ncargo build -p typwrtr-core\n";
+			shellScript = "set -euo pipefail\ncd \"$SRCROOT/../..\"\nunset CARGO_TARGET_DIR\nif [ \"${CONFIGURATION:-Debug}\" = \"Release\" ]; then\n  cargo build -p typwrtr-core --release --locked\n  LIB=target/release/libtypwrtr_core.dylib\nelse\n  cargo build -p typwrtr-core --locked\n  LIB=target/debug/libtypwrtr_core.dylib\nfi\ncargo run -q -p typwrtr-core --bin uniffi-bindgen -- generate \\\n  --library \"$LIB\" --language swift --out-dir \"$SRCROOT/Generated\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -434,7 +434,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
-				TYPWRTR_RUST_LIB_DIR = "$(SRCROOT)/../../target/debug";
+				TYPWRTR_RUST_LIB_DIR = "$(SRCROOT)/../../target/release";
 			};
 			name = Release;
 		};

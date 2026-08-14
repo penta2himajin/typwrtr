@@ -804,7 +804,8 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func startStreamListen() throws 
     
     /**
-     * Current status.
+     * Current status. A live stream listen counts as recording so the shell
+     * cannot paint idle mid-hold (`refreshStatus` reads this).
      */
     func status()  -> FfiStatus
     
@@ -1091,7 +1092,8 @@ open func startStreamListen()throws   {try rustCallWithError(FfiConverterTypeFfi
 }
     
     /**
-     * Current status.
+     * Current status. A live stream listen counts as recording so the shell
+     * cannot paint idle mid-hold (`refreshStatus` reads this).
      */
 open func status() -> FfiStatus  {
     return try!  FfiConverterTypeFfiStatus_lift(try! rustCall() {
@@ -2364,7 +2366,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_method_pttsession_start_stream_listen() != 3474) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_typwrtr_core_checksum_method_pttsession_status() != 58209) {
+    if (uniffi_typwrtr_core_checksum_method_pttsession_status() != 18559) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_stop_ptt() != 1751) {

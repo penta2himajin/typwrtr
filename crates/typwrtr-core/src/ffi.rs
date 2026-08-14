@@ -369,8 +369,17 @@ impl PttSession {
         ptt_session_from_engine(engine)
     }
 
-    /// Current status.
+    /// Current status. A live stream listen counts as recording so the shell
+    /// cannot paint idle mid-hold (`refreshStatus` reads this).
     pub fn status(&self) -> FfiStatus {
+        if self
+            .stream
+            .lock()
+            .map(|slot| slot.is_some())
+            .unwrap_or(false)
+        {
+            return FfiStatus::Recording;
+        }
         self.runtime
             .block_on(async { self.inner.lock().await.status().into() })
     }
@@ -489,14 +498,13 @@ impl PttSession {
                 msg: "no closed stream segment".into(),
             })?
         };
-        self.runtime.block_on(async {
-            self.inner
-                .lock()
-                .await
-                .dictate_pcm(samples, 16_000)
-                .await
-                .map_err(Into::into)
-        })
+        match self
+            .runtime
+            .block_on(async { self.inner.lock().await.dictate_pcm(samples, 16_000).await })
+        {
+            Ok(text) => Ok(text),
+            Err(_) => Ok(String::new()),
+        }
     }
 
     /// Drop the stream listen after release handling is done.
@@ -577,6 +585,138 @@ mod tests {
         assert!(ended, "focus must close after ~1.5s silence");
         let text = session.take_stream_segment().unwrap();
         assert!(text.to_lowercase().contains("hello"), "{text}");
+        session.finish_stream_listen();
+    }
+
+    #[test]
+    fn ffi_two_stream_segments_are_taken_once_in_order() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "hello".into()).unwrap();
+        session.start_stream_listen().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(std::iter::repeat_n(0.0, 24_000)); // 1.5s
+        pcm.extend(voiced_samples(1.0));
+        pcm.extend(std::iter::repeat_n(0.0, 24_000));
+        let tick = 1_280usize;
+        let mut ends = 0u32;
+        for piece in pcm.chunks(tick) {
+            if matches!(
+                session.push_stream_pcm_f32(piece.to_vec(), 16_000).unwrap(),
+                FfiStreamVadEvent::SegmentEnded
+            ) {
+                ends += 1;
+            }
+        }
+        assert!(ends >= 1, "at least one SegmentEnded before take");
+        let first = session.take_stream_segment().unwrap();
+        assert!(first.to_lowercase().contains("hello"), "{first}");
+        let second = session.take_stream_segment().unwrap();
+        assert!(second.to_lowercase().contains("hello"), "{second}");
+        assert!(
+            session.take_stream_segment().is_err(),
+            "a third take must not invent a segment"
+        );
+        session.finish_stream_listen();
+    }
+
+    #[test]
+    fn ffi_stop_flush_take_finish_then_restart() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "hello".into()).unwrap();
+        session.start_stream_listen().unwrap();
+        session
+            .push_stream_pcm_f32(voiced_samples(1.2), 16_000)
+            .unwrap();
+        assert!(matches!(
+            session.stop_stream_listen().unwrap(),
+            FfiStreamVadEvent::SegmentEnded
+        ));
+        let text = session.take_stream_segment().unwrap();
+        assert!(text.to_lowercase().contains("hello"), "{text}");
+        session.finish_stream_listen();
+
+        session.start_stream_listen().unwrap();
+        session
+            .push_stream_pcm_f32(voiced_samples(1.2), 16_000)
+            .unwrap();
+        assert!(matches!(
+            session.stop_stream_listen().unwrap(),
+            FfiStreamVadEvent::SegmentEnded
+        ));
+        let again = session.take_stream_segment().unwrap();
+        assert!(again.to_lowercase().contains("hello"), "{again}");
+        session.finish_stream_listen();
+    }
+
+    #[test]
+    fn ffi_sequential_live_stream_segments_remain_usable() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "hello".into()).unwrap();
+        session.start_stream_listen().unwrap();
+        for i in 0..3 {
+            let mut pcm = voiced_samples(0.8);
+            pcm.extend(std::iter::repeat_n(0.0, 16_000)); // 1.0s > 700ms
+            let tick = 1_280usize;
+            let mut ended = false;
+            for piece in pcm.chunks(tick) {
+                if matches!(
+                    session.push_stream_pcm_f32(piece.to_vec(), 16_000).unwrap(),
+                    FfiStreamVadEvent::SegmentEnded
+                ) {
+                    ended = true;
+                    break;
+                }
+            }
+            assert!(ended, "phrase {i} must close on silence");
+            let text = session.take_stream_segment().unwrap();
+            assert!(
+                text.to_lowercase().contains("hello"),
+                "phrase {i} got {text}"
+            );
+        }
+        session.finish_stream_listen();
+    }
+
+    #[test]
+    fn ffi_streaming_listen_reports_recording_status() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "hello".into()).unwrap();
+        assert_eq!(session.status(), FfiStatus::Idle);
+        session.start_stream_listen().unwrap();
+        assert_eq!(session.status(), FfiStatus::Recording);
+        session.finish_stream_listen();
+        assert_eq!(session.status(), FfiStatus::Idle);
+    }
+
+    #[test]
+    fn ffi_stop_stream_listen_flushes_open_utterance_with_pending_segment() {
+        let session =
+            PttSession::with_fixed_transcript(FfiLanguage::English, "hello".into()).unwrap();
+        session.start_stream_listen().unwrap();
+        let mut first = voiced_samples(1.0);
+        first.extend(std::iter::repeat_n(0.0, 24_000));
+        let tick = 1_280usize;
+        let mut ended = false;
+        for piece in first.chunks(tick) {
+            if matches!(
+                session.push_stream_pcm_f32(piece.to_vec(), 16_000).unwrap(),
+                FfiStreamVadEvent::SegmentEnded
+            ) {
+                ended = true;
+            }
+        }
+        assert!(ended);
+        session
+            .push_stream_pcm_f32(voiced_samples(1.2), 16_000)
+            .unwrap();
+        assert!(matches!(
+            session.stop_stream_listen().unwrap(),
+            FfiStreamVadEvent::SegmentEnded
+        ));
+        let a = session.take_stream_segment().unwrap();
+        let b = session.take_stream_segment().unwrap();
+        assert!(a.to_lowercase().contains("hello"), "{a}");
+        assert!(b.to_lowercase().contains("hello"), "{b}");
         session.finish_stream_listen();
     }
 }

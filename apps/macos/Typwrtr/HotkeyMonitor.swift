@@ -27,16 +27,21 @@ final class HotkeyMonitor {
     private let pttHotKeyID: UInt32 = 1
     private let undoHotKeyID: UInt32 = 2
 
+    /// True while the CGEvent tap is swallowing PTT (synthetic modifier-ups are safe).
+    private(set) static var eventTapArmed = false
+
     func start() {
         preset = .current
         requestPermissions()
 
         if installTap() {
+            Self.eventTapArmed = true
             _ = installCarbonUndoHotKey()
             setReadyStatus(via: "event tap")
             return
         }
 
+        Self.eventTapArmed = false
         if installCarbonHotKeys(includePtt: true) {
             setReadyStatus(via: "Carbon")
             showPermissionHelpIfNeeded()
@@ -75,6 +80,7 @@ final class HotkeyMonitor {
             CGEvent.tapEnable(tap: tap, enable: false)
             self.tap = nil
         }
+        Self.eventTapArmed = false
     }
 
     private func setReadyStatus(via path: String) {
@@ -92,6 +98,7 @@ final class HotkeyMonitor {
                 self.carbonPttHotKey = nil
             }
             _ = installCarbonUndoHotKey()
+            Self.eventTapArmed = true
             setReadyStatus(via: "event tap")
         }
     }

@@ -162,7 +162,8 @@ final class ClipboardInserter {
             NSLog("Typwrtr: AXSelectedText set but field unchanged (while held)")
         }
 
-        if !preferPaste, typeViaUnicode(text) {
+        let allowUnicode = !preferPaste || !HotkeyMonitor.eventTapArmed
+        if allowUnicode, typeViaUnicode(text) {
             if verifyWithRetries(before: before, expected: text) || !canVerifyInsert() {
                 NSLog("Typwrtr: typed via CGEvent unicode (while held)")
                 return .pasted
@@ -175,9 +176,13 @@ final class ClipboardInserter {
         if synthesizeCommandV(preferHID: true) {
             if verifyWithRetries(before: before, expected: text) {
                 NSLog("Typwrtr: pasted via ⌘V (while held, verified)")
-            } else {
-                NSLog("Typwrtr: pasted via ⌘V (while held, unverified)")
+                return .pasted
             }
+            if canVerifyInsert() {
+                NSLog("Typwrtr: ⌘V while held did not land — clipboard only")
+                return .clipboardOnly
+            }
+            NSLog("Typwrtr: pasted via ⌘V (while held, unverified)")
             return .pasted
         }
 
@@ -188,6 +193,8 @@ final class ClipboardInserter {
     /// Best-effort: tell the event system Ctrl/Shift are up so ⌘V is not
     /// delivered as ⌃⇧⌘V while the physical PTT chord is still held.
     private func synthesizeBlockingModifierUps() {
+        // Carbon / NSEvent cannot ignore tagged synthetic ups; they would end PTT.
+        guard HotkeyMonitor.eventTapArmed else { return }
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
         let flags = CGEventSource.flagsState(.combinedSessionState)
         let pairs: [(CGEventFlags, CGKeyCode)] = [

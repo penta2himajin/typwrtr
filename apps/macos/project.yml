@@ -10,8 +10,11 @@ settings:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     PRODUCT_BUNDLE_IDENTIFIER: app.typwrtr.macos.menuextra
-    # Dogfood: link the Cargo debug build (run `cargo build -p typwrtr-core` first).
+    # Debug Xcode runs: cargo debug lib. Release /Applications install uses target/release.
     TYPWRTR_RUST_LIB_DIR: "$(SRCROOT)/../../target/debug"
+  configs:
+    Release:
+      TYPWRTR_RUST_LIB_DIR: "$(SRCROOT)/../../target/release"
 
 targets:
   Typwrtr:
@@ -62,7 +65,14 @@ targets:
         script: |
           set -euo pipefail
           cd "$SRCROOT/../.."
-          # Prefer repo-local target/ so Xcode LIBRARY_SEARCH_PATHS resolve.
           unset CARGO_TARGET_DIR
-          cargo build -p typwrtr-core
+          if [ "${CONFIGURATION:-Debug}" = "Release" ]; then
+            cargo build -p typwrtr-core --release --locked
+            LIB=target/release/libtypwrtr_core.dylib
+          else
+            cargo build -p typwrtr-core --locked
+            LIB=target/debug/libtypwrtr_core.dylib
+          fi
+          cargo run -q -p typwrtr-core --bin uniffi-bindgen -- generate \
+            --library "$LIB" --language swift --out-dir "$SRCROOT/Generated"
         basedOnDependencyAnalysis: false

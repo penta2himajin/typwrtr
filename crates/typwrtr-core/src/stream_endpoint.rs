@@ -31,13 +31,13 @@ pub enum StreamVadEvent {
 /// Live Earshot score cutoff for *endpointing* (not dictate trim).
 ///
 /// euhadra calibrates `EarshotVad::default_threshold` to **0.2** for offline
-/// trim / WER ([`docs.rs` earshot module](https://docs.rs/euhadra/latest/euhadra/vad/struct.EarshotVad.html));
-/// that value keeps room tone as speech on laptop mics, so mid-hold never
-/// closed (dogfood 2026-08-11). For streaming segment boundaries we follow
-/// the Earshot live preset published by rlx-vad (`SegmentParams::earshot`:
-/// threshold **0.35**, see crates.io / README) — still below the earshot
-/// crate README's 0.5, which euhadra measured as harmful for recall.
-pub const STREAMING_EARSHOT_ENDPOINT_THRESHOLD: f32 = 0.35;
+/// trim / WER; that value keeps room tone as speech on laptop mics, so
+/// mid-hold never closed (dogfood 2026-08-11). rlx-vad's live Earshot
+/// preset is **0.35**, but measured −45 dBFS room tone still peaks at
+/// ~0.37 (2026-08-14), which resets the 44-frame silence run. **0.42**
+/// sits above that peak and below the earshot README's 0.5 (euhadra
+/// measured 0.5 as harmful for recall).
+pub const STREAMING_EARSHOT_ENDPOINT_THRESHOLD: f32 = 0.42;
 
 /// One key-hold listening period: Earshot stream + Segmenter + PCM window.
 pub struct StreamListen {
@@ -65,7 +65,7 @@ pub enum StreamListenMode {
 
 /// Segmenter policy for live endpointing.
 ///
-/// - `threshold`: [`STREAMING_EARSHOT_ENDPOINT_THRESHOLD`] (rlx-vad Earshot preset)
+/// - `threshold`: [`STREAMING_EARSHOT_ENDPOINT_THRESHOLD`]
 /// - `min_silence`: mode-specific ([`STREAMING_PTT_SILENCE_MS`] or
 ///   [`FOCUS_DICTATION_SILENCE_MS`])
 /// - other fields: euhadra `SegmenterConfig::default()`
@@ -119,7 +119,10 @@ impl StreamListen {
         self.segmenter.is_speaking()
     }
 
-    /// Append PCM and return at most one event. Pending closes stick until taken.
+    /// Append PCM and return at most one event for *this* push.
+    ///
+    /// `SegmentEnded` fires when a boundary happens in this call, not merely
+    /// because a closed window is still waiting to be taken.
     ///
     /// Empty `samples` while speaking still advances the silence clock by one
     /// shell tick of digital silence (mic underrun must not freeze endpointing).
@@ -137,9 +140,6 @@ impl StreamListen {
                 let zeros = vec![0.0; tick.max(self.frame_size)];
                 return self.push_samples(&zeros);
             }
-            if !self.closed.is_empty() {
-                return Ok(StreamVadEvent::SegmentEnded);
-            }
             return Ok(StreamVadEvent::None);
         }
 
@@ -147,7 +147,6 @@ impl StreamListen {
     }
 
     fn push_samples(&mut self, samples: &[f32]) -> Result<StreamVadEvent, String> {
-        self.utterance.extend_from_slice(samples);
         self.pending_frame.extend_from_slice(samples);
 
         let mut saw_speech_started = false;
@@ -155,6 +154,9 @@ impl StreamListen {
 
         while self.pending_frame.len() >= self.frame_size {
             let frame: Vec<f32> = self.pending_frame.drain(..self.frame_size).collect();
+            // Append only frames the segmenter has seen. Extending `utterance` with
+            // the whole push first made onset trim keep the *end* of a delayed chunk.
+            self.utterance.extend_from_slice(&frame);
             let probability = self.stream.speech_probability(&frame);
             let closed = self.segmenter.push(probability);
             let speaking = self.segmenter.is_speaking();
@@ -175,7 +177,7 @@ impl StreamListen {
             }
         }
 
-        if saw_segment_ended || !self.closed.is_empty() {
+        if saw_segment_ended {
             return Ok(StreamVadEvent::SegmentEnded);
         }
         if saw_speech_started {
@@ -184,24 +186,28 @@ impl StreamListen {
         Ok(StreamVadEvent::None)
     }
 
-    /// End the listen. Flushes an open utterance only (no quiet-tail ASR).
+    /// End the listen. Flushes an open utterance even if a prior window is
+    /// still waiting to be taken (release during in-flight ASR).
     pub fn stop(&mut self) -> StreamVadEvent {
-        if !self.closed.is_empty() {
-            return StreamVadEvent::SegmentEnded;
-        }
-        if !self.segmenter.is_speaking() {
+        let mut ended = !self.closed.is_empty();
+        if self.segmenter.is_speaking() {
+            if self.segmenter.flush().is_some() {
+                self.seal_utterance_window();
+                self.was_speaking = false;
+                ended = true;
+            } else {
+                self.utterance.clear();
+                self.pending_frame.clear();
+            }
+        } else {
             self.utterance.clear();
             self.pending_frame.clear();
-            return StreamVadEvent::None;
         }
-        if self.segmenter.flush().is_some() {
-            self.seal_utterance_window();
-            self.was_speaking = false;
-            return StreamVadEvent::SegmentEnded;
+        if ended {
+            StreamVadEvent::SegmentEnded
+        } else {
+            StreamVadEvent::None
         }
-        self.utterance.clear();
-        self.pending_frame.clear();
-        StreamVadEvent::None
     }
 
     /// Pop one closed utterance's PCM.
@@ -212,18 +218,21 @@ impl StreamListen {
         Some(self.closed.remove(0))
     }
 
-    /// Seal the mic window accumulated since the last seal.
-    ///
-    /// Unframed remainder stays as the start of the next window.
-    fn seal_utterance_window(&mut self) {
-        let rem = self.pending_frame.len();
-        let mut window = std::mem::take(&mut self.utterance);
-        if rem > 0 && rem <= window.len() {
-            self.utterance = window[window.len() - rem..].to_vec();
-            window.truncate(window.len() - rem);
-        } else {
-            self.utterance.clear();
+    /// Put a window back at the end of the queue (ASR failed after take).
+    /// Append, do not insert at the front: a window that fails again would
+    /// otherwise block every later closed utterance.
+    pub fn restore_closed(&mut self, samples: Vec<f32>) {
+        if !samples.is_empty() {
+            self.closed.push(samples);
         }
+    }
+
+    /// Seal frames already scored by the segmenter.
+    ///
+    /// Unframed `pending_frame` remainder is not in `utterance`; it joins the
+    /// next window when the next complete frame is assembled.
+    fn seal_utterance_window(&mut self) {
+        let window = std::mem::take(&mut self.utterance);
         if !window.is_empty() {
             self.closed.push(window);
         }
@@ -241,7 +250,8 @@ impl StreamListen {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_audio::{voiced_samples, RATE};
+    use crate::endpoint::SPEECH_START_PAD_SAMPLES;
+    use crate::test_audio::{room_tone, voiced_samples, RATE};
 
     fn silence(seconds: f32) -> Vec<f32> {
         vec![0.0; (seconds * RATE as f32) as usize]
@@ -251,30 +261,78 @@ mod tests {
         let chunk = (RATE as f32 * 0.08) as usize;
         let mut events = Vec::new();
         for piece in samples.chunks(chunk.max(1)) {
-            loop {
-                let ev = listen.push(piece, RATE).unwrap();
-                if ev == StreamVadEvent::None {
-                    break;
-                }
-                events.push(ev);
-                if ev == StreamVadEvent::SegmentEnded {
-                    assert!(
-                        listen.take_closed().is_some(),
-                        "SegmentEnded must leave a closed buffer"
-                    );
-                    continue;
-                }
-                break;
+            let ev = listen.push(piece, RATE).unwrap();
+            if ev == StreamVadEvent::None {
+                continue;
+            }
+            events.push(ev);
+            if ev == StreamVadEvent::SegmentEnded {
+                assert!(
+                    listen.take_closed().is_some(),
+                    "SegmentEnded must leave a closed buffer"
+                );
             }
         }
         events
     }
 
     #[test]
-    fn live_endpoint_threshold_matches_rlx_earshot_preset() {
-        assert!((STREAMING_EARSHOT_ENDPOINT_THRESHOLD - 0.35).abs() < f32::EPSILON);
-        const _: () = assert!(STREAMING_EARSHOT_ENDPOINT_THRESHOLD > 0.2);
+    fn live_endpoint_threshold_sits_above_measured_room_tone() {
+        assert!((STREAMING_EARSHOT_ENDPOINT_THRESHOLD - 0.42).abs() < f32::EPSILON);
+        const _: () = assert!(STREAMING_EARSHOT_ENDPOINT_THRESHOLD > 0.35);
         const _: () = assert!(STREAMING_EARSHOT_ENDPOINT_THRESHOLD < 0.5);
+    }
+
+    #[test]
+    fn earshot_scores_room_tone_below_the_live_endpoint_threshold() {
+        let vad = EarshotVad::new();
+        let mut stream = vad.start();
+        let scores: Vec<f32> = room_tone(2.0)
+            .chunks(vad.frame_size())
+            .map(|f| stream.speech_probability(f))
+            .collect();
+        let peak = scores.iter().copied().fold(0.0f32, f32::max);
+        let above = scores
+            .iter()
+            .filter(|s| **s >= STREAMING_EARSHOT_ENDPOINT_THRESHOLD)
+            .count();
+        assert_eq!(
+            above, 0,
+            "room tone peaks at {peak} ({above} frames ≥ {STREAMING_EARSHOT_ENDPOINT_THRESHOLD}); \
+             a single frame at threshold resets the ~700ms silence run so mid-hold never closes"
+        );
+    }
+
+    #[test]
+    fn streaming_closes_over_a_room_tone_floor_not_only_digital_zeros() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(room_tone(2.0));
+        let events = push_all(&mut listen, &pcm);
+        assert!(
+            events.contains(&StreamVadEvent::SegmentEnded),
+            "streaming must close ~0.7s after speech over a −45 dBFS floor: {events:?}"
+        );
+    }
+
+    #[test]
+    fn a_restored_window_does_not_outrank_the_next_one() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut pcm = voiced_samples(0.8);
+        pcm.extend(silence(1.5));
+        pcm.extend(voiced_samples(1.4));
+        pcm.extend(silence(1.5));
+        let tick = (RATE as f32 * 0.08) as usize;
+        for piece in pcm.chunks(tick.max(1)) {
+            let _ = listen.push(piece, RATE).unwrap();
+        }
+        let first = listen.take_closed().expect("first window");
+        listen.restore_closed(first.clone());
+        let next = listen.take_closed().expect("window after restore");
+        assert_ne!(
+            next, first,
+            "a failed window must not be served ahead of the next one forever"
+        );
     }
 
     #[test]
@@ -288,17 +346,9 @@ mod tests {
         let mut closed_lens = Vec::new();
         let chunk = (RATE as f32 * 0.08) as usize;
         for piece in pcm.chunks(chunk.max(1)) {
-            loop {
-                let ev = listen.push(piece, RATE).unwrap();
-                if ev == StreamVadEvent::SegmentEnded {
-                    let closed = listen.take_closed().expect("closed");
-                    closed_lens.push(closed.len());
-                    continue;
-                }
-                if ev == StreamVadEvent::None {
-                    break;
-                }
-                break;
+            if listen.push(piece, RATE).unwrap() == StreamVadEvent::SegmentEnded {
+                let closed = listen.take_closed().expect("closed");
+                closed_lens.push(closed.len());
             }
         }
         assert!(
@@ -372,6 +422,161 @@ mod tests {
         }
         assert!(ended, "empty pumps must be able to close on silence");
         assert!(listen.take_closed().is_some());
+    }
+
+    fn phrase_then_silence() -> Vec<f32> {
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(silence(1.5));
+        pcm
+    }
+
+    fn drain_closed(listen: &mut StreamListen, samples: &[f32], chunk: usize) -> Vec<Vec<f32>> {
+        let mut closed = Vec::new();
+        for piece in samples.chunks(chunk.max(1)) {
+            let _ = listen.push(piece, RATE).unwrap();
+            while let Some(window) = listen.take_closed() {
+                closed.push(window);
+            }
+        }
+        closed
+    }
+
+    #[test]
+    fn large_single_push_matches_chunked_push() {
+        let pcm = phrase_then_silence();
+        let tick = (RATE as f32 * 0.08) as usize;
+
+        let mut chunked = StreamListen::start().unwrap();
+        let chunked_closed = drain_closed(&mut chunked, &pcm, tick);
+
+        let mut whole = StreamListen::start().unwrap();
+        let whole_closed = drain_closed(&mut whole, &pcm, pcm.len());
+
+        assert_eq!(
+            chunked_closed.len(),
+            whole_closed.len(),
+            "same PCM must close the same number of times chunked vs one push"
+        );
+        assert!(
+            !whole_closed.is_empty(),
+            "a 1s phrase + 1.5s silence must produce a closed window even as one push"
+        );
+        let chunked_len = chunked_closed[0].len() as f32 / RATE as f32;
+        let whole_len = whole_closed[0].len() as f32 / RATE as f32;
+        assert!(
+            (chunked_len - whole_len).abs() < 0.3,
+            "closed window length diverged: chunked={chunked_len:.2}s whole={whole_len:.2}s"
+        );
+    }
+
+    #[test]
+    fn speech_start_in_large_push_preserves_processed_onset() {
+        // Delayed timer: one push bigger than SPEECH_START_PAD_SAMPLES that
+        // contains onset, speech, and enough silence to close.
+        let mut pcm = silence(0.3);
+        pcm.extend(voiced_samples(1.0));
+        pcm.extend(silence(1.5));
+        assert!(pcm.len() > SPEECH_START_PAD_SAMPLES);
+
+        let mut listen = StreamListen::start().unwrap();
+        let closed = drain_closed(&mut listen, &pcm, pcm.len());
+        assert_eq!(
+            closed.len(),
+            1,
+            "expected one closed window, got {}",
+            closed.len()
+        );
+        let seconds = closed[0].len() as f32 / RATE as f32;
+        assert!(
+            seconds > 0.6,
+            "onset trim on a large push dropped the phrase ({seconds:.2}s)"
+        );
+    }
+
+    #[test]
+    fn segment_ended_always_has_takeable_closed_buffer() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(silence(1.5));
+        let ev = listen.push(&pcm, RATE).unwrap();
+        assert_eq!(ev, StreamVadEvent::SegmentEnded);
+        let first = listen.take_closed().expect("SegmentEnded without a buffer");
+        assert!(!first.is_empty());
+        assert!(listen.take_closed().is_none());
+        // After take, silence must not re-fire.
+        assert_eq!(
+            listen.push(&silence(0.08), RATE).unwrap(),
+            StreamVadEvent::None
+        );
+    }
+
+    #[test]
+    fn segment_ended_is_reported_once_per_boundary() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(silence(1.5));
+        let tick = (RATE as f32 * 0.08) as usize;
+        let mut ends = 0;
+        for piece in pcm.chunks(tick.max(1)) {
+            if listen.push(piece, RATE).unwrap() == StreamVadEvent::SegmentEnded {
+                ends += 1;
+            }
+        }
+        assert_eq!(ends, 1, "sticky SegmentEnded must not re-fire every tick");
+        for _ in 0..8 {
+            assert_eq!(
+                listen.push(&silence(0.08), RATE).unwrap(),
+                StreamVadEvent::None
+            );
+        }
+        assert!(listen.take_closed().is_some());
+    }
+
+    #[test]
+    fn stop_flushes_the_open_utterance_even_with_a_pending_closed_window() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut first = voiced_samples(1.0);
+        first.extend(silence(1.5));
+        let tick = (RATE as f32 * 0.08) as usize;
+        let mut ended = false;
+        for piece in first.chunks(tick.max(1)) {
+            if listen.push(piece, RATE).unwrap() == StreamVadEvent::SegmentEnded {
+                ended = true;
+            }
+        }
+        assert!(ended, "first phrase must close");
+        // Do not take_closed — simulates ASR still running.
+        let _ = listen.push(&voiced_samples(1.2), RATE).unwrap();
+        assert!(listen.is_speaking());
+        assert_eq!(listen.stop(), StreamVadEvent::SegmentEnded);
+        let a = listen.take_closed().expect("queued first phrase");
+        let b = listen.take_closed().expect("flushed second phrase");
+        assert!(
+            (a.len() as f32 / RATE as f32) > 0.6,
+            "first window too short ({:.2}s)",
+            a.len() as f32 / RATE as f32
+        );
+        assert!(
+            (b.len() as f32 / RATE as f32) > 0.6,
+            "release flush dropped the open phrase ({:.2}s)",
+            b.len() as f32 / RATE as f32
+        );
+        assert!(listen.take_closed().is_none());
+    }
+
+    #[test]
+    fn restore_closed_requeues_the_window() {
+        let mut listen = StreamListen::start().unwrap();
+        let mut pcm = voiced_samples(1.0);
+        pcm.extend(silence(1.5));
+        assert_eq!(
+            listen.push(&pcm, RATE).unwrap(),
+            StreamVadEvent::SegmentEnded
+        );
+        let window = listen.take_closed().unwrap();
+        listen.restore_closed(window.clone());
+        let again = listen.take_closed().unwrap();
+        assert_eq!(again.len(), window.len());
     }
 
     #[test]

@@ -13,6 +13,25 @@ use euhadra::types::AudioChunk;
 
 pub(crate) const RATE: u32 = 16_000;
 
+/// Stationary laptop-mic floor at about −45 dBFS (euhadra Earshot table).
+///
+/// Digital zeros are *not* a substitute: Earshot still peaks ~0.28 on
+/// zeros, and the live endpoint needs a run of frames *below* the live cutoff.
+pub(crate) fn room_tone(seconds: f32) -> Vec<f32> {
+    let n = (seconds * RATE as f32) as usize;
+    let mut state = 0x2545_F491_4F6C_DD1Du64;
+    let amp = 10f32.powf(-45.0 / 20.0);
+    (0..n)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            let noise = (state >> 40) as f32 / 8_388_608.0 - 1.0;
+            noise * amp
+        })
+        .collect()
+}
+
 /// Speech-like: a harmonic stack under a syllable-rate amplitude envelope.
 pub(crate) fn voiced_samples(seconds: f32) -> Vec<f32> {
     let n = (seconds * RATE as f32) as usize;

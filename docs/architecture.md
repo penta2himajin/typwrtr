@@ -101,8 +101,9 @@ synchronous. Swift becomes a pump: hand over samples, act on the returned event.
 **Push to talk (streaming)** and **Focus Dictation** (`start_stream_listen` /
 `start_focus_listen` / `push_stream_pcm_f32` / `take_stream_segment` /
 `stop_stream_listen`). Live endpointing is **`EarshotVad` + `Segmenter`** with
-threshold **0.35** (rlx-vad Earshot segment preset; euhadra’s 0.2 WER calibration
-under-closed on laptop room tone in dogfood). Dictate trim still uses backend
+threshold **0.42** (measured −45 dBFS room tone peaked ~0.37, which reset the
+rlx-vad 0.35 silence run; euhadra’s 0.2 WER calibration under-closed on laptop
+room tone in dogfood). Dictate trim still uses backend
 default 0.2. Silence budgets: streaming ≈ **700 ms**, Focus Dictation **1500 ms**
 (Q25). CaptureLog: `earshot-silence` / `earshot-release`. `SilenceVad.swift` is
 deleted. Do not replace live Earshot with EnergyVad without an explicit product
@@ -253,7 +254,7 @@ Workspace `Cargo.toml` already declares `license = "MIT OR Apache-2.0"`.
 | 2026-08-11 | **Korean path → Dolphin:** Typwrtr selects `DolphinAdapter` + in-app `dolphin-ko` pack (euhadra §I). SenseVoice FFI kept as legacy. |
 | 2026-08-11 | Root dual-license files: `LICENSE-MIT` + `LICENSE-APACHE` (matches Cargo.toml `MIT OR Apache-2.0`). |
 | 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
-| 2026-08-11 | Streaming PTT Stage 2 pilot: Earshot+Segmenter live endpointing. Dogfood: 0.2 never closed mid-hold on room tone; live threshold set to 0.35 (rlx-vad Earshot preset). Dictate trim stays at 0.2. Do not swap live path to EnergyVad without an explicit decision. |
+| 2026-08-14 | Live endpoint threshold **0.42**: −45 dBFS room tone peaked ~0.37 under Earshot, so 0.35 never accumulated 700 ms of sub-threshold frames. Dictate trim stays 0.2. |
 | 2026-08-11 | **VAD stage 2 complete:** Focus Dictation uses `start_focus_listen` (same Earshot live path, 1500 ms silence). `SilenceVad.swift` deleted. |
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
 | 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |
