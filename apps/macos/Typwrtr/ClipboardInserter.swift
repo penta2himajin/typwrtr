@@ -13,9 +13,18 @@ import Darwin
 ///
 /// Text always remains on the pasteboard as a manual recovery path.
 final class ClipboardInserter {
+    /// How text reached the field (latency logs only — no transcript).
+    enum InsertVia: String {
+        case ax
+        case cmdV = "cmdv"
+        case unicode
+        case systemEvents = "system-events"
+        case none
+    }
+
     enum Result {
         case emptyText
-        case pasted
+        case pasted(via: InsertVia)
         case clipboardOnly
     }
 
@@ -103,7 +112,7 @@ final class ClipboardInserter {
         if ax, !preferPaste, insertViaAccessibility(trimmed) {
             if verifyWithRetries(before: before, expected: trimmed) {
                 NSLog("Typwrtr: inserted via AXSelectedText")
-                return .pasted
+                return .pasted(via: .ax)
             }
             NSLog("Typwrtr: AXSelectedText set but field unchanged")
         }
@@ -120,14 +129,14 @@ final class ClipboardInserter {
             } else {
                 NSLog("Typwrtr: pasted via ⌘V (unverified AX — assuming OK)")
             }
-            return .pasted
+            return .pasted(via: .cmdV)
         }
 
         // 3) Direct unicode typing (native apps; skip when we already prefer paste).
         if !preferPaste, typeViaUnicode(trimmed) {
             if verifyWithRetries(before: before, expected: trimmed) {
                 NSLog("Typwrtr: typed via CGEvent unicode")
-                return .pasted
+                return .pasted(via: .unicode)
             }
         }
 
@@ -135,10 +144,10 @@ final class ClipboardInserter {
         if pasteViaSystemEvents() {
             if verifyWithRetries(before: before, expected: trimmed) {
                 NSLog("Typwrtr: pasted via System Events")
-                return .pasted
+                return .pasted(via: .systemEvents)
             }
             NSLog("Typwrtr: System Events paste posted — assuming OK")
-            return .pasted
+            return .pasted(via: .systemEvents)
         }
 
         NSLog("Typwrtr: insert failed — clipboard only")
@@ -157,7 +166,7 @@ final class ClipboardInserter {
         if ax, !preferPaste, insertViaAccessibility(text) {
             if verifyWithRetries(before: before, expected: text) {
                 NSLog("Typwrtr: inserted via AXSelectedText (while held)")
-                return .pasted
+                return .pasted(via: .ax)
             }
             NSLog("Typwrtr: AXSelectedText set but field unchanged (while held)")
         }
@@ -166,7 +175,7 @@ final class ClipboardInserter {
         if allowUnicode, typeViaUnicode(text) {
             if verifyWithRetries(before: before, expected: text) || !canVerifyInsert() {
                 NSLog("Typwrtr: typed via CGEvent unicode (while held)")
-                return .pasted
+                return .pasted(via: .unicode)
             }
         }
 
@@ -176,14 +185,14 @@ final class ClipboardInserter {
         if synthesizeCommandV(preferHID: true) {
             if verifyWithRetries(before: before, expected: text) {
                 NSLog("Typwrtr: pasted via ⌘V (while held, verified)")
-                return .pasted
+                return .pasted(via: .cmdV)
             }
             if canVerifyInsert() {
                 NSLog("Typwrtr: ⌘V while held did not land — clipboard only")
                 return .clipboardOnly
             }
             NSLog("Typwrtr: pasted via ⌘V (while held, unverified)")
-            return .pasted
+            return .pasted(via: .cmdV)
         }
 
         NSLog("Typwrtr: insert while held failed — clipboard only")

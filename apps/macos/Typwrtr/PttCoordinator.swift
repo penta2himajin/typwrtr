@@ -405,17 +405,34 @@ final class PttCoordinator {
         let target = insertTarget ?? NSWorkspace.shared.frontmostApplication
         NSLog("Typwrtr: Focus Dictation segment")
 
+        let segmentTrace = LatencyLog.isEnabled
+            ? LatencyLog.Trace(path: "free", trigger: "earshot-silence")
+            : nil
+
         streamRecognizeQueue.async { [weak self] in
             guard let self else { return }
-            var results: [(text: String, samples: Int)] = []
+            var results: [(text: String, samples: Int, trace: LatencyLog.Trace?)] = []
+            var firstSegment = true
             while true {
+                let trace: LatencyLog.Trace?
+                if firstSegment {
+                    trace = segmentTrace
+                    firstSegment = false
+                } else {
+                    trace = LatencyLog.isEnabled
+                        ? LatencyLog.Trace(path: "free", trigger: "earshot-silence")
+                        : nil
+                }
+                trace?.markAsrStart()
                 do {
                     let text = try self.session.takeStreamSegment()
+                    trace?.markAsrEnd()
                     let metrics = self.session.lastCaptureMetrics()
                     CaptureLog.record(metrics, path: "free")
                     let samples = Int(metrics?.pushedSamples ?? 0)
-                    results.append((text, samples))
+                    results.append((text, samples, trace))
                 } catch {
+                    trace?.finishWithoutInsert(outcome: "asr-empty")
                     break
                 }
             }
@@ -434,7 +451,8 @@ final class PttCoordinator {
                             text: item.text,
                             samples: item.samples,
                             insertGen: insertGen,
-                            target: target
+                            target: target,
+                            trace: item.trace
                         )
                     }
                 }
@@ -450,7 +468,8 @@ final class PttCoordinator {
         text: String,
         samples: Int,
         insertGen: UInt64,
-        target: NSRunningApplication?
+        target: NSRunningApplication?,
+        trace: LatencyLog.Trace?
     ) {
         freeInFlight = max(0, freeInFlight - 1)
         refreshStatus()
@@ -458,12 +477,13 @@ final class PttCoordinator {
         if insertGen != freeInsertGeneration {
             NSLog("Typwrtr: dropped free insert (left field)")
             CaptureLog.insert(path: "free", outcome: "dropped-left-field", chars: text.count)
+            trace?.finishWithoutInsert(outcome: "dropped-left-field", chars: text.count)
             if shouldAcceptStreamResult(text: text) {
                 menu.setLastText(text)
             }
         } else {
             insertTarget = target
-            insertStreamResult(text: text, path: "free")
+            insertStreamResult(text: text, path: "free", trace: trace)
         }
         if freeMicOpen {
             menu.setStatus(.recording)
@@ -620,6 +640,9 @@ final class PttCoordinator {
         phase = .finishing
         let captured = mic.stop()
         menu.setStatus(.processing)
+        let trace = LatencyLog.isEnabled
+            ? LatencyLog.Trace(path: "ptt", trigger: "release")
+            : nil
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -635,12 +658,15 @@ final class PttCoordinator {
                         sampleRate: 16_000
                     )
                 }
+                trace?.markAsrStart()
                 let text = try self.session.stopPtt()
+                trace?.markAsrEnd()
                 CaptureLog.record(self.session.lastCaptureMetrics(), path: "ptt")
                 DispatchQueue.main.async {
-                    self.finishBatchPtt(text: text)
+                    self.finishBatchPtt(text: text, trace: trace)
                 }
             } catch {
+                trace?.finishWithoutInsert(outcome: "error")
                 DispatchQueue.main.async {
                     self.phase = .idle
                     self.freeSuspendedByPtt = false
@@ -657,7 +683,7 @@ final class PttCoordinator {
         }
     }
 
-    private func finishBatchPtt(text: String) {
+    private func finishBatchPtt(text: String, trace: LatencyLog.Trace?) {
         phase = .idle
         freeSuspendedByPtt = false
         refreshStatus()
@@ -668,7 +694,10 @@ final class PttCoordinator {
         menu.setLastText(text)
         NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
         restoreInsertTargetFocus()
-        switch inserter.insert(text, into: insertTarget) {
+        trace?.markInsertStart()
+        let result = inserter.insert(text, into: insertTarget)
+        recordInsert(path: "ptt", result: result, chars: text.count, trace: trace)
+        switch result {
         case .emptyText:
             // ux-decisions Q24: nothing was said.
             break
@@ -752,17 +781,34 @@ final class PttCoordinator {
         insertTarget = target
         NSLog("Typwrtr: streaming PTT segment reason=%@", reason)
 
+        let segmentTrace = LatencyLog.isEnabled
+            ? LatencyLog.Trace(path: "ptt-stream", trigger: reason)
+            : nil
+
         streamRecognizeQueue.async { [weak self] in
             guard let self else { return }
-            var results: [(text: String, samples: Int)] = []
+            var results: [(text: String, samples: Int, trace: LatencyLog.Trace?)] = []
+            var firstSegment = true
             while true {
+                let trace: LatencyLog.Trace?
+                if firstSegment {
+                    trace = segmentTrace
+                    firstSegment = false
+                } else {
+                    trace = LatencyLog.isEnabled
+                        ? LatencyLog.Trace(path: "ptt-stream", trigger: reason)
+                        : nil
+                }
+                trace?.markAsrStart()
                 do {
                     let text = try self.session.takeStreamSegment()
+                    trace?.markAsrEnd()
                     let metrics = self.session.lastCaptureMetrics()
                     CaptureLog.record(metrics, path: "ptt-stream")
                     let samples = Int(metrics?.pushedSamples ?? 0)
-                    results.append((text, samples))
+                    results.append((text, samples, trace))
                 } catch {
+                    trace?.finishWithoutInsert(outcome: "asr-empty")
                     break
                 }
             }
@@ -785,7 +831,8 @@ final class PttCoordinator {
                         self.completeStreamSegment(
                             text: item.text,
                             samples: item.samples,
-                            whileHeld: whileHeld
+                            whileHeld: whileHeld,
+                            trace: item.trace
                         )
                     }
                 }
@@ -799,13 +846,19 @@ final class PttCoordinator {
         }
     }
 
-    private func completeStreamSegment(text: String, samples: Int, whileHeld: Bool) {
+    private func completeStreamSegment(
+        text: String,
+        samples: Int,
+        whileHeld: Bool,
+        trace: LatencyLog.Trace?
+    ) {
         streamInFlight = max(0, streamInFlight - 1)
         menu.setLastCapture(samples: samples, sampleRate: 16_000)
         insertStreamResult(
             text: text,
             path: "ptt-stream",
-            policy: whileHeld ? .whileModifiersHeld : .waitForModifiers
+            policy: whileHeld ? .whileModifiersHeld : .waitForModifiers,
+            trace: trace
         )
         if streamingPttActive {
             phase = .recording
@@ -819,27 +872,53 @@ final class PttCoordinator {
     private func insertStreamResult(
         text: String,
         path: String,
-        policy: ClipboardInserter.Policy = .waitForModifiers
+        policy: ClipboardInserter.Policy = .waitForModifiers,
+        trace: LatencyLog.Trace? = nil
     ) {
         guard shouldAcceptStreamResult(text: text) else {
             NSLog("Typwrtr: dropped %@ insert (empty)", path)
             CaptureLog.insert(path: path, outcome: "dropped-empty", chars: 0)
+            trace?.finishWithoutInsert(outcome: "dropped-empty")
             return
         }
         menu.setLastText(text)
         NSLog("Typwrtr: %@ segment (%d chars): %@", path, text.count, text)
         restoreInsertTargetFocus()
-        switch inserter.insert(text, into: insertTarget, policy: policy) {
+        trace?.markInsertStart()
+        let result = inserter.insert(text, into: insertTarget, policy: policy)
+        recordInsert(path: path, result: result, chars: text.count, trace: trace)
+        switch result {
         case .emptyText:
-            CaptureLog.insert(path: path, outcome: "empty", chars: 0)
+            break
         case .pasted:
             menu.setCanUndo(true)
-            CaptureLog.insert(path: path, outcome: "pasted", chars: text.count)
         case .clipboardOnly:
             menu.setCanUndo(true)
-            CaptureLog.insert(path: path, outcome: "clipboard-only", chars: text.count)
             NSLog("Typwrtr: insert clipboard-only (%@) — press ⌘V", path)
             Permissions.registerInAccessibilityList()
+        }
+    }
+
+    private func recordInsert(
+        path: String,
+        result: ClipboardInserter.Result,
+        chars: Int,
+        trace: LatencyLog.Trace?
+    ) {
+        switch result {
+        case .emptyText:
+            CaptureLog.insert(path: path, outcome: "empty", chars: 0)
+            trace?.finishWithoutInsert(outcome: "empty")
+        case .pasted(let via):
+            CaptureLog.insert(path: path, outcome: "pasted", chars: chars)
+            trace?.finishInsert(method: via.rawValue, outcome: "pasted", chars: chars)
+        case .clipboardOnly:
+            CaptureLog.insert(path: path, outcome: "clipboard-only", chars: chars)
+            trace?.finishInsert(
+                method: ClipboardInserter.InsertVia.none.rawValue,
+                outcome: "clipboard-only",
+                chars: chars
+            )
         }
     }
 

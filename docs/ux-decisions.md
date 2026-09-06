@@ -220,12 +220,17 @@ them.
 - **Audio waveforms:** process in memory only; **do not write to disk**.  
 - **Text:** keep the minimum needed for failure preview, retry, and Undo; discard after success path is done and Undo is no longer applicable (or after explicit dismiss).  
 - No “save last N recordings” debug store in MVP.
-- **Capture measurements (Q27):** debug builds only, via `os_log` under subsystem
+- **Capture measurements (Q27):** debug builds only by default, via `os_log` under subsystem
   `app.typwrtr.macos.menuextra`. Counts and durations only — capture duration,
   detected speech duration, how much was trimmed, and the utterance count. No
   audio, no transcribed text. This exists because Q25 defers the segment-end
   value to measurement, and because `NSLog` output has been confirmed
   unrecoverable after the fact.
+  - **Latency logs (dogfood):** optional toggle in menu **Debug → Latency logs**
+    (UserDefaults, default off). When on, also works in Release dogfood builds:
+    end-to-end ms from PTT release / segment end through ASR finalize and insert,
+    plus insert path (`ax`, `cmdv`, `unicode`, etc.). Category `latency`; same
+    subsystem. Still numbers only — no audio, no transcript.
   - Report **trimmed duration, not speech-as-a-fraction**. Segment bounds carry
     `speech_pad` either side and can overlap or run past the buffer, so summing
     them overcounts; the first dogfood run reported a "ratio" of 1.15. The core
@@ -264,7 +269,7 @@ them.
 | Q24 | No-speech capture: PTT returns to idle silently; Free ignores it |
 | Q25 | Focus Dictation segment end 1.5s; streaming PTT uses ~0.7s (core SSOT) |
 | Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
-| Q27 | Capture measurements: debug builds, `os_log`, trimmed duration + count |
+| Q27 | Capture measurements: `os_log`, trimmed duration + count; optional latency logs in Release |
 | Q28 | Dictionary = `TermDictionary` substitution only |
 | Q29 | Speaker-owned entries; Typwrtr ships no lexicon |
 | Q30–Q31 | One table per language; not per ASR backend |
