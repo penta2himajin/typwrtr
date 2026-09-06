@@ -37,6 +37,25 @@ struct TypwrtrApp: App {
             }
             .keyboardShortcut(",", modifiers: .command)
             Divider()
+            Menu("Debug") {
+                Toggle(
+                    "Latency logs",
+                    isOn: Binding(
+                        get: { menu.latencyLoggingEnabled },
+                        set: { menu.setLatencyLoggingEnabled($0) }
+                    )
+                )
+                Text(menu.lastCaptureTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(menu.backendDebugTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Pick model folder…") {
+                    menu.pickModelFolder()
+                }
+            }
+            Divider()
             Button("Quit") {
                 NSApp.terminate(nil)
             }

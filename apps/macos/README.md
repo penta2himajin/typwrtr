@@ -40,7 +40,7 @@ xcodebuild -scheme Typwrtr -configuration Debug build
 ./scripts/fetch-models.sh dolphin-ko     # Korean (curl-only INT8 CTC)
 ```
 
-- **Onboarding (dogfood):** shared **Setup** dialog on first incomplete launch and from menu **Setup…** (language, permissions, language-pack install, launch-at-login). Users choose **Language**; models are selected automatically. **Debug** submenu has Last capture / backend / model folder.
+- **Onboarding (dogfood):** shared **Setup** dialog on first incomplete launch and from menu **Setup…** (language, permissions, language-pack install, launch-at-login). Users choose **Language**; models are selected automatically. **Debug** submenu has Last capture / backend / model folder / **Latency logs** toggle.
 - **Microphone is real:** hold **Control + Shift + D**; release → 16 kHz mono PCM → ASR → insert (AX / unicode / ⌘V).
 - Chord is swallowed. Needs **Accessibility** for the event tap + paste.
 - Menu shows ASR backend and **Last capture** sample counts.
@@ -61,6 +61,20 @@ from an ad-hoc install — not on an ordinary rebuild.
 **Expected UI:** a **mic icon on the right** of the menu bar (near Wi‑Fi / clock), not the left-side app name. That icon stays while you work in Notes/Slack/etc. Hold **⌃⇧D** to dictate.
 
 Also grant **Microphone**, **Input Monitoring** (for ⌃⇧D), and **Accessibility** (paste / swallow).
+
+### Latency logs (dogfood debugging)
+
+Enable **Debug → Latency logs** in the menu bar (persists across relaunches; default off). Each successful PTT or streaming segment logs end-to-end milliseconds — release/segment end → ASR → insert — with insert path. Numbers only; no audio or transcript.
+
+```bash
+# All Typwrtr os_log (capture + latency when enabled)
+log show --predicate 'subsystem == "app.typwrtr.macos.menuextra"' --last 30m
+
+# Latency lines only
+log show --predicate 'subsystem == "app.typwrtr.macos.menuextra" AND category == "latency"' --last 30m
+```
+
+Look for `latency id=… total_ms=… asr_ms=… insert_ms=… insert_via=…`.
 
 ### Why signing decides whether permissions stick
 

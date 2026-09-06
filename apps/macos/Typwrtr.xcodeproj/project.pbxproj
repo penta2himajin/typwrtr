@@ -20,6 +20,7 @@
 		79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B3BEF526BAABBC14F79762 /* DictationMode.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
 		7DFCDDBC82E76DFE02BB68AE /* CaptureLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01718668FF16CF01984BDF93 /* CaptureLog.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* LatencyLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E5D4C3B2A19081726354A /* LatencyLog.swift */; };
 		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
 		8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DB62DEC33DAAF144CF18C9 /* Permissions.swift */; };
 		9134229092E1413975D36E2D /* FocusProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */; };
@@ -57,6 +58,7 @@
 		C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryPanel.swift; sourceTree = "<group>"; };
 		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
+		F6E5D4C3B2A19081726354A /* LatencyLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatencyLog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -92,6 +94,7 @@
 				BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */,
 				85B91393F5CBC50C3C4B8208 /* Assets.xcassets */,
 				01718668FF16CF01984BDF93 /* CaptureLog.swift */,
+				F6E5D4C3B2A19081726354A /* LatencyLog.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				B6B3BEF526BAABBC14F79762 /* DictationMode.swift */,
 				C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */,
@@ -210,6 +213,7 @@
 				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
 				1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */,
 				7DFCDDBC82E76DFE02BB68AE /* CaptureLog.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* LatencyLog.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */,
 				E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */,

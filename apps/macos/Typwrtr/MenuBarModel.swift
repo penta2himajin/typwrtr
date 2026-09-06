@@ -23,6 +23,7 @@ final class MenuBarModel: ObservableObject {
     @Published var freeArmed = false
     /// Secondary line below the Focus Dictation toggle; hidden while off.
     @Published var focusDictationStatus: String?
+    @Published var latencyLoggingEnabled = LatencyLog.isEnabled
 
     private var idleToolTip: String {
         "Typwrtr — idle (hold \(pttHotkey.displaySymbol))"
@@ -300,5 +301,17 @@ final class MenuBarModel: ObservableObject {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(lang.fetchCommand + "\n", forType: .string)
+    }
+
+    func setLatencyLoggingEnabled(_ enabled: Bool) {
+        LatencyLog.isEnabled = enabled
+        let apply = {
+            self.latencyLoggingEnabled = enabled
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
     }
 }
