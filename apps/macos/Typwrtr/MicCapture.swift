@@ -30,6 +30,15 @@ final class MicCapture {
     /// Last successful capture size (for dogfood visibility).
     private(set) var lastSampleCount: Int = 0
     private(set) var lastSampleRate: UInt32 = 16_000
+    /// RMS of the latest converted chunk. The capture buffer itself is unchanged.
+    private var latestRms: Float = 0
+
+    /// Level for the Focus Dictation bar. 0 when the engine is idle.
+    var recentRms: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return running ? latestRms : 0
+    }
 
     /// Whether the engine tap is currently installed.
     var isRunning: Bool {
@@ -55,6 +64,7 @@ final class MicCapture {
         guard !running else { return }
 
         buffer.removeAll(keepingCapacity: true)
+        latestRms = 0
 
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
@@ -102,6 +112,7 @@ final class MicCapture {
         lock.lock()
         let out = buffer
         buffer.removeAll(keepingCapacity: true)
+        latestRms = 0
         converter = nil
         lock.unlock()
 
@@ -146,9 +157,7 @@ final class MicCapture {
             guard error == nil, let channels = outBuffer.floatChannelData else { return }
             let frameCount = Int(outBuffer.frameLength)
             let slice = Array(UnsafeBufferPointer(start: channels[0], count: frameCount))
-            lock.lock()
-            buffer.append(contentsOf: slice)
-            lock.unlock()
+            store(slice)
             return
         }
 
@@ -159,9 +168,27 @@ final class MicCapture {
         if abs(inRate - targetSampleRate) > 1 {
             slice = Self.downsample(slice, from: inRate, to: targetSampleRate)
         }
+        store(slice)
+    }
+
+    /// Append converted samples and remember their RMS. Does not drop or rewrite audio.
+    private func store(_ slice: [Float]) {
+        let level = Self.rms(of: slice)
         lock.lock()
         buffer.append(contentsOf: slice)
+        if !slice.isEmpty {
+            latestRms = level
+        }
         lock.unlock()
+    }
+
+    private static func rms(of samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        var sum: Float = 0
+        for sample in samples {
+            sum += sample * sample
+        }
+        return sqrt(sum / Float(samples.count))
     }
 
     private static func downsample(_ input: [Float], from inRate: Double, to outRate: Double) -> [Float] {

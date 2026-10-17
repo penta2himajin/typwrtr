@@ -27,6 +27,7 @@ final class PttCoordinator {
     private var freeMicOpen = false
     private var freeInFlight = 0
     private var focusWatcher = FocusWatcher()
+    private let listeningIndicator = FocusListeningIndicator()
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -302,6 +303,10 @@ final class PttCoordinator {
             freeMicOpen = true
             insertTarget = NSWorkspace.shared.frontmostApplication
             menu.setFreeListeningIcon(true)
+            let pid = insertTarget?.processIdentifier ?? 0
+            listeningIndicator.show(appPid: pid) { [weak self] in
+                self?.mic.recentRms ?? 0
+            }
             startAudioPump(.focus)
             NSLog("Typwrtr: Free mic open (Earshot focus listen)")
             CaptureLog.note("focus listen started (earshot)")
@@ -338,6 +343,7 @@ final class PttCoordinator {
             enqueueFreeSegment()
         }
         menu.setFreeListeningIcon(false)
+        listeningIndicator.hide()
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
     }
 

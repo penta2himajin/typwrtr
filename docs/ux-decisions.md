@@ -25,6 +25,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 - Ideal presentation varies by user type; **do not auto-detect user type**.  
 - **PTT default feedback: menu bar icon only** (idle / recording / processing / error).  
 - No partial-transcript HUD in MVP (see §11).  
+- **Focus Dictation, while the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen. Level bars only — no transcript and no controls. Hidden while armed but waiting for a field, and during PTT. The menu-bar icon still changes.  
 - Richer HUD / partial display may be added later as options.
 
 ## 2. Activation modes (Q3, Q5, Q12, Q13, Q19)
@@ -124,7 +125,7 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 
 - **Push to talk (batch)** — hold the PTT hotkey (default ⌃⇧D; Settings → Mode → Hotkey); release inserts the whole capture once.
 - **Push to talk (streaming)** — hold the PTT hotkey; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.42** (measured −45 dBFS room tone peaked ~0.37, above rlx-vad’s 0.35 preset); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
-- **Focus Dictation** — armed + text-field focus; **same Earshot live endpointing** with **1.5s** silence (Q25); one listening period spans many segments. Menu toggle matches this mode only.
+- **Focus Dictation** — armed + text-field focus; **same Earshot live endpointing** with **1.5s** silence (Q25); one listening period spans many segments. Menu toggle matches this mode only. While the mic is open, a bottom-center level bar shows that input is active (no transcript; Q40).
 
 Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean uses **Dolphin small CTC** (euhadra `DolphinAdapter`, Apache-2.0) with in-app pack download. **Hotkey** popup under Mode selects PTT presets (`⌃⇧D`, `⌃⇧Space`); Undo stays `⌃⇧Z`.
 
@@ -281,6 +282,7 @@ them.
 | Q37 | Empty dictionary still on the pipeline |
 | Q38 | Dogfood ships Settings CRUD with the wiring |
 | Q39 | No import/export UI this phase |
+| Q40 | Focus Dictation listening: bottom level bar, no transcript |
 
 ## 13. Deferred (explicit non-decisions)
 
