@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0EBD2E43F52F4E77325E734C /* ListeningIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE85BCD62E13E42EA51FEA0 /* ListeningIndicator.swift */; };
 		1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */; };
 		3F4CEB78D01B9167DCDCCDB0 /* SessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5372EDEE73516D53C10A5810 /* SessionFactory.swift */; };
 		3FE94FCEF806AB1260B48962 /* PttHotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15F6462F6B12066646DE68F /* PttHotkey.swift */; };
@@ -26,7 +27,6 @@
 		95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */; };
 		967556A32E8666562F752864 /* FocusWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F0BD526E6949E60246A91D /* FocusWatcher.swift */; };
 		9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */; };
-		A809C1CA976B72D018B1EE5C /* FocusListeningIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
 		CA268B5AAA54836DFF25DDBC /* LatencyLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */; };
 		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
@@ -43,12 +43,12 @@
 		4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicensesPanel.swift; sourceTree = "<group>"; };
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
 		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
+		6EE85BCD62E13E42EA51FEA0 /* ListeningIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningIndicator.swift; sourceTree = "<group>"; };
 		7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusProbe.swift; sourceTree = "<group>"; };
 		8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLocator.swift; sourceTree = "<group>"; };
 		85B91393F5CBC50C3C4B8208 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypwrtrApp.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusListeningIndicator.swift; sourceTree = "<group>"; };
 		B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatencyLog.swift; sourceTree = "<group>"; };
 		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
@@ -99,12 +99,12 @@
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				B6B3BEF526BAABBC14F79762 /* DictationMode.swift */,
 				C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */,
-				9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */,
 				7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */,
 				B5F0BD526E6949E60246A91D /* FocusWatcher.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
 				B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */,
 				4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */,
+				6EE85BCD62E13E42EA51FEA0 /* ListeningIndicator.swift */,
 				E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */,
 				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
 				8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */,
@@ -219,12 +219,12 @@
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */,
 				E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */,
-				A809C1CA976B72D018B1EE5C /* FocusListeningIndicator.swift in Sources */,
 				9134229092E1413975D36E2D /* FocusProbe.swift in Sources */,
 				967556A32E8666562F752864 /* FocusWatcher.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
 				CA268B5AAA54836DFF25DDBC /* LatencyLog.swift in Sources */,
 				55F28353C8E06FC7342A0186 /* LicensesPanel.swift in Sources */,
+				0EBD2E43F52F4E77325E734C /* ListeningIndicator.swift in Sources */,
 				78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */,
 				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
 				450EE420DBA51FA14FD1CED8 /* ModelLocator.swift in Sources */,

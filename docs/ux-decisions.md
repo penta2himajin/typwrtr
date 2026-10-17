@@ -1,6 +1,6 @@
 # Typwrtr — UX & Interaction Decisions
 
-Status: **agreed** (grilling sessions, 2026-08-07, 2026-08-09, and 2026-08-10).  
+Status: **agreed** (grilling sessions, 2026-08-07, 2026-08-09, 2026-08-10; Q40 extended 2026-10-18).  
 SSOT for activation, feedback, insertion, privacy UI, and onboarding behaviour.  
 Product positioning / licensing: [`product.md`](./product.md). Use cases: [`use-cases.md`](./use-cases.md).
 
@@ -23,9 +23,9 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 - Some **state change is required** so the user can tell idle / recording / processing / error.  
 - Ideal presentation varies by user type; **do not auto-detect user type**.  
-- **PTT default feedback: menu bar icon only** (idle / recording / processing / error).  
+- **PTT feedback: menu bar icon** (idle / recording / processing / error) **plus the Q40 level bar while the key is held**. Processing has no bar; the icon carries it.  
 - No partial-transcript HUD in MVP (see §11).  
-- **Focus Dictation, while the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen. Level bars only — no transcript and no controls. Hidden while armed but waiting for a field, and during PTT. The menu-bar icon still changes.  
+- **While the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen, in **all three modes** — PTT batch and streaming while the key is held, Focus Dictation while its mic is open. Level bars only — no transcript and no controls. Hidden on release, and while Focus Dictation is armed but waiting for a field. The menu-bar icon still changes. (2026-10-18: extended from Focus Dictation only to PTT, matching Aqua Voice / Typeless-style hold feedback.)  
 - Richer HUD / partial display may be added later as options.
 
 ## 2. Activation modes (Q3, Q5, Q12, Q13, Q19)
@@ -33,7 +33,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 ### PTT (push-to-talk)
 
 - Hold hotkey to record; release to finalise → cleanup → insert.  
-- Feedback: menu bar icon states only.
+- Feedback: menu bar icon states, plus the Q40 level bar while held.
 
 ### Free / VAD (armed)
 
@@ -134,7 +134,7 @@ Settings radios use these three titles (no more “Arm Free”). Free/VAD status
 ## 5. Recognition display (Q11)
 
 - MVP: **do not show** interim/final text before insert.  
-- Menu bar state only during recording/processing.  
+- Menu bar state during recording/processing, plus the Q40 level bar (no text) while recording.  
 - Failure/undo paths may show text in a small preview (§7–§8).  
 - Optional “show text while processing” / partial HUD: later, separate decision.
 
@@ -245,7 +245,7 @@ them.
 
 | ID | Decision |
 |---|---|
-| Q1–Q2 | State feedback required; PTT → menu bar icon only |
+| Q1–Q2 | State feedback required; PTT → menu bar icon (+ Q40 level bar while held) |
 | Q3 | PTT + Free (Free = focus-gated); PTT feedback minimal |
 | Q4 | Strict focus gate + visible “Free unavailable” |
 | Q5 | Free = F3 (explicit arm) |
@@ -282,7 +282,7 @@ them.
 | Q37 | Empty dictionary still on the pipeline |
 | Q38 | Dogfood ships Settings CRUD with the wiring |
 | Q39 | No import/export UI this phase |
-| Q40 | Focus Dictation listening: bottom level bar, no transcript |
+| Q40 | Mic open (PTT hold or Focus Dictation): bottom level bar, no transcript |
 
 ## 13. Deferred (explicit non-decisions)
 

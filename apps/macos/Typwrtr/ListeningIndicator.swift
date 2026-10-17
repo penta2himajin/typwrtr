@@ -1,10 +1,10 @@
 import AppKit
 
-/// Bottom-center level bar while Focus Dictation's mic is open (ux-decisions Q40).
+/// Bottom-center level bar while the mic is open: PTT hold and Focus Dictation (ux-decisions Q40).
 ///
 /// Non-activating and click-through so it cannot pull focus off the text field.
 /// No transcript and no controls.
-final class FocusListeningIndicator {
+final class ListeningIndicator {
     private var panel: NSPanel?
     private var bars: LevelBarsView?
     private var timer: Timer?

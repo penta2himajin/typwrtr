@@ -65,7 +65,7 @@ Commoditise “dictation that just works”; do not chase every cloud SaaS featu
 
 Aligned with [`use-cases.md`](./use-cases.md) and [`ux-decisions.md`](./ux-decisions.md):
 
-- **U1** PTT dictation into the focused field; menu-bar state only (no interim text HUD).
+- **U1** PTT dictation into the focused field; menu-bar state + level bar while held (no interim text HUD).
 - **U9** Undo last (buffer-backed).
 - Default path: no cloud account, no LLM, no IME.
 - First-run wizard: mode, permissions, language(+model), launch-at-login.

@@ -27,7 +27,7 @@ final class PttCoordinator {
     private var freeMicOpen = false
     private var freeInFlight = 0
     private var focusWatcher = FocusWatcher()
-    private let listeningIndicator = FocusListeningIndicator()
+    private let listeningIndicator = ListeningIndicator()
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -303,10 +303,7 @@ final class PttCoordinator {
             freeMicOpen = true
             insertTarget = NSWorkspace.shared.frontmostApplication
             menu.setFreeListeningIcon(true)
-            let pid = insertTarget?.processIdentifier ?? 0
-            listeningIndicator.show(appPid: pid) { [weak self] in
-                self?.mic.recentRms ?? 0
-            }
+            showListeningIndicator()
             startAudioPump(.focus)
             NSLog("Typwrtr: Free mic open (Earshot focus listen)")
             CaptureLog.note("focus listen started (earshot)")
@@ -345,6 +342,13 @@ final class PttCoordinator {
         menu.setFreeListeningIcon(false)
         listeningIndicator.hide()
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
+    }
+
+    /// Level bar on the dictated-into app's screen while the mic is open (Q40).
+    private func showListeningIndicator() {
+        listeningIndicator.show(appPid: insertTarget?.processIdentifier ?? 0) { [weak self] in
+            self?.mic.recentRms ?? 0
+        }
     }
 
     private func startAudioPump(_ kind: AudioPumpKind) {
@@ -593,11 +597,13 @@ final class PttCoordinator {
         do {
             try session.startPtt()
             try mic.start()
+            showListeningIndicator()
             refreshStatus()
         } catch {
             phase = .idle
             freeSuspendedByPtt = false
             _ = mic.stop()
+            listeningIndicator.hide()
             try? session.cancel()
             refreshStatus()
             menu.showError("PTT start failed: \(error.localizedDescription)")
@@ -616,6 +622,7 @@ final class PttCoordinator {
         do {
             try session.startStreamListen()
             try mic.start()
+            showListeningIndicator()
             startAudioPump(.stream)
             refreshStatus()
             NSLog("Typwrtr: streaming PTT started (Earshot live endpoint)")
@@ -626,6 +633,7 @@ final class PttCoordinator {
             freeSuspendedByPtt = false
             session.finishStreamListen()
             _ = mic.stop()
+            listeningIndicator.hide()
             refreshStatus()
             menu.showError("PTT start failed: \(error.localizedDescription)")
             pollFreeFocus()
@@ -645,6 +653,7 @@ final class PttCoordinator {
     private func endBatchPtt() {
         phase = .finishing
         let captured = mic.stop()
+        listeningIndicator.hide()
         menu.setStatus(.processing)
         let trace = LatencyLog.isEnabled
             ? LatencyLog.Trace(path: "ptt", trigger: "release")
@@ -745,6 +754,7 @@ final class PttCoordinator {
     private func endStreamingPtt() {
         stopAudioPump()
         let captured = mic.stop()
+        listeningIndicator.hide()
         streamingPttActive = false
         streamReleasePending = true
         do {
