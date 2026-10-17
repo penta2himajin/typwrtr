@@ -20,15 +20,15 @@
 		79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B3BEF526BAABBC14F79762 /* DictationMode.swift */; };
 		7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */; };
 		7DFCDDBC82E76DFE02BB68AE /* CaptureLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01718668FF16CF01984BDF93 /* CaptureLog.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* LatencyLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E5D4C3B2A19081726354A /* LatencyLog.swift */; };
 		7F6AD48A53B8CB9C24E8E9A8 /* typwrtr_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9335A3A8B1C26860E862DC /* typwrtr_core.swift */; };
 		8AEE3983A8C100565F98DE97 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DB62DEC33DAAF144CF18C9 /* Permissions.swift */; };
 		9134229092E1413975D36E2D /* FocusProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */; };
-		A7C31E90B4D2586F01AB23C4 /* FocusListeningIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D42F01A5E3697012BC34D5 /* FocusListeningIndicator.swift */; };
 		95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */; };
 		967556A32E8666562F752864 /* FocusWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F0BD526E6949E60246A91D /* FocusWatcher.swift */; };
 		9A04288A03D41FA1A501EC9B /* TypwrtrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */; };
+		A809C1CA976B72D018B1EE5C /* FocusListeningIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */; };
 		AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BE96FA6232566689AD5380 /* AppDelegate.swift */; };
+		CA268B5AAA54836DFF25DDBC /* LatencyLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */; };
 		E2819616345AB94125B71B6F /* PttCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515965794E00F3EC78F3479B /* PttCoordinator.swift */; };
 		E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */; };
 		F52B931DA60A456F02C3D89D /* SetupChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC57C97C2F91AEF6301000DF /* SetupChecker.swift */; };
@@ -44,11 +44,12 @@
 		515965794E00F3EC78F3479B /* PttCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PttCoordinator.swift; sourceTree = "<group>"; };
 		5372EDEE73516D53C10A5810 /* SessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFactory.swift; sourceTree = "<group>"; };
 		7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusProbe.swift; sourceTree = "<group>"; };
-		C8D42F01A5E3697012BC34D5 /* FocusListeningIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusListeningIndicator.swift; sourceTree = "<group>"; };
 		8021BEB9B8EAF67BEA80E0A9 /* ModelLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLocator.swift; sourceTree = "<group>"; };
 		85B91393F5CBC50C3C4B8208 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8E1F08040DD72AB950EECDA8 /* TypwrtrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypwrtrApp.swift; sourceTree = "<group>"; };
 		902701E154429D8D35A938B1 /* Typwrtr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Typwrtr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusListeningIndicator.swift; sourceTree = "<group>"; };
+		B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatencyLog.swift; sourceTree = "<group>"; };
 		B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInserter.swift; sourceTree = "<group>"; };
 		B5F0BD526E6949E60246A91D /* FocusWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWatcher.swift; sourceTree = "<group>"; };
@@ -60,7 +61,6 @@
 		C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryPanel.swift; sourceTree = "<group>"; };
 		CC57C97C2F91AEF6301000DF /* SetupChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecker.swift; sourceTree = "<group>"; };
 		E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarModel.swift; sourceTree = "<group>"; };
-		F6E5D4C3B2A19081726354A /* LatencyLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatencyLog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -96,14 +96,14 @@
 				BB8CD11A4B3E0542F57992E7 /* AppLanguage.swift */,
 				85B91393F5CBC50C3C4B8208 /* Assets.xcassets */,
 				01718668FF16CF01984BDF93 /* CaptureLog.swift */,
-				F6E5D4C3B2A19081726354A /* LatencyLog.swift */,
 				B5D7D334B3DB2A4FF533146B /* ClipboardInserter.swift */,
 				B6B3BEF526BAABBC14F79762 /* DictationMode.swift */,
 				C56AF0F6562EE6063A6695B6 /* DictionaryPanel.swift */,
+				9718EAA90CC2AD7B0489CBAA /* FocusListeningIndicator.swift */,
 				7CC5F8803B1E69BCA2CBF3A9 /* FocusProbe.swift */,
-				C8D42F01A5E3697012BC34D5 /* FocusListeningIndicator.swift */,
 				B5F0BD526E6949E60246A91D /* FocusWatcher.swift */,
 				BB9D35D41E3244C455494122 /* HotkeyMonitor.swift */,
+				B2FD3D67CEA01B5EB9CF604D /* LatencyLog.swift */,
 				4F84D5487D137469CB3C2FC9 /* LicensesPanel.swift */,
 				E55A25DE0C99FC4161CBA8F6 /* MenuBarModel.swift */,
 				B5B1EEF4CF23BD06747B0EC3 /* MicCapture.swift */,
@@ -216,14 +216,14 @@
 				AD281807C4F0482820A07EEE /* AppDelegate.swift in Sources */,
 				1D69BC0D3187BEB17E082BBF /* AppLanguage.swift in Sources */,
 				7DFCDDBC82E76DFE02BB68AE /* CaptureLog.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5C /* LatencyLog.swift in Sources */,
 				4C1E28688F81C78741521E47 /* ClipboardInserter.swift in Sources */,
 				79817C020DEB98BE285E20DF /* DictationMode.swift in Sources */,
 				E673AE40DFB27FABFE8DB308 /* DictionaryPanel.swift in Sources */,
+				A809C1CA976B72D018B1EE5C /* FocusListeningIndicator.swift in Sources */,
 				9134229092E1413975D36E2D /* FocusProbe.swift in Sources */,
-				A7C31E90B4D2586F01AB23C4 /* FocusListeningIndicator.swift in Sources */,
 				967556A32E8666562F752864 /* FocusWatcher.swift in Sources */,
 				95ADD83BE0856F51DF448F6D /* HotkeyMonitor.swift in Sources */,
+				CA268B5AAA54836DFF25DDBC /* LatencyLog.swift in Sources */,
 				55F28353C8E06FC7342A0186 /* LicensesPanel.swift in Sources */,
 				78FC6A3FFCC50C40CF39A5E6 /* MenuBarModel.swift in Sources */,
 				7B1982FA562CDEA19EC62B64 /* MicCapture.swift in Sources */,
