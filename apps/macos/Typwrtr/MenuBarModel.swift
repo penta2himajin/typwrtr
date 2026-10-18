@@ -210,6 +210,21 @@ final class MenuBarModel: ObservableObject {
         }
     }
 
+    /// ASR session still loading (a cold FluidAudio load is ~60 s); dictation waits.
+    func setPreparing(_ language: AppLanguage) {
+        let apply = {
+            self.symbolName = "hourglass"
+            self.extraTitle = "…Tw"
+            self.statusTitle = "Status: preparing \(language.displayName) speech model…"
+            self.toolTip = "Typwrtr — preparing speech model"
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
     func setLastCapture(samples: Int, sampleRate: UInt32) {
         let seconds = sampleRate == 0 ? 0 : Double(samples) / Double(sampleRate)
         let title = String(

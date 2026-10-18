@@ -15,8 +15,17 @@ final class PttCoordinator {
     private let inserter = ClipboardInserter()
     private let mic = MicCapture()
     private let freeController = FreeController()
-    private var session: PttSession
-    private var backend: AsrBackend
+    // ponytail: nil only until the launch load lands; every path that starts dictation
+    // checks `sessionLoading` first, so call sites stay unchanged.
+    private var session: PttSession!
+    private var backend: AsrBackend!
+    /// A `SessionFactory` load is running (launch, language switch, dictionary save).
+    /// Dictation does not start; the previous session, if any, stays until the swap.
+    private var sessionLoading = false
+    private var sessionLoadGeneration: UInt64 = 0
+    // ponytail: serial, so a switch during a cold ja load waits for it rather than
+    // compiling into the same ANE cache twice. Cancel the stale load if that wait matters.
+    private let sessionLoadQueue = DispatchQueue(label: "app.typwrtr.session-load", qos: .userInitiated)
     private var phase: Phase = .idle
     private var micAuthorized = false
     /// Frontmost app at PTT-down / Free segment start — restore before paste.
@@ -70,15 +79,12 @@ final class PttCoordinator {
     private var streamDrainNeeded = false
     private var freeDrainNeeded = false
 
-    init(menu: MenuBarModel, session: PttSession, backend: AsrBackend) {
+    init(menu: MenuBarModel) {
         self.menu = menu
-        self.session = session
-        self.backend = backend
     }
 
     func start() {
-        applyBackendToMenu()
-        refreshStatus()
+        loadSession(AppLanguage.current)
 
         mic.requestPermission { [weak self] granted in
             DispatchQueue.main.async {
@@ -145,14 +151,13 @@ final class PttCoordinator {
         SetupDialog.onFreeArmChanged = { [weak self] armed in
             self?.setFreeArmed(armed)
         }
-        menu.setCanUndo(session.lastText() != nil)
         menu.setPttHotkey(PttHotkey.current)
         hotkey.start()
         focusWatcher.onFocusPossiblyChanged = { [weak self] cheap in
             self?.pollFreeFocus(cheap: cheap)
         }
         setFreeArmed(MenuBarModel.freeArmedPreference)
-        NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
+        NSLog("Typwrtr: PTT coordinator started")
     }
 
     /// Re-bind the system-wide PTT chord after Settings changes the preset.
@@ -175,19 +180,43 @@ final class PttCoordinator {
         }
         stopAudioPump()
         AppLanguage.current = language
-        let made = SessionFactory.makeSession(language: language)
-        session = made.0
-        backend = made.1
-        applyBackendToMenu()
-        menu.setCanUndo(session.lastText() != nil)
-        menu.refreshSetupStatus()
-        NSLog("Typwrtr: language=%@ backend=%@", language.displayName, backend.debugLabel)
+        loadSession(language)
+    }
+
+    /// Build the ASR session off the main thread; a cold FluidAudio load takes ~60 s.
+    /// The newest request wins: an older load that lands late is dropped.
+    private func loadSession(_ language: AppLanguage) {
+        sessionLoadGeneration += 1
+        let generation = sessionLoadGeneration
+        sessionLoading = true
+        menu.setLanguage(language)
+        menu.setBackendDebug("Backend: loading…")
+        refreshStatus()
+        sessionLoadQueue.async { [weak self] in
+            let made = SessionFactory.makeSession(language: language)
+            DispatchQueue.main.async {
+                guard let self, generation == self.sessionLoadGeneration else { return }
+                self.session = made.0
+                self.backend = made.1
+                self.sessionLoading = false
+                self.applyBackendToMenu()
+                self.menu.setCanUndo(self.session.lastText() != nil)
+                self.menu.refreshSetupStatus()
+                self.refreshStatus()
+                NSLog("Typwrtr: language=%@ backend=%@", language.displayName, made.1.debugLabel)
+                // Full probe: cheap ticks would see unchanged focus and leave the field closed.
+                self.lastProbe = nil
+                self.pollFreeFocus()
+            }
+        }
     }
 
     private func applyBackendToMenu() {
         menu.setLanguage(AppLanguage.current)
         menu.setBackendDebug(backend.debugLabel)
     }
+
+    private static let preparingMessage = "Preparing speech model…"
 
     private func syncFreeArmFromDefaults() {
         setFreeArmed(MenuBarModel.freeArmedPreference)
@@ -414,6 +443,10 @@ final class PttCoordinator {
     }
 
     private func startFreeMic() {
+        guard !sessionLoading else {
+            menu.setFocusDictationStatus(Self.preparingMessage)
+            return
+        }
         let auth = AVCaptureDevice.authorizationStatus(for: .audio)
         guard micAuthorized || auth == .authorized else {
             NSLog("Typwrtr: Free mic skipped (auth=%d)", auth.rawValue)
@@ -702,7 +735,7 @@ final class PttCoordinator {
     }
 
     func undoLast() {
-        guard phase == .idle, freeInFlight == 0, streamInFlight == 0 else { return }
+        guard !sessionLoading, phase == .idle, freeInFlight == 0, streamInFlight == 0 else { return }
         guard let text = session.takeUndoPayload() else {
             menu.setCanUndo(false)
             return
@@ -737,7 +770,7 @@ final class PttCoordinator {
             alert.addButton(withTitle: "Cancel")
             return alert.runModal() == .alertFirstButtonReturn ? .terminateNow : .terminateCancel
         }
-        switch session.status() {
+        switch session?.status() ?? .idle {
         case .recording, .processing:
             let alert = NSAlert()
             alert.messageText = "Discard and quit?"
@@ -803,6 +836,10 @@ final class PttCoordinator {
     }
 
     private func beginPtt() {
+        guard !sessionLoading else {
+            listeningIndicator.flash(Self.preparingMessage)
+            return
+        }
         pttHeld = true
         if handsFreeActive || phase == .recording || pendingTap != nil {
             return
@@ -1365,6 +1402,10 @@ final class PttCoordinator {
     }
 
     private func refreshStatus() {
-        menu.setStatus(session.status())
+        if sessionLoading {
+            menu.setPreparing(AppLanguage.current)
+        } else {
+            menu.setStatus(session.status())
+        }
     }
 }

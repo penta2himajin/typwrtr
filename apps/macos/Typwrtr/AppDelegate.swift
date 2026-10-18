@@ -11,12 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MenuBarModel.shared.setBackendDebug("Backend: starting…")
         MenuBarModel.shared.refreshSetupStatus()
 
-        let made = SessionFactory.makeSession()
-        let coordinator = PttCoordinator(
-            menu: MenuBarModel.shared,
-            session: made.0,
-            backend: made.1
-        )
+        let coordinator = PttCoordinator(menu: MenuBarModel.shared)
         self.coordinator = coordinator
         coordinator.start()
 
