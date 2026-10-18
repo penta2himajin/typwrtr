@@ -55,13 +55,13 @@ final class PttCoordinator {
     /// Drop Focus pastes whose listen generation no longer matches (user left the field).
     private var freeInsertGeneration: UInt64 = 0
 
-    /// Push to talk (streaming): Earshot live endpointing while the key is held.
-    private var streamingPttActive = false
+    /// Hands-free (Q45): Earshot live endpointing, toggled by double-tap and the key.
+    private var handsFreeActive = false
     private var streamInFlight = 0
     private var streamReleasePending = false
     /// Physical PTT chord down; used to start a hold that arrived during finishing.
     private var pttHeld = false
-    /// Serial ASR for streaming / Focus closed segments (take_stream_segment is blocking).
+    /// Serial ASR for hands-free / Focus closed segments (take_stream_segment is blocking).
     private let streamRecognizeQueue = DispatchQueue(label: "app.typwrtr.ptt-stream")
     /// One drain worker at a time so sticky SegmentEnded cannot inflate in-flight.
     private var streamDrainScheduled = false
@@ -92,16 +92,31 @@ final class PttCoordinator {
         }
 
         hotkey.onPttDown = { [weak self] in
-            self?.beginPtt()
+            self?.pttKeyDown()
         }
         hotkey.onPttUp = { [weak self] in
-            self?.endPtt()
+            self?.pttKeyUp()
+        }
+        // Q45: switching apps ends hands-free and drops the open segment (inserting it
+        // would pull the user back to the app they left).
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self, self.handsFreeActive,
+                  let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.processIdentifier != getpid(),
+                  app.processIdentifier != self.insertTarget?.processIdentifier
+            else { return }
+            self.cancelHandsFree(reason: "left-app")
         }
         hotkey.onEscape = { [weak self] in
             self?.escapePressed()
         }
         hotkey.shouldSwallowEscape = { [weak self] in
-            self?.batchPttCancelable ?? false
+            guard let self else { return false }
+            return self.pendingTap != nil || self.handsFreeCancelable || self.batchPttCancelable
         }
         hotkey.onMouseDown = { [weak self] in
             self?.clearEscapeHoldOnClick()
@@ -118,17 +133,11 @@ final class PttCoordinator {
         menu.onFreeArmChanged = { [weak self] armed in
             self?.setFreeArmed(armed)
         }
-        menu.onDictationModeChanged = { [weak self] mode in
-            self?.applyDictationMode(mode)
-        }
         SetupDialog.onLanguageChanged = { [weak self] language in
             self?.applyLanguage(language)
         }
         SetupDialog.onDictionaryChanged = { [weak self] in
             self?.applyLanguage(AppLanguage.current)
-        }
-        SetupDialog.onDictationModeChanged = { [weak self] mode in
-            self?.applyDictationMode(mode)
         }
         SetupDialog.onPttHotkeyChanged = { [weak self] hotkey in
             self?.applyPttHotkey(hotkey)
@@ -142,7 +151,7 @@ final class PttCoordinator {
         focusWatcher.onFocusPossiblyChanged = { [weak self] cheap in
             self?.pollFreeFocus(cheap: cheap)
         }
-        applyDictationMode(DictationMode.current)
+        setFreeArmed(MenuBarModel.freeArmedPreference)
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
     }
 
@@ -158,7 +167,7 @@ final class PttCoordinator {
         guard phase == .idle,
               freeInFlight == 0,
               streamInFlight == 0,
-              !streamingPttActive,
+              !handsFreeActive,
               !freeMicOpen
         else {
             menu.showError("Finish the current dictation before changing language.")
@@ -181,13 +190,7 @@ final class PttCoordinator {
     }
 
     private func syncFreeArmFromDefaults() {
-        applyDictationMode(DictationMode.current)
-    }
-
-    private func applyDictationMode(_ mode: DictationMode) {
-        DictationMode.current = mode
-        setFreeArmed(mode.isFocusDictation)
-        NSLog("Typwrtr: dictation mode=%@", mode.rawValue)
+        setFreeArmed(MenuBarModel.freeArmedPreference)
     }
 
     private func setFreeArmed(_ armed: Bool) {
@@ -300,6 +303,14 @@ final class PttCoordinator {
     /// Q46, Focus Dictation: Esc ends the listen and hides the bar. Esc itself still
     /// reaches the app. The same field does not reopen until focus moves elsewhere.
     private func escapePressed() {
+        if pendingTap != nil {
+            cancelPendingTap()
+            return
+        }
+        if handsFreeCancelable {
+            cancelHandsFree(reason: "esc")
+            return
+        }
         if batchPttCancelable {
             cancelBatchPtt()
             return
@@ -472,7 +483,10 @@ final class PttCoordinator {
         stopAudioPump()
         // The old pump has drained (stopAudioPump syncs the queue), so this is race-free.
         focusProbe.removeAll(keepingCapacity: true)
-        focusProbeDone = kind != .focus
+        focusProbeDone = kind == .off
+        handsFreeSpeaking = false
+        handsFreeLastVoiceAt = Date()
+        handsFreeIdleFired = false
         focusProbeStartedAt = Date()
         focusStatsSamples.removeAll(keepingCapacity: true)
         focusStatsAt = Date()
@@ -498,7 +512,7 @@ final class PttCoordinator {
         case .off:
             return
         case .stream:
-            processStreamAudio()
+            processHandsFreeAudio()
         case .focus:
             processFreeAudio()
         }
@@ -540,14 +554,19 @@ final class PttCoordinator {
         focusProbeDone = true
         let dead = isDeadInput(samples: focusProbe)
         CaptureLog.note(String(
-            format: "focus probe input %.1f dBFS over %d samples dead=%d",
+            format: "input probe %.1f dBFS over %d samples dead=%d",
             inputLevelDbfs(samples: focusProbe), focusProbe.count, dead ? 1 : 0
         ))
         focusProbe.removeAll()
         guard dead else { return }
-        NSLog("Typwrtr: Focus Dictation saw no microphone input; disarming")
         DispatchQueue.main.async { [weak self] in
-            guard let self, self.freeMicOpen else { return }
+            guard let self else { return }
+            if self.handsFreeActive {
+                self.cancelHandsFree(reason: "dead-mic")
+                self.listeningIndicator.flash(Self.noInputMessage)
+                return
+            }
+            guard self.freeMicOpen else { return }
             self.stopFreeMic(abandon: true, reason: "dead-mic")
             self.setFreeArmed(false)
             self.listeningIndicator.flash(Self.noInputMessage)
@@ -710,7 +729,7 @@ final class PttCoordinator {
     }
 
     func confirmQuitIfBusy() -> NSApplication.TerminateReply {
-        if freeInFlight > 0 || freeMicOpen || streamingPttActive || streamInFlight > 0 {
+        if freeInFlight > 0 || freeMicOpen || handsFreeActive || streamInFlight > 0 {
             let alert = NSAlert()
             alert.messageText = "Discard and quit?"
             alert.informativeText = "Typwrtr is still listening or processing."
@@ -731,9 +750,61 @@ final class PttCoordinator {
         }
     }
 
+    /// Set when a key-down started or stopped hands-free, so its key-up is ignored.
+    private var consumeKeyUp = false
+    /// A short first tap waiting up to the double-tap window (Q44). Its capture is
+    /// processed as batch PTT if no second press comes.
+    private var pendingTap: (releasedAt: Date, work: DispatchWorkItem)?
+
+    /// The PTT chord is physically down (between key-down and key-up callbacks).
+    private var chordHeld = false
+
+    private func pttKeyDown() {
+        chordHeld = true
+        if handsFreeActive {
+            consumeKeyUp = true
+            CaptureLog.note("hands-free stopped (key)")
+            endHandsFree()
+            return
+        }
+        if let tap = pendingTap,
+           isDoubleTap(gapMs: UInt64(max(0, Date().timeIntervalSince(tap.releasedAt)) * 1000))
+        {
+            tap.work.cancel()
+            pendingTap = nil
+            try? session.cancel()
+            phase = .idle
+            consumeKeyUp = true
+            beginHandsFree()
+            return
+        }
+        beginPtt()
+    }
+
+    private func pttKeyUp() {
+        chordHeld = false
+        if consumeKeyUp {
+            consumeKeyUp = false
+            pttHeld = false
+            return
+        }
+        endPtt()
+    }
+
+    private func cancelPendingTap() {
+        pendingTap?.work.cancel()
+        pendingTap = nil
+        CaptureLog.note("ptt cancelled (esc) phase=pending-tap")
+        try? session.cancel()
+        phase = .idle
+        freeSuspendedByPtt = false
+        refreshStatus()
+        pollFreeFocus()
+    }
+
     private func beginPtt() {
         pttHeld = true
-        if streamingPttActive || phase == .recording {
+        if handsFreeActive || phase == .recording || pendingTap != nil {
             return
         }
         // A previous stream listen still owns the slot until takes finish.
@@ -753,17 +824,13 @@ final class PttCoordinator {
         stopFreeMic(abandon: true, reason: "ptt")
         session.finishStreamListen()
 
-        if DictationMode.current.isStreamingPtt {
-            beginStreamingPtt()
-        } else {
-            beginBatchPtt()
-        }
+        beginBatchPtt()
     }
 
     /// Q46: Esc cancels batch PTT while it records or processes, and is swallowed so
-    /// the app under it never sees that Esc. Streaming PTT is removed in the next PR.
+    /// the app under it never sees that Esc.
     private var batchPttCancelable: Bool {
-        !streamingPttActive && (phase == .recording || phase == .finishing) && !batchPttDiscarded
+        !handsFreeActive && (phase == .recording || phase == .finishing) && !batchPttDiscarded
     }
 
     /// Set while a cancelled capture is still being processed; its result is dropped.
@@ -787,7 +854,7 @@ final class PttCoordinator {
 
     private func beginBatchPtt() {
         phase = .recording
-        streamingPttActive = false
+        handsFreeActive = false
         insertTarget = NSWorkspace.shared.frontmostApplication
         menu.setCanUndo(false)
         menu.setStatus(.recording)
@@ -809,25 +876,36 @@ final class PttCoordinator {
         }
     }
 
-    private func beginStreamingPtt() {
+    /// Q45: double-tap opens a listen with Focus Dictation's 1.5 s segment end and
+    /// no focus gate. Inserts at each pause; ends on the key, Esc, an app switch,
+    /// 20 s of silence, or a dead mic.
+    private func beginHandsFree() {
+        guard micAuthorized || AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            menu.showError("Microphone permission is not granted.")
+            return
+        }
+        micAuthorized = true
+        // One stream slot: Focus Dictation steps aside, as for PTT (Q13).
+        freeSuspendedByPtt = true
+        stopFreeMic(abandon: true, reason: "hands-free")
+        session.finishStreamListen()
         phase = .recording
-        streamingPttActive = true
+        handsFreeActive = true
         streamReleasePending = false
         streamDrainScheduled = false
         insertTarget = NSWorkspace.shared.frontmostApplication
         menu.setCanUndo(false)
         menu.setStatus(.recording)
         do {
-            try session.startStreamListen()
+            try session.startFocusListen()
             try mic.start()
             showListeningIndicator()
             startAudioPump(.stream)
             refreshStatus()
-            NSLog("Typwrtr: streaming PTT started (Earshot live endpoint)")
-            CaptureLog.note("streaming PTT started (earshot)")
+            CaptureLog.note("hands-free started")
         } catch {
             phase = .idle
-            streamingPttActive = false
+            handsFreeActive = false
             freeSuspendedByPtt = false
             session.finishStreamListen()
             _ = mic.stop()
@@ -840,19 +918,30 @@ final class PttCoordinator {
 
     private func endPtt() {
         pttHeld = false
-        if streamingPttActive {
-            endStreamingPtt()
+        guard phase == .recording else { return }
+        let held = Date().timeIntervalSince(pttStartedAt)
+        let captured = mic.stop()
+        // Q44: a short press may be the first tap of a double-tap. Hold its capture
+        // for the window, then process it as batch PTT if no second press came.
+        if isPossibleFirstTap(heldMs: UInt64(max(0, held) * 1000)) {
+            phase = .finishing
+            listeningIndicator.hide()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.pendingTap != nil else { return }
+                self.pendingTap = nil
+                self.endBatchPtt(captured: captured, held: held)
+            }
+            pendingTap = (Date(), work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapWindowSeconds(), execute: work)
             return
         }
-        guard phase == .recording else { return }
-        endBatchPtt()
+        endBatchPtt(captured: captured, held: held)
     }
 
-    private func endBatchPtt() {
+    private func endBatchPtt(captured: (samples: [Float], sampleRate: UInt32), held: TimeInterval) {
         phase = .finishing
-        let captured = mic.stop()
         // Q43: a hold long enough to say something, with no signal at all.
-        let heldLongEnough = Date().timeIntervalSince(pttStartedAt) >= 0.5
+        let heldLongEnough = held >= 0.5
         let dead = heldLongEnough && isDeadInput(samples: captured.samples)
         CaptureLog.note(String(
             format: "ptt input %.1f dBFS over %d samples dead=%d",
@@ -959,33 +1048,79 @@ final class PttCoordinator {
         }
     }
 
-    private func processStreamAudio() {
+    /// Hands-free idle tracking (audio pump queue only).
+    private var handsFreeSpeaking = false
+    private var handsFreeLastVoiceAt = Date.distantPast
+    private var handsFreeIdleFired = false
+
+    private func processHandsFreeAudio() {
         let chunk = mic.drain()
+        probeFocusInput(chunk)
+        defer { checkHandsFreeIdle() }
         do {
             let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
             switch event {
             case .none:
                 break
             case .speechStarted:
-                NSLog("Typwrtr: streaming PTT speechStarted (earshot)")
-                CaptureLog.note("streaming earshot speechStarted")
+                handsFreeSpeaking = true
+                handsFreeLastVoiceAt = Date()
+                CaptureLog.note("hands-free earshot speechStarted")
             case .segmentEnded:
+                handsFreeSpeaking = false
+                handsFreeLastVoiceAt = Date()
                 CaptureLog.endpoint(reason: "earshot-silence", samples: chunk.count)
                 DispatchQueue.main.async { [weak self] in
                     self?.enqueueStreamSegment(reason: "earshot-silence")
                 }
             }
         } catch {
-            NSLog("Typwrtr: streaming push failed: %@", "\(error)")
-            CaptureLog.note("streaming push failed")
+            CaptureLog.note("hands-free push failed")
         }
     }
 
-    private func endStreamingPtt() {
+    /// Q45: 20 s without speech ends hands-free (threshold in core).
+    private func checkHandsFreeIdle() {
+        guard !handsFreeSpeaking, !handsFreeIdleFired else { return }
+        let idleMs = UInt64(max(0, Date().timeIntervalSince(handsFreeLastVoiceAt)) * 1000)
+        guard handsFreeIdleExpired(idleMs: idleMs) else { return }
+        handsFreeIdleFired = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.handsFreeActive else { return }
+            CaptureLog.note("hands-free stopped (idle)")
+            self.endHandsFree()
+        }
+    }
+
+    /// Esc while listening or while the last segment processes (Q46).
+    private var handsFreeCancelable: Bool {
+        handsFreeActive || (streamReleasePending && phase == .finishing)
+    }
+
+    /// Bumped on cancel so segments already being transcribed are dropped, not inserted.
+    private var handsFreeGeneration: UInt64 = 0
+
+    /// Esc, an app switch or a dead mic: drop the open segment and anything in
+    /// flight. Text already inserted stays (⌃⇧Z removes it).
+    private func cancelHandsFree(reason: String) {
+        CaptureLog.note("hands-free cancelled reason=\(reason)")
+        handsFreeGeneration += 1
+        if handsFreeActive {
+            stopAudioPump()
+            _ = mic.stop()
+            handsFreeActive = false
+        }
+        streamReleasePending = true
+        session.finishStreamListen()
+        listeningIndicator.hide()
+        finishHandsFreeIfIdle()
+    }
+
+    private func endHandsFree() {
         stopAudioPump()
         let captured = mic.stop()
         listeningIndicator.showProcessing()
-        streamingPttActive = false
+        handsFreeActive = false
         streamReleasePending = true
         do {
             if !captured.samples.isEmpty {
@@ -1003,13 +1138,12 @@ final class PttCoordinator {
                 CaptureLog.endpoint(reason: "earshot-release", samples: 0)
                 enqueueStreamSegment(reason: "earshot-release")
             } else {
-                CaptureLog.note("streaming release discarded (no open utterance)")
-                NSLog("Typwrtr: streaming PTT release discarded (no open utterance)")
+                CaptureLog.note("hands-free stop: no open utterance")
             }
         } catch {
-            NSLog("Typwrtr: streaming stop failed: %@", "\(error)")
+            CaptureLog.note("hands-free stop failed")
         }
-        finishStreamingPttIfIdle()
+        finishHandsFreeIfIdle()
     }
 
     private func enqueueStreamSegment(reason: String) {
@@ -1019,16 +1153,16 @@ final class PttCoordinator {
         }
         streamDrainScheduled = true
         streamInFlight += 1
-        if !streamingPttActive {
+        if !handsFreeActive {
             phase = .finishing
             menu.setStatus(.processing)
         }
         let target = insertTarget ?? NSWorkspace.shared.frontmostApplication
         insertTarget = target
-        NSLog("Typwrtr: streaming PTT segment reason=%@", reason)
+        let generation = handsFreeGeneration
 
         let segmentTrace = LatencyLog.isEnabled
-            ? LatencyLog.Trace(path: "ptt-stream", trigger: reason)
+            ? LatencyLog.Trace(path: "hands-free", trigger: reason)
             : nil
 
         streamRecognizeQueue.async { [weak self] in
@@ -1042,7 +1176,7 @@ final class PttCoordinator {
                     firstSegment = false
                 } else {
                     trace = LatencyLog.isEnabled
-                        ? LatencyLog.Trace(path: "ptt-stream", trigger: reason)
+                        ? LatencyLog.Trace(path: "hands-free", trigger: reason)
                         : nil
                 }
                 trace?.markAsrStart()
@@ -1050,7 +1184,7 @@ final class PttCoordinator {
                     let text = try self.session.takeStreamSegment()
                     trace?.markAsrEnd()
                     let metrics = self.session.lastCaptureMetrics()
-                    CaptureLog.record(metrics, path: "ptt-stream")
+                    CaptureLog.record(metrics, path: "hands-free")
                     let samples = Int(metrics?.pushedSamples ?? 0)
                     results.append((text, samples, trace))
                 } catch {
@@ -1062,22 +1196,21 @@ final class PttCoordinator {
                 self.streamDrainScheduled = false
                 if results.isEmpty {
                     self.streamInFlight = max(0, self.streamInFlight - 1)
-                    if self.streamingPttActive {
+                    if self.handsFreeActive {
                         self.phase = .recording
                         self.menu.setStatus(.recording)
                     } else {
-                        self.finishStreamingPttIfIdle()
+                        self.finishHandsFreeIfIdle()
                     }
                 } else {
                     if results.count > 1 {
                         self.streamInFlight += results.count - 1
                     }
-                    let whileHeld = reason == "earshot-silence" && self.streamingPttActive
                     for item in results {
                         self.completeStreamSegment(
                             text: item.text,
                             samples: item.samples,
-                            whileHeld: whileHeld,
+                            generation: generation,
                             trace: item.trace
                         )
                     }
@@ -1085,7 +1218,7 @@ final class PttCoordinator {
                 if self.streamDrainNeeded {
                     self.streamDrainNeeded = false
                     self.enqueueStreamSegment(
-                        reason: self.streamingPttActive ? "earshot-silence" : "earshot-release"
+                        reason: self.handsFreeActive ? "earshot-silence" : "earshot-release"
                     )
                 }
             }
@@ -1095,26 +1228,34 @@ final class PttCoordinator {
     private func completeStreamSegment(
         text: String,
         samples: Int,
-        whileHeld: Bool,
+        generation: UInt64,
         trace: LatencyLog.Trace?
     ) {
         streamInFlight = max(0, streamInFlight - 1)
         menu.setLastCapture(samples: samples, sampleRate: 16_000)
-        insertStreamResult(
-            text: text,
-            path: "ptt-stream",
-            policy: whileHeld ? .whileModifiersHeld : .waitForModifiers,
-            trace: trace
-        )
-        if streamingPttActive {
+        if generation != handsFreeGeneration {
+            CaptureLog.insert(path: "hands-free", outcome: "dropped-cancelled", chars: text.count)
+            trace?.finishWithoutInsert(outcome: "dropped-cancelled", chars: text.count)
+        } else {
+            // A segment can land while the user presses the key to stop. Waiting for
+            // ⌃⇧ to release timed out to clipboard-only (dogfood 13:47:34), so use the
+            // insert path built for a held chord.
+            insertStreamResult(
+                text: text,
+                path: "hands-free",
+                policy: chordHeld ? .whileModifiersHeld : .waitForModifiers,
+                trace: trace
+            )
+        }
+        if handsFreeActive {
             phase = .recording
             menu.setStatus(.recording)
         } else {
-            finishStreamingPttIfIdle()
+            finishHandsFreeIfIdle()
         }
     }
 
-    /// Shared accept/insert path for Free and streaming PTT.
+    /// Shared accept/insert path for Focus Dictation and hands-free.
     private func insertStreamResult(
         text: String,
         path: String,
@@ -1168,15 +1309,15 @@ final class PttCoordinator {
         }
     }
 
-    private func finishStreamingPttIfIdle() {
-        guard !streamingPttActive, streamInFlight == 0, streamReleasePending, !streamDrainScheduled else { return }
+    private func finishHandsFreeIfIdle() {
+        guard !handsFreeActive, streamInFlight == 0, streamReleasePending, !streamDrainScheduled else { return }
         streamReleasePending = false
         session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
         listeningIndicator.hide()
         refreshStatus()
-        NSLog("Typwrtr: streaming PTT idle")
+        CaptureLog.note("hands-free idle")
         if pttHeld {
             beginPtt()
         } else {

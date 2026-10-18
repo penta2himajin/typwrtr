@@ -2386,11 +2386,30 @@ public func deadInputProbeSamples() -> UInt64  {
 })
 }
 /**
+ * Seconds the shell waits for a second press after a short tap (Q44).
+ */
+public func doubleTapWindowSeconds() -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_double_tap_window_seconds($0
+    )
+})
+}
+/**
  * Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
  */
 public func focusDictationSilenceSeconds() -> Double  {
     return try!  FfiConverterDouble.lift(try! rustCall() {
     uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds($0
+    )
+})
+}
+/**
+ * Whether hands-free has gone `idle_ms` without speech and should end (Q45).
+ */
+public func handsFreeIdleExpired(idleMs: UInt64) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_hands_free_idle_expired(
+        FfiConverterUInt64.lower(idleMs),$0
     )
 })
 }
@@ -2411,6 +2430,26 @@ public func isDeadInput(samples: [Float]) -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_typwrtr_core_fn_func_is_dead_input(
         FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+/**
+ * Whether a second press `gap_ms` after a short tap's release is a double-tap (Q44).
+ */
+public func isDoubleTap(gapMs: UInt64) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_is_double_tap(
+        FfiConverterUInt64.lower(gapMs),$0
+    )
+})
+}
+/**
+ * Whether a PTT press held `held_ms` may be the first tap of a double-tap (Q44).
+ */
+public func isPossibleFirstTap(heldMs: UInt64) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_is_possible_first_tap(
+        FfiConverterUInt64.lower(heldMs),$0
     )
 })
 }
@@ -2513,13 +2552,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_typwrtr_core_checksum_func_dead_input_probe_samples() != 5830) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_typwrtr_core_checksum_func_double_tap_window_seconds() != 64146) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds() != 52781) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_hands_free_idle_expired() != 29555) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_input_level_dbfs() != 28771) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_is_dead_input() != 16877) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_is_double_tap() != 19744) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_is_possible_first_tap() != 55803) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_load_term_dictionary() != 42573) {

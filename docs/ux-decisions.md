@@ -84,10 +84,10 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
     kept and reports as 0. Trimming on **batch** PTT is therefore bounded by the
     pad width and is negligible either way — the key release already ends the
     capture, so **the 1.5s value never applies to batch PTT**.
-  - **Streaming PTT** uses **~0.7s** silence (core `STREAMING_PTT_SILENCE_MS`) —
-    the hold is already an explicit consent gate, so euhadra's default is enough
-    and mid-hold inserts should not wait for Focus Dictation's 1.5s margin.
-  - **Focus Dictation / Free** uses 1.5s via `start_focus_listen` (sample-clock
+  - **Streaming PTT** (~0.7s, core `STREAMING_PTT_SILENCE_MS`) was removed by Q44
+    (2026-10-18). The core constant and listen mode stay, unused, until removal
+    is decided separately.
+  - **Focus Dictation / Free and hands-free (Q45)** use 1.5s via `start_focus_listen` (sample-clock
     Earshot segmenter), not wall-time energy VAD.
 - **Q26 — A long unbroken utterance may insert in more than one piece.** Speech
   is force-segmented after 30s with no pause. Previously such an utterance
@@ -130,13 +130,13 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 
 **Model download:** tied to language choice; start in-wizard with progress; do not pretend ready until required model is present (disable or block start).
 
-**Dogfood (2026-08-08 / 2026-08-10 / 2026-08-11):** shared **Typwrtr Settings** dialog covers permissions, **mode**, language + in-app pack download, dictionary CRUD, **Licenses…** (attribution dialog for Typwrtr / euhadra / model weights), and launch-at-login. Modes:
+**Dogfood (2026-08-08 / 2026-08-10 / 2026-08-11; modes replaced 2026-10-18 by Q44):** shared **Typwrtr Settings** dialog covers permissions, a **How to dictate** block (the Q48 gesture text plus the Hotkey popup), language + in-app pack download, dictionary CRUD, **Licenses…** (attribution dialog for Typwrtr / euhadra / model weights), and launch-at-login. Ways to dictate:
 
-- **Push to talk (batch)** — hold the PTT hotkey (default ⌃⇧D; Settings → Mode → Hotkey); release inserts the whole capture once.
-- **Push to talk (streaming)** — hold the PTT hotkey; **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`). Live score cutoff is **0.42** (measured −45 dBFS room tone peaked ~0.37, above rlx-vad’s 0.35 preset); dictate trim keeps euhadra’s calibrated **0.2**. `min_silence` ≈ 0.7s (euhadra default). Release flushes **only if an utterance is still open**. Mid-stream failures are logged, never modal. **Mid-hold insert** must not wait for the PTT chord to release; use AX / unicode / synthetic modifier-ups + ⌘V while the key is down. Do not swap live Earshot for EnergyVad without an explicit decision.
-- **Focus Dictation** — armed + text-field focus; **same Earshot live endpointing** with **1.5s** silence (Q25); one listening period spans many segments. Menu toggle matches this mode only. While the mic is open, a bottom-center level bar shows that input is active (no transcript; Q40).
+- **Push to talk** — hold the PTT hotkey (default ⌃⇧D; Settings → Hotkey); release inserts the whole capture once (batch).
+- **Hands-free** — double-tap the PTT hotkey (Q44–Q45). **Earshot live endpointing** in core (`EarshotVad` + `Segmenter`, live cutoff **0.42**: measured −45 dBFS room tone peaked ~0.37, above rlx-vad’s 0.35 preset), **1.5s** segment end, insert per segment. Mid-stream failures are logged, never modal. Do not swap live Earshot for EnergyVad without an explicit decision.
+- **Focus Dictation** — the menu-bar toggle; armed + text-field focus; same Earshot live endpointing with **1.5s** silence (Q25); one listening period spans many segments. While the mic is open, a bottom-center level bar shows that input is active (no transcript; Q40).
 
-Settings radios use these three titles (no more “Arm Free”). Free/VAD status is a secondary line under the Focus Dictation menu toggle while that mode is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT temporarily suspends Focus Dictation. Korean uses **Dolphin small CTC** (euhadra `DolphinAdapter`, Apache-2.0) with in-app pack download. **Hotkey** popup under Mode selects PTT presets (`⌃⇧D`, `⌃⇧Space`); Undo stays `⌃⇧Z`.
+Free/VAD status is a secondary line under the Focus Dictation menu toggle while it is on. AX focus gate uses **Accessibility**, not VoiceOver; PTT and hands-free temporarily suspend Focus Dictation. Korean uses **Dolphin small CTC** (euhadra `DolphinAdapter`, Apache-2.0) with in-app pack download. **Hotkey** popup selects PTT presets (`⌃⇧D`, `⌃⇧Space`); Undo stays `⌃⇧Z`.
 
 **Settings window:** not required while the surface stays small; menu bar is the primary control surface. Add a settings window when complexity demands it.
 
@@ -254,8 +254,7 @@ them.
 
 Decided 2026-10-18 from [`research/dictation-ui-competitors.md`](./research/dictation-ui-competitors.md)
 against the goal "the simplest UI and flow, the highest-quality experience". Ships in
-three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6). Until the
-third lands, the three Settings modes in §4 still describe the build.
+three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
 
 - **Q41 — Processing lives in the bar.** After release the bar stays and its bars give
   way to a slow left-to-right wave, with no text (nothing to localise; same size). It
@@ -284,7 +283,8 @@ third lands, the three Settings modes in §4 still describe the build.
 - **Q45 — Hands-free.** No focus gate: the double-tap is explicit consent, as with PTT,
   including the Q6 secure-field notice. Inserts at each 1.5 s pause (the Focus Dictation
   path). Ends on: the key (insert the open segment), Esc (discard it), the frontmost app
-  changing (the open segment goes to the original app), or 20 s of silence (one core
+  changing (revised 2026-10-18: the open segment and anything still being transcribed
+  are **dropped** — inserting would re-activate the app the user just left), or 20 s of silence (one core
   constant, tuned on dogfood; VAP candidate in [#5](https://github.com/penta2himajin/typwrtr/issues/5)).
 - **Q46 — Esc cancels.** Esc is swallowed only while the mic is open or processing, and
   discards what is in flight. Hands-free: drop the open segment and end.
@@ -331,7 +331,7 @@ third lands, the three Settings modes in §4 still describe the build.
 | Q22 | ja/en recommended; zh/es/ko experimental |
 | Q23 | Silence never reaches the ASR adapter (detection ahead of it, both paths) |
 | Q24 | No-speech capture: PTT returns to idle silently; Free ignores it |
-| Q25 | Focus Dictation segment end 1.5s; streaming PTT uses ~0.7s (core SSOT) |
+| Q25 | Focus Dictation / hands-free segment end 1.5s (streaming PTT ~0.7s removed by Q44) |
 | Q26 | 30s cap on unbroken speech; a long utterance may insert in pieces |
 | Q27 | Capture measurements: `os_log`, trimmed duration + count; optional latency logs in Release |
 | Q28 | Dictionary = `TermDictionary` substitution only |
@@ -350,7 +350,7 @@ third lands, the three Settings modes in §4 still describe the build.
 | Q42 | No idle bar; no controls on the bar |
 | Q43 | Dead mic → "No microphone input" in the bar (PTT: whole capture; hands-free/Focus: first ~2s, then end) |
 | Q44 | One key: hold = PTT (batch only), double-tap = hands-free; mode radios removed |
-| Q45 | Hands-free: no focus gate; inserts per 1.5s pause; ends on key / Esc / app switch / 20s silence |
+| Q45 | Hands-free: no focus gate; inserts per 1.5s pause; ends on key / Esc / app switch (drops open segment) / 20s silence |
 | Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z). Focus: Esc passes through, ends the listen until focus moves |
 | Q47 | No sounds, no audio ducking, no history, no paste-last |
 | Q48 | Wizard teaches hold / double-tap / ⌃⇧Z / Esc on one screen |

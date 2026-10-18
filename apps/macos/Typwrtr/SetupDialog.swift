@@ -7,8 +7,6 @@ enum SetupDialog {
     static var onLanguageChanged: ((AppLanguage) -> Void)?
     /// Called after a successful dictionary save (recreate session so terms apply — Q34).
     static var onDictionaryChanged: (() -> Void)?
-    /// Called when Setup picks a listening mode.
-    static var onDictationModeChanged: ((DictationMode) -> Void)?
     /// Called when Setup picks a PTT hotkey preset.
     static var onPttHotkeyChanged: ((PttHotkey) -> Void)?
     /// Called when Setup toggles Free arming (F3 / wizard mode choice).
@@ -46,16 +44,17 @@ enum SetupDialog {
             blockTitleHeight + titleToContent + rowHeight
         }
 
-        /// Body height for Permission + Mode (+ Hotkey) + General.
+        /// Four lines of gesture help under "How to dictate" (Q48).
+        static let gestureHeight: CGFloat = 64
+
+        /// Body height for Permission + How to dictate (+ Hotkey) + General.
         static var bodyHeight: CGFloat {
             blockHeader
                 + rowHeight * 3
                 + gap * 2
                 + sectionGap
                 + blockHeader
-                + rowHeight * 3
-                + gap * 2
-                + 28
+                + gestureHeight
                 + gap
                 + blockTitleHeight
                 + titleToContent
@@ -343,11 +342,7 @@ enum SetupDialog {
         private let w = Metrics.bodyWidth
         /// Left-to-right fill drawn under the Download title while fetching.
         private var progressFill: CALayer?
-        private var modeButtons: [DictationMode: NSButton] = [:]
-        private var modeHint: NSTextField!
-        /// Top of the Mode radio stack (y after the Mode block header).
-        private var modeStackTop: CGFloat = 0
-        private let modeHintHeight: CGFloat = 28
+        private var gestureHelp: NSTextField!
         private let hotkeyPopup: NSPopUpButton
 
         init(
@@ -386,30 +381,16 @@ enum SetupDialog {
             )
 
             y -= Metrics.sectionGap
-            addBlockHeader("Mode", y: &y)
-            modeStackTop = y
-            let selected = DictationMode.current
-            for mode in DictationMode.allCases {
-                let button = NSButton(
-                    radioButtonWithTitle: mode.settingsTitle,
-                    target: self,
-                    action: #selector(modeChanged(_:))
-                )
-                button.font = .systemFont(ofSize: 12)
-                button.state = mode == selected ? .on : .off
-                button.tag = mode.tag
-                button.toolTip = mode.settingsHint
-                addSubview(button)
-                modeButtons[mode] = button
-            }
-            let hint = NSTextField(wrappingLabelWithString: selected.settingsHint)
-            hint.font = .systemFont(ofSize: 10)
-            hint.textColor = .secondaryLabelColor
-            hint.maximumNumberOfLines = 2
-            addSubview(hint)
-            modeHint = hint
-            // Standalone NSButtons do not auto-group; keep exclusive state ourselves.
-            y = layoutModeStack(selected: selected)
+            // Q48: teach the gestures, not a mode. Same view in first run and Settings.
+            addBlockHeader("How to dictate", y: &y)
+            y -= Metrics.gestureHeight
+            let help = NSTextField(wrappingLabelWithString: Self.gestureText())
+            help.font = .systemFont(ofSize: 11)
+            help.textColor = .secondaryLabelColor
+            help.maximumNumberOfLines = 4
+            help.frame = NSRect(x: 0, y: y, width: w, height: Metrics.gestureHeight)
+            addSubview(help)
+            gestureHelp = help
 
             y -= Metrics.gap
             y -= Metrics.blockTitleHeight
@@ -681,16 +662,6 @@ enum SetupDialog {
             Permissions.openInputMonitoringSettings()
         }
 
-        @objc private func modeChanged(_ sender: NSButton) {
-            guard let mode = DictationMode.from(tag: sender.tag) else { return }
-            for (candidate, button) in modeButtons {
-                button.state = candidate == mode ? .on : .off
-            }
-            _ = layoutModeStack(selected: mode)
-            MenuBarModel.shared.setDictationMode(mode)
-            SetupDialog.onDictationModeChanged?(mode)
-        }
-
         @objc private func hotkeyChanged(_ sender: NSPopUpButton) {
             guard let raw = sender.selectedItem?.representedObject as? String,
                   let hotkey = PttHotkey(rawValue: raw)
@@ -701,42 +672,19 @@ enum SetupDialog {
             SetupDialog.onPttHotkeyChanged?(hotkey)
         }
 
-        /// Place radios + the selected-mode hint; total stack height stays fixed.
-        @discardableResult
-        private func layoutModeStack(selected: DictationMode) -> CGFloat {
-            var y = modeStackTop
-            let modes = DictationMode.allCases
-            for (index, mode) in modes.enumerated() {
-                y -= Metrics.rowHeight
-                modeButtons[mode]?.frame = NSRect(x: 0, y: y, width: w, height: Metrics.rowHeight)
-                if mode == selected {
-                    y -= modeHintHeight
-                    modeHint.stringValue = mode.settingsHint
-                    // Indent under the radio title (past the circle).
-                    modeHint.frame = NSRect(
-                        x: Metrics.markWidth,
-                        y: y,
-                        width: w - Metrics.markWidth,
-                        height: modeHintHeight
-                    )
-                }
-                if index < modes.count - 1 {
-                    y -= Metrics.gap
-                }
-            }
-            refreshModeToolTips()
-            return y
-        }
-
         private func refreshModeCopy() {
-            modeHint.stringValue = DictationMode.current.settingsHint
-            refreshModeToolTips()
+            gestureHelp.stringValue = Self.gestureText()
         }
 
-        private func refreshModeToolTips() {
-            for mode in DictationMode.allCases {
-                modeButtons[mode]?.toolTip = mode.settingsHint
-            }
+        /// Uses the live hotkey symbol so the help follows the Hotkey popup.
+        private static func gestureText() -> String {
+            let key = PttHotkey.current.displaySymbol
+            return """
+                Hold \(key) to talk; release to insert.
+                Double-tap \(key) for hands-free; press it again to stop.
+                Esc cancels. ⌃⇧Z removes the last insert.
+                Focus Dictation (menu bar) listens whenever a text field is focused.
+                """
         }
 
         private func selectedLanguage() -> AppLanguage {
