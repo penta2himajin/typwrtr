@@ -291,11 +291,11 @@ final class PttCoordinator {
         return !CFEqual(latched, current)
     }
 
-    /// Cost of the 200 ms focus check, logged every 25 calls (~5 s): max and mean.
+    /// Cost of the 100 ms focus check, logged every 50 calls (~5 s): max and mean.
     private var focusCheckNanos: [UInt64] = []
     private func noteFocusCheckCost(nanos: UInt64) {
         focusCheckNanos.append(nanos)
-        guard focusCheckNanos.count >= 25 else { return }
+        guard focusCheckNanos.count >= 50 else { return }
         let maxMs = Double(focusCheckNanos.max() ?? 0) / 1e6
         let meanMs = Double(focusCheckNanos.reduce(0, +)) / Double(focusCheckNanos.count) / 1e6
         CaptureLog.note(String(format: "focus check calls=%d max_ms=%.2f mean_ms=%.2f",
