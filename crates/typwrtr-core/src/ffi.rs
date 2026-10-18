@@ -35,6 +35,11 @@ pub struct FfiStreamVadStats {
     pub peak: f32,
     /// Whether an utterance is open.
     pub speaking: bool,
+    /// While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+    pub resume_run1: u32,
+    pub resume_run2: u32,
+    pub resume_run3_to7: u32,
+    pub resume_run8_plus: u32,
 }
 
 impl From<StreamVadEvent> for FfiStreamVadEvent {
@@ -510,6 +515,10 @@ impl PttSession {
             above_threshold: stats.above_threshold,
             peak: stats.peak,
             speaking: stats.speaking,
+            resume_run1: stats.resume.run1,
+            resume_run2: stats.resume.run2,
+            resume_run3_to7: stats.resume.run3_to_7,
+            resume_run8_plus: stats.resume.run8_plus,
         })
     }
 

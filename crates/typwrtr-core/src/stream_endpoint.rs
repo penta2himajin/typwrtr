@@ -39,6 +39,62 @@ pub enum StreamVadEvent {
 /// measured 0.5 as harmful for recall).
 pub const STREAMING_EARSHOT_ENDPOINT_THRESHOLD: f32 = 0.42;
 
+/// Frames of silence (~320 ms @ 16 ms) before a speech burst counts as a resume
+/// in [`ResumeRuns`]; shorter gaps are ordinary inter-word dips.
+const RESUME_PAUSE_FRAMES: u32 = 20;
+
+/// While an utterance is open, the lengths of above-threshold bursts that follow
+/// a pause. Each one resets euhadra's silence run; isolated 1–2 frame bursts are
+/// room-tone spikes that keep a finished utterance open (dogfood 2026-10-18).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ResumeRuns {
+    pub run1: u32,
+    pub run2: u32,
+    pub run3_to_7: u32,
+    /// 8+ frames ≈ euhadra's 120 ms `min_speech`: real speech by its own rule.
+    pub run8_plus: u32,
+}
+
+#[derive(Debug, Default)]
+struct ResumeTracker {
+    below: u32,
+    above: u32,
+    after_pause: bool,
+}
+
+impl ResumeTracker {
+    /// One frame. `open` is whether an utterance was open for it.
+    fn observe(&mut self, is_speech: bool, open: bool, out: &mut ResumeRuns) {
+        if !open {
+            *self = Self::default();
+            return;
+        }
+        if is_speech {
+            if self.above == 0 {
+                self.after_pause = self.below >= RESUME_PAUSE_FRAMES;
+            }
+            self.above += 1;
+            self.below = 0;
+        } else {
+            self.end_run(out);
+            self.below += 1;
+        }
+    }
+
+    fn end_run(&mut self, out: &mut ResumeRuns) {
+        if self.above > 0 && self.after_pause {
+            match self.above {
+                1 => out.run1 += 1,
+                2 => out.run2 += 1,
+                3..=7 => out.run3_to_7 += 1,
+                _ => out.run8_plus += 1,
+            }
+        }
+        self.above = 0;
+        self.after_pause = false;
+    }
+}
+
 /// One key-hold listening period: Earshot stream + Segmenter + PCM window.
 pub struct StreamListen {
     stream: Box<dyn VadStream>,
@@ -53,6 +109,7 @@ pub struct StreamListen {
     closed: Vec<Vec<f32>>,
     was_speaking: bool,
     stats: StreamVadStats,
+    resume: ResumeTracker,
 }
 
 /// Frame scores since the last [`StreamListen::take_stats`] (capture logs only).
@@ -67,6 +124,8 @@ pub struct StreamVadStats {
     pub peak: f32,
     /// Whether an utterance is open right now.
     pub speaking: bool,
+    /// Bursts that reset the silence run after a pause, by length.
+    pub resume: ResumeRuns,
 }
 
 /// Which product mode opened this listen (silence budget only).
@@ -122,6 +181,7 @@ impl StreamListen {
             closed: Vec::new(),
             was_speaking: false,
             stats: StreamVadStats::default(),
+            resume: ResumeTracker::default(),
         })
     }
 
@@ -176,9 +236,15 @@ impl StreamListen {
             let probability = self.stream.speech_probability(&frame);
             self.stats.frames += 1;
             self.stats.peak = self.stats.peak.max(probability);
-            if probability >= STREAMING_EARSHOT_ENDPOINT_THRESHOLD {
+            let is_speech = probability >= STREAMING_EARSHOT_ENDPOINT_THRESHOLD;
+            if is_speech {
                 self.stats.above_threshold += 1;
             }
+            self.resume.observe(
+                is_speech,
+                self.segmenter.is_speaking(),
+                &mut self.stats.resume,
+            );
             let closed = self.segmenter.push(probability);
             let speaking = self.segmenter.is_speaking();
             if speaking && !self.was_speaking {
@@ -340,6 +406,69 @@ mod tests {
         assert!(
             events.contains(&StreamVadEvent::SegmentEnded),
             "streaming must close ~0.7s after speech over a −45 dBFS floor: {events:?}"
+        );
+    }
+
+    fn observe_all(tracker: &mut ResumeTracker, pattern: &[(bool, u32)]) -> ResumeRuns {
+        let mut out = ResumeRuns::default();
+        for &(speech, frames) in pattern {
+            for _ in 0..frames {
+                tracker.observe(speech, true, &mut out);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn resume_runs_bucket_bursts_after_a_pause() {
+        let mut tracker = ResumeTracker::default();
+        let out = observe_all(
+            &mut tracker,
+            &[
+                (true, 30), // the utterance itself: no pause before it
+                (false, 30),
+                (true, 1),
+                (false, 30),
+                (true, 2),
+                (false, 30),
+                (true, 5),
+                (false, 30),
+                (true, 10),
+                (false, 1),
+            ],
+        );
+        assert_eq!(
+            out,
+            ResumeRuns {
+                run1: 1,
+                run2: 1,
+                run3_to_7: 1,
+                run8_plus: 1
+            }
+        );
+    }
+
+    #[test]
+    fn resume_runs_ignore_inter_word_dips_and_closed_listens() {
+        let mut tracker = ResumeTracker::default();
+        // A 5-frame dip is shorter than the pause, so the burst after it is speech.
+        let out = observe_all(
+            &mut tracker,
+            &[(true, 10), (false, 5), (true, 1), (false, 1)],
+        );
+        assert_eq!(out, ResumeRuns::default());
+
+        let mut out = ResumeRuns::default();
+        let mut tracker = ResumeTracker::default();
+        for _ in 0..30 {
+            tracker.observe(false, false, &mut out);
+        }
+        tracker.observe(true, false, &mut out);
+        tracker.observe(false, false, &mut out);
+        assert_eq!(
+            out,
+            ResumeRuns::default(),
+            "nothing counts while no utterance is open"
         );
     }
 

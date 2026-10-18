@@ -1445,6 +1445,13 @@ public struct FfiStreamVadStats {
      * Whether an utterance is open.
      */
     public var speaking: Bool
+    /**
+     * While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+     */
+    public var resumeRun1: UInt32
+    public var resumeRun2: UInt32
+    public var resumeRun3To7: UInt32
+    public var resumeRun8Plus: UInt32
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -1460,11 +1467,18 @@ public struct FfiStreamVadStats {
          */peak: Float, 
         /**
          * Whether an utterance is open.
-         */speaking: Bool) {
+         */speaking: Bool, 
+        /**
+         * While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+         */resumeRun1: UInt32, resumeRun2: UInt32, resumeRun3To7: UInt32, resumeRun8Plus: UInt32) {
         self.frames = frames
         self.aboveThreshold = aboveThreshold
         self.peak = peak
         self.speaking = speaking
+        self.resumeRun1 = resumeRun1
+        self.resumeRun2 = resumeRun2
+        self.resumeRun3To7 = resumeRun3To7
+        self.resumeRun8Plus = resumeRun8Plus
     }
 }
 
@@ -1487,6 +1501,18 @@ extension FfiStreamVadStats: Equatable, Hashable {
         if lhs.speaking != rhs.speaking {
             return false
         }
+        if lhs.resumeRun1 != rhs.resumeRun1 {
+            return false
+        }
+        if lhs.resumeRun2 != rhs.resumeRun2 {
+            return false
+        }
+        if lhs.resumeRun3To7 != rhs.resumeRun3To7 {
+            return false
+        }
+        if lhs.resumeRun8Plus != rhs.resumeRun8Plus {
+            return false
+        }
         return true
     }
 
@@ -1495,6 +1521,10 @@ extension FfiStreamVadStats: Equatable, Hashable {
         hasher.combine(aboveThreshold)
         hasher.combine(peak)
         hasher.combine(speaking)
+        hasher.combine(resumeRun1)
+        hasher.combine(resumeRun2)
+        hasher.combine(resumeRun3To7)
+        hasher.combine(resumeRun8Plus)
     }
 }
 
@@ -1510,7 +1540,11 @@ public struct FfiConverterTypeFfiStreamVadStats: FfiConverterRustBuffer {
                 frames: FfiConverterUInt32.read(from: &buf), 
                 aboveThreshold: FfiConverterUInt32.read(from: &buf), 
                 peak: FfiConverterFloat.read(from: &buf), 
-                speaking: FfiConverterBool.read(from: &buf)
+                speaking: FfiConverterBool.read(from: &buf), 
+                resumeRun1: FfiConverterUInt32.read(from: &buf), 
+                resumeRun2: FfiConverterUInt32.read(from: &buf), 
+                resumeRun3To7: FfiConverterUInt32.read(from: &buf), 
+                resumeRun8Plus: FfiConverterUInt32.read(from: &buf)
         )
     }
 
@@ -1519,6 +1553,10 @@ public struct FfiConverterTypeFfiStreamVadStats: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.aboveThreshold, into: &buf)
         FfiConverterFloat.write(value.peak, into: &buf)
         FfiConverterBool.write(value.speaking, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun1, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun2, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun3To7, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun8Plus, into: &buf)
     }
 }
 

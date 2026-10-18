@@ -476,10 +476,12 @@ final class PttCoordinator {
         focusStatsAt = Date()
         let stats = session.takeStreamVadStats()
         CaptureLog.note(String(
-            format: "focus vad frames=%d above=%d peak=%.2f speaking=%d input=%.1f dBFS samples=%d",
+            format: "focus vad frames=%d above=%d peak=%.2f speaking=%d input=%.1f dBFS samples=%d resume=1:%d 2:%d 3-7:%d 8+:%d",
             stats?.frames ?? 0, stats?.aboveThreshold ?? 0, stats?.peak ?? 0,
             (stats?.speaking ?? false) ? 1 : 0,
-            inputLevelDbfs(samples: focusStatsSamples), focusStatsSamples.count
+            inputLevelDbfs(samples: focusStatsSamples), focusStatsSamples.count,
+            stats?.resumeRun1 ?? 0, stats?.resumeRun2 ?? 0,
+            stats?.resumeRun3To7 ?? 0, stats?.resumeRun8Plus ?? 0
         ))
         focusStatsSamples.removeAll(keepingCapacity: true)
     }
