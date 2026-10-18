@@ -24,6 +24,19 @@ pub enum FfiStreamVadEvent {
     SegmentEnded,
 }
 
+/// Live endpoint frame stats since the last take (capture logs; Q27 numbers only).
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiStreamVadStats {
+    /// Frames scored.
+    pub frames: u32,
+    /// Frames at or above the live endpoint threshold.
+    pub above_threshold: u32,
+    /// Highest speech probability seen.
+    pub peak: f32,
+    /// Whether an utterance is open.
+    pub speaking: bool,
+}
+
 impl From<StreamVadEvent> for FfiStreamVadEvent {
     fn from(value: StreamVadEvent) -> Self {
         match value {
@@ -486,6 +499,18 @@ impl PttSession {
             .push(&samples, sample_rate)
             .map(Into::into)
             .map_err(|msg| FfiError::Message { msg })
+    }
+
+    /// Frame stats since the last call; `None` when no listen is open.
+    pub fn take_stream_vad_stats(&self) -> Option<FfiStreamVadStats> {
+        let mut slot = self.stream.lock().ok()?;
+        let stats = slot.as_mut()?.take_stats();
+        Some(FfiStreamVadStats {
+            frames: stats.frames,
+            above_threshold: stats.above_threshold,
+            peak: stats.peak,
+            speaking: stats.speaking,
+        })
     }
 
     /// End the listen. Flushes only if an utterance is still open.

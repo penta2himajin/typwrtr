@@ -52,6 +52,21 @@ pub struct StreamListen {
     /// Closed utterances waiting for [`Self::take_closed`].
     closed: Vec<Vec<f32>>,
     was_speaking: bool,
+    stats: StreamVadStats,
+}
+
+/// Frame scores since the last [`StreamListen::take_stats`] (capture logs only).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct StreamVadStats {
+    /// Frames scored.
+    pub frames: u32,
+    /// Frames at or above [`STREAMING_EARSHOT_ENDPOINT_THRESHOLD`]; any of these
+    /// resets the silence run that ends a segment.
+    pub above_threshold: u32,
+    /// Highest speech probability seen.
+    pub peak: f32,
+    /// Whether an utterance is open right now.
+    pub speaking: bool,
 }
 
 /// Which product mode opened this listen (silence budget only).
@@ -106,6 +121,7 @@ impl StreamListen {
             utterance: Vec::new(),
             closed: Vec::new(),
             was_speaking: false,
+            stats: StreamVadStats::default(),
         })
     }
 
@@ -158,6 +174,11 @@ impl StreamListen {
             // the whole push first made onset trim keep the *end* of a delayed chunk.
             self.utterance.extend_from_slice(&frame);
             let probability = self.stream.speech_probability(&frame);
+            self.stats.frames += 1;
+            self.stats.peak = self.stats.peak.max(probability);
+            if probability >= STREAMING_EARSHOT_ENDPOINT_THRESHOLD {
+                self.stats.above_threshold += 1;
+            }
             let closed = self.segmenter.push(probability);
             let speaking = self.segmenter.is_speaking();
             if speaking && !self.was_speaking {
@@ -208,6 +229,13 @@ impl StreamListen {
         } else {
             StreamVadEvent::None
         }
+    }
+
+    /// Return and reset the frame stats.
+    pub fn take_stats(&mut self) -> StreamVadStats {
+        let mut stats = std::mem::take(&mut self.stats);
+        stats.speaking = self.segmenter.is_speaking();
+        stats
     }
 
     /// Pop one closed utterance's PCM.
@@ -313,6 +341,39 @@ mod tests {
             events.contains(&StreamVadEvent::SegmentEnded),
             "streaming must close ~0.7s after speech over a −45 dBFS floor: {events:?}"
         );
+    }
+
+    #[test]
+    fn stats_count_frames_and_reset_on_take() {
+        let mut listen = StreamListen::start_focus().unwrap();
+        push_all(&mut listen, &room_tone(1.0));
+        let quiet = listen.take_stats();
+        assert!(quiet.frames > 0);
+        assert_eq!(quiet.above_threshold, 0, "{quiet:?}");
+
+        push_all(&mut listen, &voiced_samples(1.0));
+        let loud = listen.take_stats();
+        assert!(loud.above_threshold > 0, "{loud:?}");
+        assert!(loud.peak >= STREAMING_EARSHOT_ENDPOINT_THRESHOLD);
+
+        assert_eq!(listen.take_stats().frames, 0);
+    }
+
+    #[test]
+    fn focus_closes_every_utterance_not_only_the_first() {
+        // Dogfood 2026-10-18: Focus Dictation inserted the first phrase only.
+        let mut listen = StreamListen::start_focus().unwrap();
+        let mut pcm = Vec::new();
+        for _ in 0..3 {
+            pcm.extend(voiced_samples(1.0));
+            pcm.extend(room_tone(2.5));
+        }
+        let events = push_all(&mut listen, &pcm);
+        let ended = events
+            .iter()
+            .filter(|e| **e == StreamVadEvent::SegmentEnded)
+            .count();
+        assert_eq!(ended, 3, "{events:?}");
     }
 
     #[test]

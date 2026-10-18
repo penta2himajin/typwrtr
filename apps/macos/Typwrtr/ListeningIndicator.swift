@@ -31,6 +31,7 @@ final class ListeningIndicator {
             self.mode = .level
             self.smoothed = Array(repeating: Self.restingLevel, count: Self.barCount)
             self.present(message: nil)
+            CaptureLog.note("bar show pid=\(appPid)")
         }
     }
 
@@ -42,6 +43,7 @@ final class ListeningIndicator {
             self.level = { 0 }
             self.mode = .processing
             self.wavePhase = 0
+            CaptureLog.note("bar processing")
         }
     }
 
@@ -53,6 +55,7 @@ final class ListeningIndicator {
             self.level = { 0 }
             self.mode = .message
             self.present(message: text)
+            CaptureLog.note("bar flash")
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
                 if self.generation == shown { self.hide() }
             }
@@ -66,6 +69,9 @@ final class ListeningIndicator {
             self.timer = nil
             self.level = { 0 }
             self.mode = .level
+            if self.panel?.isVisible == true {
+                CaptureLog.note("bar hide")
+            }
             self.panel?.orderOut(nil)
         }
     }

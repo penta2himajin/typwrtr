@@ -34,6 +34,9 @@ final class PttCoordinator {
     private var focusProbe: [Float] = []
     private var focusProbeDone = true
     private var focusProbeStartedAt = Date.distantPast
+    /// Focus capture-log window (pump queue only): samples and start of the current 2 s.
+    private var focusStatsSamples: [Float] = []
+    private var focusStatsAt = Date.distantPast
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -179,7 +182,7 @@ final class PttCoordinator {
             NSLog("Typwrtr: Free armed")
         } else {
             freeController.disarm()
-            stopFreeMic(abandon: true)
+            stopFreeMic(abandon: true, reason: "disarmed")
             NSLog("Typwrtr: Free disarmed")
         }
         menu.setFreeArmed(armed)
@@ -214,7 +217,7 @@ final class PttCoordinator {
             menu.setFreeAvailability(.unavailableExplained)
             menu.setFocusDictationStatus("Needs Accessibility")
             if freeMicOpen {
-                stopFreeMic(abandon: true)
+                stopFreeMic(abandon: true, reason: "ax-untrusted")
             }
             return
         }
@@ -230,12 +233,13 @@ final class PttCoordinator {
             focusWatcher.quietWhileListening = true
             menu.setFreeListeningIcon(true)
             menu.setFreeAvailability(.listening)
+            CaptureLog.note("focus poll skipped probe (listening, same app)")
             return
         }
 
         // Left the target app while listening — stop mic without a full probe first.
         if freeMicOpen, frontPid != latchedFocusPid {
-            stopFreeMic(abandon: true)
+            stopFreeMic(abandon: true, reason: "left-app")
             focusWatcher.quietWhileListening = false
         }
 
@@ -258,7 +262,7 @@ final class PttCoordinator {
                 menu.setFreeListeningIcon(true)
             }
         } else if freeMicOpen {
-            stopFreeMic(abandon: true)
+            stopFreeMic(abandon: true, reason: "not-text-field")
             focusWatcher.quietWhileListening = false
             menu.setFreeListeningIcon(false)
         } else {
@@ -321,8 +325,9 @@ final class PttCoordinator {
         }
     }
 
-    private func stopFreeMic(abandon: Bool) {
+    private func stopFreeMic(abandon: Bool, reason: String) {
         guard freeMicOpen else { return }
+        CaptureLog.note("focus listen stopped reason=\(reason) abandon=\(abandon ? 1 : 0)")
         stopAudioPump()
         let captured = mic.stop()
         freeMicOpen = false
@@ -363,6 +368,8 @@ final class PttCoordinator {
         focusProbe.removeAll(keepingCapacity: true)
         focusProbeDone = kind != .focus
         focusProbeStartedAt = Date()
+        focusStatsSamples.removeAll(keepingCapacity: true)
+        focusStatsAt = Date()
         audioPumpKind = kind
         let timer = DispatchSource.makeTimerSource(queue: audioPumpQueue)
         timer.schedule(deadline: .now(), repeating: 0.08, leeway: .milliseconds(10))
@@ -394,6 +401,7 @@ final class PttCoordinator {
     private func processFreeAudio() {
         let chunk = mic.drain()
         probeFocusInput(chunk)
+        defer { logFocusStats(chunk) }
         do {
             let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
             switch event {
@@ -434,12 +442,30 @@ final class PttCoordinator {
         NSLog("Typwrtr: Focus Dictation saw no microphone input; disarming")
         DispatchQueue.main.async { [weak self] in
             guard let self, self.freeMicOpen else { return }
+            self.stopFreeMic(abandon: true, reason: "dead-mic")
             self.setFreeArmed(false)
             self.listeningIndicator.flash(Self.noInputMessage)
         }
     }
 
     private static let noInputMessage = "No microphone input"
+
+    /// Every ~2 s while Focus listens: input level and how many frames scored as
+    /// speech. A run of `above>0` windows after the speaker stopped means the room
+    /// keeps resetting the 1.5 s silence run; no lines at all means the pump stopped.
+    private func logFocusStats(_ chunk: [Float]) {
+        focusStatsSamples.append(contentsOf: chunk)
+        guard Date().timeIntervalSince(focusStatsAt) >= 2 else { return }
+        focusStatsAt = Date()
+        let stats = session.takeStreamVadStats()
+        CaptureLog.note(String(
+            format: "focus vad frames=%d above=%d peak=%.2f speaking=%d input=%.1f dBFS samples=%d",
+            stats?.frames ?? 0, stats?.aboveThreshold ?? 0, stats?.peak ?? 0,
+            (stats?.speaking ?? false) ? 1 : 0,
+            inputLevelDbfs(samples: focusStatsSamples), focusStatsSamples.count
+        ))
+        focusStatsSamples.removeAll(keepingCapacity: true)
+    }
 
     private func enqueueFreeSegment() {
         if freeDrainScheduled {
@@ -616,7 +642,7 @@ final class PttCoordinator {
 
         // Q13 3b: temporary Free suspend for this PTT capture (do not disarm).
         freeSuspendedByPtt = true
-        stopFreeMic(abandon: true)
+        stopFreeMic(abandon: true, reason: "ptt")
         session.finishStreamListen()
 
         if DictationMode.current.isStreamingPtt {
