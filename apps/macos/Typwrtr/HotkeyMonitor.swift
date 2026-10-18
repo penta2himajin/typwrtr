@@ -12,7 +12,8 @@ final class HotkeyMonitor {
     var onPttUp: (() -> Void)?
     var onUndo: (() -> Void)?
     /// Esc key-down. Reaches the focused app unless ``shouldSwallowEscape`` says
-    /// otherwise (Q46: swallowed only while PTT records or processes).
+    /// otherwise (Q46: swallowed while PTT / hands-free records or processes, and
+    /// while Focus Dictation's mic is open).
     /// ponytail: tap and NSEvent paths only; the Carbon fallback cannot observe a
     /// key without swallowing it, so Esc is not seen there. The NSEvent fallback
     /// observes but can never swallow.
@@ -30,6 +31,9 @@ final class HotkeyMonitor {
     private var carbonPttHotKey: EventHotKeyRef?
     private var carbonUndoHotKey: EventHotKeyRef?
     private var pttDown = false
+    /// An Esc key-down was swallowed: its repeats and key-up go too. Asking again
+    /// would let them through, since the swallowed Esc has already stopped the listen.
+    private var swallowingEscape = false
     private var didPrompt = false
     private var preset: PttHotkey = .current
 
@@ -451,12 +455,18 @@ final class HotkeyMonitor {
 
         switch type {
         case .keyDown where keyCode == Int64(kVK_Escape):
+            let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            if isRepeat, swallowingEscape {
+                return nil
+            }
             let swallow = shouldSwallowEscape?() ?? false
-            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+            if !isRepeat {
+                swallowingEscape = swallow
                 DispatchQueue.main.async { [weak self] in self?.onEscape?() }
             }
             return swallow ? nil : Unmanaged.passUnretained(event)
-        case .keyUp where keyCode == Int64(kVK_Escape) && (shouldSwallowEscape?() ?? false):
+        case .keyUp where keyCode == Int64(kVK_Escape) && swallowingEscape:
+            swallowingEscape = false
             return nil
         case .keyDown where isZ && chordMods:
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0

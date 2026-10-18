@@ -1871,6 +1871,95 @@ extension FfiLanguage: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * What a lone short tap does once the double-tap window passes (Q46).
+ */
+
+public enum FfiSingleTap {
+    
+    /**
+     * Focus Dictation was listening: stop it and hold, as Esc does.
+     */
+    case stopFocus
+    /**
+     * Focus Dictation was held after Esc or a tap: listen again.
+     */
+    case resumeFocus
+    /**
+     * Nothing to toggle: process the capture as batch PTT.
+     */
+    case batchPtt
+}
+
+
+#if compiler(>=6)
+extension FfiSingleTap: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSingleTap: FfiConverterRustBuffer {
+    typealias SwiftType = FfiSingleTap
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSingleTap {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .stopFocus
+        
+        case 2: return .resumeFocus
+        
+        case 3: return .batchPtt
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiSingleTap, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .stopFocus:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .resumeFocus:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .batchPtt:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSingleTap_lift(_ buf: RustBuffer) throws -> FfiSingleTap {
+    return try FfiConverterTypeFfiSingleTap.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSingleTap_lower(_ value: FfiSingleTap) -> RustBuffer {
+    return FfiConverterTypeFfiSingleTap.lower(value)
+}
+
+
+extension FfiSingleTap: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Menu-bar icon states.
  */
 
@@ -2509,6 +2598,17 @@ public func shouldFlushStreamOnRelease(sawSpeechSinceEndpoint: Bool) -> Bool  {
 })
 }
 /**
+ * Decide a lone tap from Focus Dictation's state at key-down (Q46).
+ */
+public func singleTapAction(focusListening: Bool, focusHeld: Bool) -> FfiSingleTap  {
+    return try!  FfiConverterTypeFfiSingleTap_lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_single_tap_action(
+        FfiConverterBool.lower(focusListening),
+        FfiConverterBool.lower(focusHeld),$0
+    )
+})
+}
+/**
  * Samples to keep from a rolling buffer once energy VAD reports speech started.
  */
 public func speechStartKeepLen(bufferLen: UInt64, padSamples: UInt64) -> UInt64  {
@@ -2597,6 +2697,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_should_flush_stream_on_release() != 49480) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_single_tap_action() != 16957) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_speech_start_keep_len() != 19505) {
