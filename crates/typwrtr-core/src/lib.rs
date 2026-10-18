@@ -13,6 +13,7 @@ mod endpoint;
 mod engine;
 mod ffi;
 mod free_mode;
+mod gesture;
 mod input_level;
 mod paths;
 mod session;
@@ -35,6 +36,7 @@ pub use ffi::{
     FfiStatus, FfiStreamVadEvent, FfiTermEntry, PttSession,
 };
 pub use free_mode::{FocusKind, FreeArmState, FreeAvailability, FreeController};
+pub use gesture::{DOUBLE_TAP_WINDOW_MS, HANDS_FREE_IDLE_END_MS, TAP_MAX_MS};
 pub use input_level::{is_dead_input, DEAD_INPUT_PROBE_SAMPLES, DEAD_INPUT_RMS};
 pub use paths::{
     resolve_whisper_from_env, resolve_whisper_paths, whisper_language_tag, whisper_model_path,
