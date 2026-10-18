@@ -1,5 +1,11 @@
 //! Measure FluidAudio Parakeet-ja load time (first load compiles for the ANE).
 //! Usage: cargo run --release -p typwrtr-core --example fluidaudio_load -- <pack dir>
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("fluidaudio_load: FluidAudio is macOS only");
+}
+
+#[cfg(target_os = "macos")]
 fn main() {
     let dir = std::env::args().nth(1).expect("pack dir");
     for attempt in 1..=2 {
