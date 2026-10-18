@@ -15,6 +15,8 @@ final class HotkeyMonitor {
     /// ponytail: tap and NSEvent paths only; the Carbon fallback cannot observe a
     /// key without swallowing it, so Esc is not seen there.
     var onEscape: (() -> Void)?
+    /// Any left / right mouse-down, observed only (Focus Dictation clears its Esc hold).
+    var onMouseDown: (() -> Void)?
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -172,6 +174,8 @@ final class HotkeyMonitor {
             (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.rightMouseDown.rawValue)
 
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -339,8 +343,12 @@ final class HotkeyMonitor {
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.keyDown, .keyUp, .flagsChanged]
+            matching: [.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown]
         ) { [weak self] event in
+            if event.type == .leftMouseDown || event.type == .rightMouseDown {
+                self?.onMouseDown?()
+                return
+            }
             self?.handleNSEvent(event)
         }
     }
@@ -415,6 +423,11 @@ final class HotkeyMonitor {
             if let tap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
+            return Unmanaged.passUnretained(event)
+        }
+
+        if type == .leftMouseDown || type == .rightMouseDown {
+            DispatchQueue.main.async { [weak self] in self?.onMouseDown?() }
             return Unmanaged.passUnretained(event)
         }
 

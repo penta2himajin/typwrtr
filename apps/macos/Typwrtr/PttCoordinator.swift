@@ -100,6 +100,9 @@ final class PttCoordinator {
         hotkey.onEscape = { [weak self] in
             self?.escapePressed()
         }
+        hotkey.onMouseDown = { [weak self] in
+            self?.clearEscapeHoldOnClick()
+        }
         hotkey.onUndo = { [weak self] in
             self?.undoLast()
         }
@@ -300,13 +303,21 @@ final class PttCoordinator {
         menu.setFreeListeningIcon(false)
     }
 
+    /// A click after Esc is intent: back into the same field, or into another one.
+    /// Clear the hold; the next 100 ms tick probes and relistens if it is a field.
+    private func clearEscapeHoldOnClick() {
+        guard escapedFocus != nil else { return }
+        escapedFocus = nil
+        lastProbe = nil
+        CaptureLog.note("focus esc hold cleared (click)")
+    }
+
     /// True until focus actually leaves text fields after Esc. Element identity alone
     /// cannot tell: Electron (Claude) hands out a new element for the same composer,
     /// which cleared the hold the instant Esc was pressed (dogfood 2026-10-18). So a
     /// changed element is classified, and only a non-text focus, an app switch, or
     /// disarming clears it. An unreadable element counts as unchanged.
-    /// ponytail: moving straight to a *different* text field in the same app also
-    /// stays held; focus must pass through a non-text element first.
+    /// Keyboard moves (Tab into another field) stay held; a click clears it.
     private func escapeStillHolds(frontPid: pid_t?) -> Bool {
         guard let escaped = escapedFocus else { return false }
         if let frontPid, frontPid == escaped.pid {

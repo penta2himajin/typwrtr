@@ -283,8 +283,9 @@ third lands, the three Settings modes in §4 still describe the build.
   - **Focus Dictation (revised 2026-10-18):** Esc is *not* swallowed. Apps use it to
     leave a field, and dictation should end with that, as it does everywhere else.
     Typwrtr ends the listen, drops the open segment and hides the bar, and stays
-    armed. The same field does not reopen the mic. Listening resumes once focus moves
-    elsewhere and then lands on a text field again (checked every 100 ms).
+    armed. The same field does not reopen the mic on its own. Listening resumes on a
+    click (back into the field, or into another one), or once focus leaves text fields
+    and lands on one again (checked every 100 ms).
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.
