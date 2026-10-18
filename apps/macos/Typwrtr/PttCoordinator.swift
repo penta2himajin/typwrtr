@@ -126,8 +126,21 @@ final class PttCoordinator {
         }
         hotkey.shouldSwallowEscape = { [weak self] in
             guard let self else { return false }
-            return self.pendingTap != nil || self.handsFreeCancelable || self.batchPttCancelable
-                || self.focusEscapable
+            let reason: String
+            if self.pendingTap != nil {
+                reason = "pending-tap"
+            } else if self.handsFreeCancelable {
+                reason = "hands-free"
+            } else if self.batchPttCancelable {
+                reason = "ptt"
+            } else if self.focusEscapable {
+                reason = "focus-listening"
+            } else {
+                CaptureLog.note("esc passed reason=\(self.escapedFocus != nil ? "focus-held" : "other")")
+                return false
+            }
+            CaptureLog.note("esc swallowed reason=\(reason)")
+            return true
         }
         hotkey.onMouseDown = { [weak self] in
             self?.clearEscapeHoldOnClick()
@@ -912,6 +925,8 @@ final class PttCoordinator {
             escapedFocus?.pid ?? latchedFocusPid,
             escapedFocus?.element ?? latchedElement
         )
+        let pressFocus = focusAtPress.listening ? "listening" : focusAtPress.held ? "held" : "none"
+        CaptureLog.note("ptt press focus=\(pressFocus)")
         // Q13 3b: temporary Free suspend for this PTT capture (do not disarm).
         freeSuspendedByPtt = true
         stopFreeMic(abandon: true, reason: "ptt")
@@ -1041,12 +1056,14 @@ final class PttCoordinator {
         )
         switch action {
         case .batchPtt:
+            CaptureLog.note("single tap: ptt (not focus)")
             endBatchPtt(captured: captured, held: held)
             return
         case .stopFocus:
+            CaptureLog.note("single tap: focus toggle stop")
             holdFocusAfterCancelledPress()
-            CaptureLog.note("focus listen stopped (tap)")
         case .resumeFocus:
+            CaptureLog.note("single tap: focus toggle resume")
             clearEscapeHold(reason: "tap")
         }
         try? session.cancel()
