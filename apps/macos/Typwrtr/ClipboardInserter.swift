@@ -32,7 +32,8 @@ final class ClipboardInserter {
     enum Policy {
         /// Batch PTT / Free: wait for Ctrl/Shift/etc. before ⌘V.
         case waitForModifiers
-        /// Streaming mid-hold: never bail solely because the hotkey is down.
+        /// Hands-free insert while the PTT chord is down: never bail solely because
+        /// the hotkey is down.
         case whileModifiersHeld
     }
 

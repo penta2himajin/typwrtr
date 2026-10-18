@@ -756,7 +756,11 @@ final class PttCoordinator {
     /// processed as batch PTT if no second press comes.
     private var pendingTap: (releasedAt: Date, work: DispatchWorkItem)?
 
+    /// The PTT chord is physically down (between key-down and key-up callbacks).
+    private var chordHeld = false
+
     private func pttKeyDown() {
+        chordHeld = true
         if handsFreeActive {
             consumeKeyUp = true
             CaptureLog.note("hands-free stopped (key)")
@@ -778,6 +782,7 @@ final class PttCoordinator {
     }
 
     private func pttKeyUp() {
+        chordHeld = false
         if consumeKeyUp {
             consumeKeyUp = false
             pttHeld = false
@@ -1232,7 +1237,15 @@ final class PttCoordinator {
             CaptureLog.insert(path: "hands-free", outcome: "dropped-cancelled", chars: text.count)
             trace?.finishWithoutInsert(outcome: "dropped-cancelled", chars: text.count)
         } else {
-            insertStreamResult(text: text, path: "hands-free", trace: trace)
+            // A segment can land while the user presses the key to stop. Waiting for
+            // ⌃⇧ to release timed out to clipboard-only (dogfood 13:47:34), so use the
+            // insert path built for a held chord.
+            insertStreamResult(
+                text: text,
+                path: "hands-free",
+                policy: chordHeld ? .whileModifiersHeld : .waitForModifiers,
+                trace: trace
+            )
         }
         if handsFreeActive {
             phase = .recording
