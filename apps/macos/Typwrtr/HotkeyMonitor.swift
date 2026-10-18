@@ -11,6 +11,10 @@ final class HotkeyMonitor {
     var onPttDown: (() -> Void)?
     var onPttUp: (() -> Void)?
     var onUndo: (() -> Void)?
+    /// Esc key-down, observed only: the event still reaches the focused app.
+    /// ponytail: tap and NSEvent paths only; the Carbon fallback cannot observe a
+    /// key without swallowing it, so Esc is not seen there.
+    var onEscape: (() -> Void)?
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -384,6 +388,8 @@ final class HotkeyMonitor {
         let isZ = event.keyCode == UInt16(kVK_ANSI_Z)
 
         switch event.type {
+        case .keyDown where event.keyCode == UInt16(kVK_Escape) && !event.isARepeat:
+            onEscape?()
         case .keyDown where isZ && chordMods && !event.isARepeat:
             onUndo?()
         case .keyDown where isPttKey && chordMods && !event.isARepeat:
@@ -427,6 +433,11 @@ final class HotkeyMonitor {
             && !mods.contains(.maskAlternate)
 
         switch type {
+        case .keyDown where keyCode == Int64(kVK_Escape):
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                DispatchQueue.main.async { [weak self] in self?.onEscape?() }
+            }
+            return Unmanaged.passUnretained(event)
         case .keyDown where isZ && chordMods:
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
             if !isRepeat {

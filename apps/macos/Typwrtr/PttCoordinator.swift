@@ -45,8 +45,10 @@ final class PttCoordinator {
     /// Latched focus so opening the menu bar does not drop Free listening.
     private var latchedFocus: FocusKind?
     private var latchedFocusPid: pid_t?
-    /// Element the latched probe saw; compared each second while listening.
+    /// Element the latched probe saw; compared every 100 ms while listening.
     private var latchedElement: AXUIElement?
+    /// Field the user left with Esc (Q46): no relisten until focus moves off it.
+    private var escapedFocus: (pid: pid_t, element: AXUIElement?)?
     private var latchedFocusAt: Date?
     /// Drop Focus pastes whose listen generation no longer matches (user left the field).
     private var freeInsertGeneration: UInt64 = 0
@@ -92,6 +94,9 @@ final class PttCoordinator {
         }
         hotkey.onPttUp = { [weak self] in
             self?.endPtt()
+        }
+        hotkey.onEscape = { [weak self] in
+            self?.escapePressed()
         }
         hotkey.onUndo = { [weak self] in
             self?.undoLast()
@@ -184,6 +189,7 @@ final class PttCoordinator {
             NSLog("Typwrtr: Free armed")
         } else {
             freeController.disarm()
+            escapedFocus = nil
             stopFreeMic(abandon: true, reason: "disarmed")
             NSLog("Typwrtr: Free disarmed")
         }
@@ -225,6 +231,12 @@ final class PttCoordinator {
         }
 
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+
+        if escapeStillHolds(frontPid: frontPid) {
+            focusWatcher.quietWhileListening = true
+            menu.setFreeListeningIcon(false)
+            return
+        }
 
         // Already listening in the same app: skip the full probe (pip spam) unless the
         // focused element changed. Without this check, leaving the field for another
@@ -277,6 +289,31 @@ final class PttCoordinator {
                 menu.setFreeListeningIcon(false)
             }
         }
+    }
+
+    /// Q46, Focus Dictation: Esc ends the listen and hides the bar. Esc itself still
+    /// reaches the app. The same field does not reopen until focus moves elsewhere.
+    private func escapePressed() {
+        guard freeMicOpen, phase == .idle, let pid = latchedFocusPid else { return }
+        escapedFocus = (pid, latchedElement)
+        stopFreeMic(abandon: true, reason: "esc")
+        focusWatcher.quietWhileListening = true
+        menu.setFreeListeningIcon(false)
+    }
+
+    /// True while focus is still on the field left with Esc. Any other element, an
+    /// app switch, or disarming clears it. An unreadable element counts as unchanged.
+    private func escapeStillHolds(frontPid: pid_t?) -> Bool {
+        guard let escaped = escapedFocus else { return false }
+        if let frontPid, frontPid == escaped.pid {
+            guard let element = escaped.element,
+                  let current = FocusProbe.focusedElement(pid: frontPid)
+            else { return true }
+            if CFEqual(element, current) { return true }
+        }
+        escapedFocus = nil
+        CaptureLog.note("focus esc hold cleared")
+        return false
     }
 
     /// Cheap check: has the focused element changed since the probe that opened the

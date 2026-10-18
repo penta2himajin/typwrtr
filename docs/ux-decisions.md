@@ -278,8 +278,13 @@ third lands, the three Settings modes in §4 still describe the build.
   changing (the open segment goes to the original app), or 20 s of silence (one core
   constant, tuned on dogfood; VAP candidate in [#5](https://github.com/penta2himajin/typwrtr/issues/5)).
 - **Q46 — Esc cancels.** Esc is swallowed only while the mic is open or processing, and
-  discards what is in flight. Focus Dictation: drop the open segment and stay armed.
-  Hands-free: drop the open segment and end. Already-inserted text stays; ⌃⇧Z removes it.
+  discards what is in flight. Hands-free: drop the open segment and end.
+  Already-inserted text stays; ⌃⇧Z removes it.
+  - **Focus Dictation (revised 2026-10-18):** Esc is *not* swallowed. Apps use it to
+    leave a field, and dictation should end with that, as it does everywhere else.
+    Typwrtr ends the listen, drops the open segment and hides the bar, and stays
+    armed. The same field does not reopen the mic. Listening resumes once focus moves
+    elsewhere and then lands on a text field again (checked every 100 ms).
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.
@@ -336,7 +341,7 @@ third lands, the three Settings modes in §4 still describe the build.
 | Q43 | Dead mic → "No microphone input" in the bar (PTT: whole capture; hands-free/Focus: first ~2s, then end) |
 | Q44 | One key: hold = PTT (batch only), double-tap = hands-free; mode radios removed |
 | Q45 | Hands-free: no focus gate; inserts per 1.5s pause; ends on key / Esc / app switch / 20s silence |
-| Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z) |
+| Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z). Focus: Esc passes through, ends the listen until focus moves |
 | Q47 | No sounds, no audio ducking, no history, no paste-last |
 | Q48 | Wizard teaches hold / double-tap / ⌃⇧Z / Esc on one screen |
 
