@@ -1,6 +1,6 @@
 # Typwrtr — UX & Interaction Decisions
 
-Status: **agreed** (grilling sessions, 2026-08-07, 2026-08-09, 2026-08-10; Q40 extended 2026-10-18).  
+Status: **agreed** (grilling sessions, 2026-08-07, 2026-08-09, 2026-08-10, and 2026-10-18).  
 SSOT for activation, feedback, insertion, privacy UI, and onboarding behaviour.  
 Product positioning / licensing: [`product.md`](./product.md). Use cases: [`use-cases.md`](./use-cases.md).
 
@@ -23,9 +23,9 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 
 - Some **state change is required** so the user can tell idle / recording / processing / error.  
 - Ideal presentation varies by user type; **do not auto-detect user type**.  
-- **PTT feedback: menu bar icon** (idle / recording / processing / error) **plus the Q40 level bar while the key is held**. Processing has no bar; the icon carries it.  
+- **PTT feedback: menu bar icon** (idle / recording / processing / error) **plus the Q40 level bar while the key is held**, which stays through processing (Q41).  
 - No partial-transcript HUD in MVP (see §11).  
-- **While the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen, in **all three modes** — PTT batch and streaming while the key is held, Focus Dictation while its mic is open. Level bars only — no transcript and no controls. Hidden on release, and while Focus Dictation is armed but waiting for a field. The menu-bar icon still changes. (2026-10-18: extended from Focus Dictation only to PTT, matching Aqua Voice / Typeless-style hold feedback.)  
+- **While the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen, in **all three modes** — PTT batch and streaming while the key is held, Focus Dictation while its mic is open. Level bars only — no transcript and no controls. After release it stays up through processing with a wave (Q41) and disappears on insert. Hidden while Focus Dictation is armed but waiting for a field. The menu-bar icon still changes. (2026-10-18: extended from Focus Dictation only to PTT, matching Aqua Voice / Typeless-style hold feedback.)  
 - Richer HUD / partial display may be added later as options.
 
 ## 2. Activation modes (Q3, Q5, Q12, Q13, Q19)
@@ -107,7 +107,7 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
 
 **Required in first-run wizard:**
 
-1. Mode choice (PTT-only vs Free armed)  
+1. How to dictate — one screen: hold to talk / double-tap for hands-free / ⌃⇧Z undo / Esc cancel (Q48; replaces the mode choice)  
 2. Permissions explanation + guided enable (mic, Accessibility)  
 3. Language (+ model download bound to that language)  
 4. **Launch at login** — user chooses (Q16 = wizard)
@@ -241,6 +241,53 @@ them.
 
 - If recording or processing: **confirm** (“Discard and quit?”) before exit.
 
+## 11a. Recording → insert behaviour (Q41–Q48)
+
+Decided 2026-10-18 from [`research/dictation-ui-competitors.md`](./research/dictation-ui-competitors.md)
+against the goal "the simplest UI and flow, the highest-quality experience". Ships in
+three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6). Until the
+third lands, the three Settings modes in §4 still describe the build.
+
+- **Q41 — Processing lives in the bar.** After release the bar stays and its bars give
+  way to a slow left-to-right wave, with no text (nothing to localise; same size). It
+  hides on insert. The bar is already up while recording, so a short processing time
+  moves the hide from release to insert rather than causing a flash. In hands-free the
+  bar shows levels for as long as the mic is open; the wave appears only for the last
+  segment after the mic closes.
+- **Q42 — No idle bar, no controls.** The menu-bar icon shows idle; the key and Esc
+  are the controls. Keeps Q40's click-through bar.
+- **Q43 — Dead mic is not silence.** Q24 still holds for a capture with no speech.
+  When the *input level* stays near zero, the bar shows "No microphone input" for
+  about 2 s instead:
+  - PTT: judged over the whole capture.
+  - Hands-free / Focus Dictation: judged over the first ~2 s after the mic opens, then
+    the listening ends (Focus Dictation disarms, so it does not reopen on the next focus).
+  - "Near zero" sits well below measured room tone (−45 dBFS, §4); the exact cutoff lives
+    in core next to the test that pins it.
+- **Q44 — One key.** Hold = PTT, which inserts once on release (batch; streaming PTT is
+  removed). Double-tap within 0.4 s = hands-free. A press shorter than 0.3 s waits up to
+  0.4 s for a second press; longer presses start PTT immediately. The Settings mode
+  radios go; Settings → Mode keeps only the hotkey. Focus Dictation stays an armed
+  toggle in the menu bar (Q4–Q5, Q13 unchanged). Its shortcut is
+  [#4](https://github.com/penta2himajin/typwrtr/issues/4), and a single key such as Fn is
+  [#3](https://github.com/penta2himajin/typwrtr/issues/3).
+- **Q45 — Hands-free.** No focus gate: the double-tap is explicit consent, as with PTT,
+  including the Q6 secure-field notice. Inserts at each 1.5 s pause (the Focus Dictation
+  path). Ends on: the key (insert the open segment), Esc (discard it), the frontmost app
+  changing (the open segment goes to the original app), or 20 s of silence (one core
+  constant, tuned on dogfood; VAP candidate in [#5](https://github.com/penta2himajin/typwrtr/issues/5)).
+- **Q46 — Esc cancels.** Esc is swallowed only while the mic is open or processing, and
+  discards what is in flight. Focus Dictation: drop the open segment and stay armed.
+  Hands-free: drop the open segment and end. Already-inserted text stays; ⌃⇧Z removes it.
+- **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
+  paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
+  retention minimal. Revisit on dogfood evidence.
+- **Q48 — Onboarding teaches the gestures,** not a mode: one wizard screen with hold to
+  talk, double-tap for hands-free, ⌃⇧Z to undo (a strength no competitor has), and Esc to
+  cancel. Nothing extra in everyday UI.
+- **Kept:** Q11, no pre-insert text. Transcript-in-bar and learning from corrections are
+  [#2](https://github.com/penta2himajin/typwrtr/issues/2).
+
 ## 12. Decision log (grilling)
 
 | ID | Decision |
@@ -252,8 +299,8 @@ them.
 | Q6 | Secure: Free off, PTT allowed + discouraged |
 | Q7 | Clipboard-ok → leave on clipboard; else in-app preview buffer |
 | Q8 | First-party Undo last |
-| Q9 | Wizard picks mode; menu bar is primary UI; settings window optional/later |
-| Q10 | Wizard: mode, permissions, language(+model) |
+| Q9 | Menu bar is primary UI; settings window optional/later (wizard mode pick superseded by Q48) |
+| Q10 | Wizard: how to dictate (Q48), permissions, language(+model) |
 | Q11 | No pre-insert text UI in MVP |
 | Q12 | Free: 1.5s silence → immediate insert |
 | Q13 | 3b temporary PTT override; Free arming unchanged |
@@ -283,12 +330,24 @@ them.
 | Q38 | Dogfood ships Settings CRUD with the wiring |
 | Q39 | No import/export UI this phase |
 | Q40 | Mic open (PTT hold or Focus Dictation): bottom level bar, no transcript |
+| Q41 | Bar stays through processing as a text-free wave; hidden on insert |
+| Q42 | No idle bar; no controls on the bar |
+| Q43 | Dead mic → "No microphone input" in the bar (PTT: whole capture; hands-free/Focus: first ~2s, then end) |
+| Q44 | One key: hold = PTT (batch only), double-tap = hands-free; mode radios removed |
+| Q45 | Hands-free: no focus gate; inserts per 1.5s pause; ends on key / Esc / app switch / 20s silence |
+| Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z) |
+| Q47 | No sounds, no audio ducking, no history, no paste-last |
+| Q48 | Wizard teaches hold / double-tap / ⌃⇧Z / Esc on one screen |
 
 ## 13. Deferred (explicit non-decisions)
 
 - Sentence-final wait / spoken “Enter” commit  
 - Partial or processing text HUD options  
-- Mode-switch hotkey  
+- Mode-switch hotkey (Focus Dictation toggle shortcut: [#4](https://github.com/penta2himajin/typwrtr/issues/4))  
+- Transcript in the bar; learning from corrections ([#2](https://github.com/penta2himajin/typwrtr/issues/2))  
+- Single-key PTT hotkey such as Fn ([#3](https://github.com/penta2himajin/typwrtr/issues/3))  
+- VAP for segment end / hands-free auto-end ([#5](https://github.com/penta2himajin/typwrtr/issues/5))  
+- Start/stop sounds, audio ducking, history, paste-last hotkey (Q47; revisit on dogfood evidence)  
 - Phoneme / contextual (DeBERTa-class) correction as product features  
 - Dictionary import/export UI; Typwrtr-published or bundled term lists  
 - Per-backend dictionary tables or per-row backend tags  
