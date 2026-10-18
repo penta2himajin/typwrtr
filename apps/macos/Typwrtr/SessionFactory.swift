@@ -32,6 +32,7 @@ enum AsrBackend: Equatable {
 
 enum SessionFactory {
     /// Prefer euhadra L1 pack for the language, else FixedAsr.
+    /// Blocking (a cold FluidAudio load compiles for the ANE, ~60 s): call off the main thread.
     static func makeSession(language: AppLanguage = .current) -> (PttSession, AsrBackend) {
         switch language {
         case .japanese:
@@ -45,27 +46,42 @@ enum SessionFactory {
             if let s = tryDolphin(language: language) { return s }
         }
         NSLog("Typwrtr: no model for %@ — FixedAsr fallback", language.displayName)
-        let session = try! PttSession.withFixedTranscript(
-            language: language.ffi,
-            fixedTranscript: language.fixedFallbackTranscript
-        )
+        let session = try! timedLoad("fixed") {
+            try PttSession.withFixedTranscript(
+                language: language.ffi,
+                fixedTranscript: language.fixedFallbackTranscript
+            )
+        }
         return (session, .fixedTranscript)
+    }
+
+    /// Logs `asr load backend=<name> ms=…` (or `failed`) around one constructor.
+    private static func timedLoad(_ name: String, _ make: () throws -> PttSession) throws -> PttSession {
+        let started = Date()
+        do {
+            let session = try make()
+            CaptureLog.note(String(
+                format: "asr load backend=%@ ms=%.0f",
+                name,
+                Date().timeIntervalSince(started) * 1000
+            ))
+            return session
+        } catch {
+            CaptureLog.note("asr load backend=\(name) failed")
+            throw error
+        }
     }
 
     /// Preferred for Japanese on Apple Silicon: a third of the ONNX memory and ~3× faster
     /// (euhadra 0.4 measurements). Load time is logged: the first load compiles for the ANE.
     private static func tryFluidAudioJa(language: AppLanguage) -> (PttSession, AsrBackend)? {
         guard let dir = ModelLocator.findFluidAudioJaDir() else { return nil }
-        let started = Date()
         do {
-            let session = try PttSession.withFluidAudioJa(language: language.ffi, modelDir: dir)
-            CaptureLog.note(String(
-                format: "asr load backend=fluidaudio-ja ms=%.0f",
-                Date().timeIntervalSince(started) * 1000
-            ))
+            let session = try timedLoad("fluidaudio-ja") {
+                try PttSession.withFluidAudioJa(language: language.ffi, modelDir: dir)
+            }
             return (session, .fluidAudioJa(modelDir: dir))
         } catch {
-            CaptureLog.note("asr load backend=fluidaudio-ja failed")
             NSLog("Typwrtr: FluidAudio ja failed (\(error)); trying ONNX")
             return nil
         }
@@ -77,7 +93,9 @@ enum SessionFactory {
             return nil
         }
         do {
-            let session = try PttSession.withParakeet(language: language.ffi, modelDir: dir)
+            let session = try timedLoad("parakeet-ja") {
+                try PttSession.withParakeet(language: language.ffi, modelDir: dir)
+            }
             NSLog("Typwrtr: using Parakeet-ja at %@", dir)
             return (session, .parakeetJa(modelDir: dir))
         } catch {
@@ -92,7 +110,9 @@ enum SessionFactory {
             return nil
         }
         do {
-            let session = try PttSession.withCanary(language: language.ffi, modelDir: dir)
+            let session = try timedLoad("canary") {
+                try PttSession.withCanary(language: language.ffi, modelDir: dir)
+            }
             NSLog("Typwrtr: using Canary at %@ for %@", dir, language.displayName)
             return (session, .canary(modelDir: dir))
         } catch {
@@ -107,7 +127,9 @@ enum SessionFactory {
             return nil
         }
         do {
-            let session = try PttSession.withParaformerZh(language: language.ffi, modelDir: dir)
+            let session = try timedLoad("paraformer-zh") {
+                try PttSession.withParaformerZh(language: language.ffi, modelDir: dir)
+            }
             NSLog("Typwrtr: using Paraformer-zh at %@", dir)
             return (session, .paraformerZh(modelDir: dir))
         } catch {
@@ -122,7 +144,9 @@ enum SessionFactory {
             return nil
         }
         do {
-            let session = try PttSession.withDolphin(language: language.ffi, modelDir: dir)
+            let session = try timedLoad("dolphin-ko") {
+                try PttSession.withDolphin(language: language.ffi, modelDir: dir)
+            }
             NSLog("Typwrtr: using Dolphin-ko at %@", dir)
             return (session, .dolphin(modelDir: dir))
         } catch {
