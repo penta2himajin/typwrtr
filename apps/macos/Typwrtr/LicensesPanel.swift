@@ -119,6 +119,14 @@ enum LicensesPanel {
         License: MIT OR Apache-2.0 (crate); Apache-2.0 (ONNX Runtime)
         https://github.com/pykeio/ort
 
+        FluidAudio (CoreML / Apple Neural Engine speech runtime, Japanese)
+        License: Apache-2.0
+        https://github.com/FluidInference/FluidAudio
+
+        fluidaudio-rs (Rust bindings to FluidAudio)
+        License: MIT
+        https://crates.io/crates/fluidaudio-rs-featmodels
+
         UniFFI (Rust ↔ Swift bindings)
         License: MPL-2.0
         https://github.com/mozilla/uniffi-rs
@@ -137,7 +145,8 @@ enum LicensesPanel {
         attribution below for the packs you use.
 
         Japanese — nvidia/parakeet-tdt_ctc-0.6b-ja
-        ONNX mirror: sunilmahendrakar/parakeet-tdt-0.6b-ja-onnx
+        CoreML conversion (current pack): FluidInference/parakeet-0.6b-ja-coreml
+        ONNX mirror (older packs): sunilmahendrakar/parakeet-tdt-0.6b-ja-onnx
         License: CC BY 4.0
         https://creativecommons.org/licenses/by/4.0/
         https://huggingface.co/nvidia/parakeet-tdt_ctc-0.6b-ja
@@ -170,7 +179,7 @@ enum LicensesPanel {
         ── CC BY 4.0 (NVIDIA Parakeet / Canary) ──
 
         You must give appropriate credit, provide a link to the license, and \
-        indicate if changes were made (for example, ONNX / INT8 conversion). \
+        indicate if changes were made (for example, ONNX / INT8 / CoreML conversion). \
         See the Creative Commons legal code linked above.
         """
     }

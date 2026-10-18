@@ -1,6 +1,7 @@
 import Foundation
 
 enum AsrBackend: Equatable {
+    case fluidAudioJa(modelDir: String)
     case parakeetJa(modelDir: String)
     case canary(modelDir: String)
     case paraformerZh(modelDir: String)
@@ -11,6 +12,8 @@ enum AsrBackend: Equatable {
     /// Debug-only label (not shown on the primary menu).
     var debugLabel: String {
         switch self {
+        case .fluidAudioJa:
+            return "Backend: Parakeet ja (CoreML / ANE)"
         case .parakeetJa:
             return "Backend: Parakeet ja (ONNX)"
         case .canary:
@@ -32,6 +35,7 @@ enum SessionFactory {
     static func makeSession(language: AppLanguage = .current) -> (PttSession, AsrBackend) {
         switch language {
         case .japanese:
+            if let s = tryFluidAudioJa(language: language) { return s }
             if let s = tryParakeet(language: language) { return s }
         case .english, .spanish:
             if let s = tryCanary(language: language) { return s }
@@ -46,6 +50,25 @@ enum SessionFactory {
             fixedTranscript: language.fixedFallbackTranscript
         )
         return (session, .fixedTranscript)
+    }
+
+    /// Preferred for Japanese on Apple Silicon: a third of the ONNX memory and ~3× faster
+    /// (euhadra 0.4 measurements). Load time is logged: the first load compiles for the ANE.
+    private static func tryFluidAudioJa(language: AppLanguage) -> (PttSession, AsrBackend)? {
+        guard let dir = ModelLocator.findFluidAudioJaDir() else { return nil }
+        let started = Date()
+        do {
+            let session = try PttSession.withFluidAudioJa(language: language.ffi, modelDir: dir)
+            CaptureLog.note(String(
+                format: "asr load backend=fluidaudio-ja ms=%.0f",
+                Date().timeIntervalSince(started) * 1000
+            ))
+            return (session, .fluidAudioJa(modelDir: dir))
+        } catch {
+            CaptureLog.note("asr load backend=fluidaudio-ja failed")
+            NSLog("Typwrtr: FluidAudio ja failed (\(error)); trying ONNX")
+            return nil
+        }
     }
 
     private static func tryParakeet(language: AppLanguage) -> (PttSession, AsrBackend)? {

@@ -63,9 +63,13 @@ enum PackDownloader {
     }
 
     /// Download missing files. `progress` is 0…1 (may be called off the main queue).
+    /// `preparing` fires (off the main queue) when the files are in and a one-time
+    /// warm-up starts: FluidAudio compiles the Japanese pack for the Neural Engine on
+    /// first load (measured 61.6 s; later loads 0.15–0.19 s, across launches).
     static func download(
         language: AppLanguage,
         progress: @escaping (Double) -> Void,
+        preparing: @escaping () -> Void = {},
         completion: @escaping (Result<URL, Error>) -> Void
     ) {
         guard isInAppDownloadSupported(for: language) else {
@@ -104,6 +108,11 @@ enum PackDownloader {
                     }
 
                     let base = Double(completedWeight)
+                    // CoreML packs nest files under <Component>.mlmodelc/.
+                    try FileManager.default.createDirectory(
+                        at: out.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
                     try downloadFile(file.url, to: out, expectedBytes: file.expectedBytes) { fraction in
                         let weight = Double(file.expectedBytes)
                         let overall = totalWeight > 0
@@ -117,6 +126,10 @@ enum PackDownloader {
 
                 progress(1)
                 try finalize(language: language, dest: dest)
+                if language == .japanese {
+                    preparing()
+                    warmUpFluidAudio(dest: dest)
+                }
                 guard ModelLocator.isLanguagePackReady(language) else {
                     throw DownloadError.incomplete(
                         "Downloaded files look incomplete under \(dest.path)."
@@ -134,18 +147,36 @@ enum PackDownloader {
     private static func remoteFiles(for language: AppLanguage) throws -> [RemoteFile] {
         switch language {
         case .japanese:
+            // FluidAudio CoreML pack (euhadra 0.4 FluidAudioAdapter::japanese_local):
+            // compiled .mlmodelc only, ~625 MB, pinned so the files never shift.
             let base = URL(
-                string: "https://huggingface.co/sunilmahendrakar/parakeet-tdt-0.6b-ja-onnx/resolve/main"
+                string: "https://huggingface.co/FluidInference/parakeet-0.6b-ja-coreml/resolve/2952296ff1da4a6d6a7aec545e226367db80c612"
             )!
-            // Sizes are approximate; used only for progress weighting.
-            return [
-                RemoteFile(url: base.appendingPathComponent("vocab.txt"), localName: "vocab.txt", expectedBytes: 500_000),
-                RemoteFile(url: base.appendingPathComponent("config.json"), localName: "config.json", expectedBytes: 5_000),
-                RemoteFile(url: base.appendingPathComponent("encoder-model.onnx"), localName: "encoder-model.onnx", expectedBytes: 50_000_000),
-                RemoteFile(url: base.appendingPathComponent("decoder_joint-model.onnx"), localName: "decoder_joint-model.onnx", expectedBytes: 50_000_000),
-                RemoteFile(url: base.appendingPathComponent("encoder-model.onnx.data"), localName: "encoder-model.onnx.data", expectedBytes: 1_200_000_000),
-                RemoteFile(url: base.appendingPathComponent("decoder_joint-model.onnx.data"), localName: "decoder_joint-model.onnx.data", expectedBytes: 1_000_000_000),
+            var files = [
+                RemoteFile(url: base.appendingPathComponent("vocab.json"), localName: "vocab.json", expectedBytes: 29_658),
+                RemoteFile(url: base.appendingPathComponent("metadata.json"), localName: "metadata.json", expectedBytes: 1_269),
+                RemoteFile(url: base.appendingPathComponent("config.json"), localName: "config.json", expectedBytes: 2),
             ]
+            let components: [(String, Int64)] = [
+                ("Preprocessor", 807_968),
+                ("Encoder", 593_943_616),
+                ("Decoderv2", 17_051_392),
+                ("Jointerv2", 6_078_924),
+                ("CtcDecoder", 6_299_842),
+            ]
+            for (name, weightBytes) in components {
+                for (path, bytes) in [
+                    ("analytics/coremldata.bin", Int64(243)),
+                    ("coremldata.bin", Int64(500)),
+                    ("metadata.json", Int64(3_000)),
+                    ("model.mil", name == "Encoder" ? Int64(1_086_104) : Int64(20_000)),
+                    ("weights/weight.bin", weightBytes),
+                ] {
+                    let rel = "\(name).mlmodelc/\(path)"
+                    files.append(RemoteFile(url: base.appendingPathComponent(rel), localName: rel, expectedBytes: bytes))
+                }
+            }
+            return files
 
         case .english, .spanish:
             let base = URL(
@@ -201,6 +232,23 @@ enum PackDownloader {
             }
         case .japanese, .korean:
             break
+        }
+    }
+
+    /// Load once here, on this background queue, so the ANE compile does not land on
+    /// the main thread when Setup applies the language right after the download.
+    /// A failure is only logged: SessionFactory falls back to ONNX and logs again.
+    private static func warmUpFluidAudio(dest: URL) {
+        let started = Date()
+        do {
+            _ = try PttSession.withFluidAudioJa(language: AppLanguage.japanese.ffi, modelDir: dest.path)
+            CaptureLog.note(String(
+                format: "asr warm-up backend=fluidaudio-ja ms=%.0f",
+                Date().timeIntervalSince(started) * 1000
+            ))
+        } catch {
+            CaptureLog.note("asr warm-up backend=fluidaudio-ja failed")
+            NSLog("Typwrtr: FluidAudio warm-up failed (\(error))")
         }
     }
 
