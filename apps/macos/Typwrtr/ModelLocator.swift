@@ -8,6 +8,9 @@ enum ModelLocator {
     static let setupDismissedKey = "typwrtr.setupDismissed"
 
     static let parakeetFolderName = "parakeet-tdt_ctc-0.6b-ja"
+    /// FluidInference/parakeet-0.6b-ja-coreml compiled models (FluidAudio, CoreML / ANE).
+    static let fluidAudioJaFolderName = "parakeet-ja-coreml"
+    static let fluidAudioJaDirKey = "typwrtr.fluidAudioJaDir"
     static let canaryFolderName = "canary-180m-flash-onnx"
     static let paraformerFolderName = "paraformer-zh"
     static let dolphinKoFolderName = "dolphin-ko"
@@ -40,7 +43,7 @@ enum ModelLocator {
 
     static func isLanguagePackReady(_ language: AppLanguage) -> Bool {
         switch language {
-        case .japanese: return findParakeetJaDir() != nil
+        case .japanese: return findFluidAudioJaDir() != nil || findParakeetJaDir() != nil
         case .english, .spanish: return findCanaryDir() != nil
         case .chinese: return findParaformerZhDir() != nil
         case .korean: return findDolphinKoDir() != nil
@@ -74,6 +77,29 @@ enum ModelLocator {
         let base = dir as NSString
         return FileManager.default.fileExists(atPath: base.appendingPathComponent("model.int8.onnx"))
             && FileManager.default.fileExists(atPath: base.appendingPathComponent("tokens.txt"))
+    }
+
+    /// The compiled CoreML components FluidAudio loads, plus its vocabulary.
+    static func isFluidAudioJaBundlePresent(at dir: String) -> Bool {
+        let base = dir as NSString
+        let required = [
+            "vocab.json",
+            "Preprocessor.mlmodelc/weights/weight.bin",
+            "Encoder.mlmodelc/weights/weight.bin",
+            "Decoderv2.mlmodelc/weights/weight.bin",
+            "Jointerv2.mlmodelc/weights/weight.bin",
+        ]
+        return required.allSatisfy {
+            FileManager.default.fileExists(atPath: base.appendingPathComponent($0))
+        }
+    }
+
+    static func findFluidAudioJaDir() -> String? {
+        packCandidates(
+            folder: fluidAudioJaFolderName,
+            envKeys: ["TYPWRTR_FLUIDAUDIO_JA_DIR"],
+            savedKey: fluidAudioJaDirKey
+        ).first { isFluidAudioJaBundlePresent(at: $0) }
     }
 
     static func findParakeetJaDir() -> String? {

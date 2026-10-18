@@ -723,16 +723,23 @@ enum SetupDialog {
                         self?.setDownloadProgress(fraction)
                     }
                 },
+                preparing: {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        self.setDownloadProgress(1)
+                        self.setOutlineAppearance(
+                            self.downloadButton, emphasized: true, title: "Optimizing… (~1 min)"
+                        )
+                    }
+                },
                 completion: { [weak self] result in
                     DispatchQueue.main.async {
                         guard let self else { return }
                         self.clearDownloadProgress()
                         switch result {
                         case .success(let dest):
+                            // The pack folder sits under the model root, where ModelLocator looks.
                             ModelLocator.setModelRoot(ModelLocator.applicationSupportModels)
-                            if lang == .japanese {
-                                ModelLocator.setParakeetJaDir(dest.path)
-                            }
                             self.applyPackUI(for: lang)
                             self.onLanguage(lang)
                         case .failure(let error):

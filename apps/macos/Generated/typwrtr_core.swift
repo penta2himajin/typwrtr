@@ -927,6 +927,20 @@ public static func withFixedTranscript(language: FfiLanguage, fixedTranscript: S
 }
     
     /**
+     * Build a session using euhadra `FluidAudioAdapter` (Parakeet-ja on CoreML / ANE)
+     * from a downloaded `.mlmodelc` pack. macOS only. Blocking: the first load
+     * compiles for the Neural Engine, so call it off the main thread.
+     */
+public static func withFluidAudioJa(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
+    return try  FfiConverterTypePttSession_lift(try rustCallWithError(FfiConverterTypeFfiError_lift) {
+    uniffi_typwrtr_core_fn_constructor_pttsession_with_fluid_audio_ja(
+        FfiConverterTypeFfiLanguage_lower(language),
+        FfiConverterString.lower(modelDir),$0
+    )
+})
+}
+    
+    /**
      * Build using euhadra `ParaformerAdapter` (zh).
      */
 public static func withParaformerZh(language: FfiLanguage, modelDir: String)throws  -> PttSession  {
@@ -2673,6 +2687,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fixed_transcript() != 59258) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_fluid_audio_ja() != 9903) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_constructor_pttsession_with_paraformer_zh() != 36581) {

@@ -176,7 +176,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -448,12 +448,13 @@ dependencies = [
 
 [[package]]
 name = "euhadra"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8191d4bbb3772f782089d47115c18d7fe0253eb5fb36a74572ce57327390bec"
+checksum = "828e1a89ebafb02be56b7945c10c0188347054117334d189d04ad8eacea86a3a"
 dependencies = [
  "async-trait",
  "earshot",
+ "fluidaudio-rs-featmodels",
  "ndarray",
  "ort",
  "parakeet-rs-featsize",
@@ -461,7 +462,7 @@ dependencies = [
  "serde",
  "serde_json",
  "text-processing-rs",
- "thiserror",
+ "thiserror 2.0.19",
  "tokenizers 0.21.4",
  "tokio",
  "tokio-util",
@@ -489,6 +490,15 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "fluidaudio-rs-featmodels"
+version = "0.17.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9540ec0a4b06fb527ed9e59fbecb204bd28479fef5bae7b5822dfaaa38efadb"
+dependencies = [
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "fnv"
@@ -1542,11 +1552,31 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+dependencies = [
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
 version = "2.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09a43598840e33d5b0331f38c5e30d13bb11c11210a4b58f0d9b18a5a5eefcd9"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 2.0.19",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1588,7 +1618,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spm_precompiled",
- "thiserror",
+ "thiserror 2.0.19",
  "unicode-normalization-alignments",
  "unicode-segmentation",
  "unicode_categories",
@@ -1621,7 +1651,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spm_precompiled",
- "thiserror",
+ "thiserror 2.0.19",
  "unicode-normalization-alignments",
  "unicode-segmentation",
  "unicode_categories",
@@ -1726,7 +1756,7 @@ dependencies = [
  "euhadra",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.19",
  "tokio",
  "uniffi",
 ]

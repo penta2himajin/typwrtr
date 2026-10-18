@@ -175,6 +175,20 @@ impl DictationEngine {
         Self::new(language, asr)
     }
 
+    /// Build using euhadra `FluidAudioAdapter`: Parakeet-ja on CoreML / the Neural
+    /// Engine. `model_dir` holds the compiled `.mlmodelc` pack; this never touches
+    /// the network (ux-decisions §10 — models download only on explicit action).
+    /// The first load compiles for the ANE (~1 min per upstream); later loads reuse it.
+    #[cfg(target_os = "macos")]
+    pub fn with_fluidaudio_ja(
+        language: Language,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<Self, EngineError> {
+        let asr = euhadra::fluidaudio::FluidAudioAdapter::japanese_local(model_dir)
+            .map_err(|e| EngineError::new(e.to_string()))?;
+        Self::new(language, asr)
+    }
+
     /// Build Parakeet-ja from env / conventional dogfood paths.
     pub fn with_parakeet_ja_from_env(language: Language) -> Result<Self, EngineError> {
         let dir = resolve_parakeet_ja_from_env()?;
@@ -345,6 +359,17 @@ mod tests {
         at_dbfs, chunk, room_tone, voiced_chunk, voiced_padded_with_silence, voiced_samples,
         with_desk_taps,
     };
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn fluidaudio_ja_reports_a_missing_model_dir_without_network() {
+        // japanese_local never downloads: a missing pack must fail fast, not fetch 600 MB.
+        let err =
+            DictationEngine::with_fluidaudio_ja(Language::Japanese, "/nonexistent/typwrtr-coreml")
+                .err()
+                .expect("a missing CoreML pack must not build an engine");
+        assert!(!err.message().is_empty());
+    }
 
     #[tokio::test]
     async fn english_mock_pipeline_removes_filler_and_self_repair() {

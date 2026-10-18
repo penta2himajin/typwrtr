@@ -9,9 +9,11 @@ repository = "https://github.com/penta2himajin/typwrtr"
 rust-version = "1.88"
 
 [workspace.dependencies]
-euhadra = { version = "0.3.0", default-features = false, features = [
+euhadra = { version = "0.4.0", default-features = false, features = [
     "onnx",
     "vad",
+    # Parakeet-ja on CoreML / ANE (macOS only; compiled out elsewhere).
+    "fluidaudio",
 ] }
 
 # rustc 1.96's default release strip leaves a dylib that Xcode 27.1's ld

@@ -65,7 +65,9 @@ enum AppLanguage: String, CaseIterable {
     /// Folder name under `models/` / Application Support.
     var packFolderName: String {
         switch self {
-        case .japanese: return "parakeet-tdt_ctc-0.6b-ja"
+        // CoreML pack for FluidAudio (euhadra 0.4). An existing ONNX pack in
+        // ModelLocator.parakeetFolderName is still used as a fallback.
+        case .japanese: return ModelLocator.fluidAudioJaFolderName
         case .english, .spanish: return "canary-180m-flash-onnx"
         case .chinese: return "paraformer-zh"
         case .korean: return "dolphin-ko"

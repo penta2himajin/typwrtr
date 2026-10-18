@@ -33,7 +33,7 @@ typwrtr/
 ```
 
 - No IME target. Insertion lives in `apps/macos`.  
-- `typwrtr-core` depends on crates.io **`euhadra` 0.3.x** with `default-features = false` and features **`onnx`** (ASR adapters) + **`vad`** (`EarshotVad`). `mic` stays off while capture lives in Swift.
+- `typwrtr-core` depends on crates.io **`euhadra` 0.4.x** with `default-features = false` and features **`onnx`** (ASR adapters) + **`vad`** (`EarshotVad`). `mic` stays off while capture lives in Swift.
 
 ## 3. Layer responsibilities
 
@@ -289,6 +289,8 @@ Workspace `Cargo.toml` already declares `license = "MIT OR Apache-2.0"`.
 | 2026-08-11 | **Korean path → Dolphin:** Typwrtr selects `DolphinAdapter` + in-app `dolphin-ko` pack (euhadra §I). SenseVoice FFI kept as legacy. |
 | 2026-08-11 | Root dual-license files: `LICENSE-MIT` + `LICENSE-APACHE` (matches Cargo.toml `MIT OR Apache-2.0`). |
 | 2026-08-09 | **euhadra 0.3.0** adopted (additive; no source change required to bump). |
+| 2026-10-18 | **euhadra 0.4.0** adopted (additive; no source change). Behaviour changes that reach Typwrtr: a forced 30 s cut now lands on the last ≥100 ms pause (Q26), and an all-caps dictionary alias matches only all-caps output (§9a, euhadra #139). `fluidaudio` feature not enabled yet. |
+| 2026-10-18 | **Japanese → FluidAudio** (euhadra `FluidAudioAdapter::japanese_local`, Parakeet-ja on CoreML / ANE; `fluidaudio` feature, macOS only). In-app pack `FluidInference/parakeet-0.6b-ja-coreml` @ `2952296` (~625 MB, `.mlmodelc` only); an existing ONNX pack stays as fallback. Why: euhadra measured RSS 102 MB vs 1 080 MB and RTF 0.008 vs 0.025, for CER 0.0565 vs 0.0499 (the 15 s input limit). The first load compiles into a per-app cache: 60.7 s cold, 0.18 s warm, measured in the app. The pack download warms up off the main thread. Open: a purged cache blocks the next launch ~60 s until session creation goes async. Binaries need `/usr/lib/swift` on their rpath (core `build.rs`). |
 | 2026-08-14 | Live endpoint threshold **0.42**: −45 dBFS room tone peaked ~0.37 under Earshot, so 0.35 never accumulated 700 ms of sub-threshold frames. Dictate trim stays 0.2. |
 | 2026-08-11 | **VAD stage 2 complete:** Focus Dictation uses `start_focus_listen` (same Earshot live path, 1500 ms silence). `SilenceVad.swift` deleted. |
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
