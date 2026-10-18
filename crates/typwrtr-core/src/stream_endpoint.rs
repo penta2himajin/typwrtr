@@ -143,7 +143,7 @@ pub enum StreamListenMode {
 /// - `min_silence`: mode-specific ([`STREAMING_PTT_SILENCE_MS`] or
 ///   [`FOCUS_DICTATION_SILENCE_MS`])
 /// - other fields: euhadra `SegmenterConfig::default()`
-fn live_config(mode: StreamListenMode) -> SegmenterConfig {
+pub(crate) fn live_config(mode: StreamListenMode) -> SegmenterConfig {
     let mut config = SegmenterConfig::default();
     config.threshold = Some(STREAMING_EARSHOT_ENDPOINT_THRESHOLD);
     config.min_silence = Duration::from_millis(match mode {
