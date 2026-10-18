@@ -9,7 +9,7 @@ UX / interaction details: **[`ux-decisions.md`](./ux-decisions.md)** (SSOT for h
 
 **Typwrtr** (vowels dropped from “typewriter”) is a local-first voice dictation **product**: hold a hotkey, speak, release, and cleaned text lands in the focused field.
 
-It is the end-user app in the same space as Aqua Voice / TYPELESS / Wispr Flow. The transcription and text-cleanup engine is **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework, crates.io `euhadra` **0.2.0**). Typwrtr owns activation, permissions UX, insertion, settings, model packaging, and distribution.
+It is the end-user app in the same space as Aqua Voice / TYPELESS / Wispr Flow. The transcription and text-cleanup engine is **[euhadra](https://github.com/penta2himajin/euhadra)** (programmable ASR framework, crates.io `euhadra` **0.4.0**). Typwrtr owns activation, permissions UX, insertion, settings, model packaging, and distribution.
 
 | Layer | Responsibility |
 |---|---|
