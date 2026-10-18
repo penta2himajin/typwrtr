@@ -27,6 +27,16 @@ final class PttCoordinator {
     private var freeMicOpen = false
     private var freeInFlight = 0
     private var focusWatcher = FocusWatcher()
+    private let listeningIndicator = ListeningIndicator()
+    /// Batch PTT key-down time, so a quick tap is not judged a dead mic (Q43).
+    private var pttStartedAt = Date.distantPast
+    /// First ~2 s of a Focus listen, checked once for a dead mic (Q43). Audio pump queue only.
+    private var focusProbe: [Float] = []
+    private var focusProbeDone = true
+    private var focusProbeStartedAt = Date.distantPast
+    /// Focus capture-log window (pump queue only): samples and start of the current 2 s.
+    private var focusStatsSamples: [Float] = []
+    private var focusStatsAt = Date.distantPast
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -35,6 +45,12 @@ final class PttCoordinator {
     /// Latched focus so opening the menu bar does not drop Free listening.
     private var latchedFocus: FocusKind?
     private var latchedFocusPid: pid_t?
+    /// Element the latched probe saw; compared every 100 ms while listening.
+    private var latchedElement: AXUIElement?
+    /// Field the user left with Esc (Q46): no relisten until focus moves off it.
+    private var escapedFocus: (pid: pid_t, element: AXUIElement?)?
+    /// Element the last full probe saw, so 100 ms waiting ticks can skip re-probing.
+    private var lastProbe: (pid: pid_t, element: AXUIElement?)?
     private var latchedFocusAt: Date?
     /// Drop Focus pastes whose listen generation no longer matches (user left the field).
     private var freeInsertGeneration: UInt64 = 0
@@ -81,6 +97,12 @@ final class PttCoordinator {
         hotkey.onPttUp = { [weak self] in
             self?.endPtt()
         }
+        hotkey.onEscape = { [weak self] in
+            self?.escapePressed()
+        }
+        hotkey.onMouseDown = { [weak self] in
+            self?.clearEscapeHoldOnClick()
+        }
         hotkey.onUndo = { [weak self] in
             self?.undoLast()
         }
@@ -114,8 +136,8 @@ final class PttCoordinator {
         menu.setCanUndo(session.lastText() != nil)
         menu.setPttHotkey(PttHotkey.current)
         hotkey.start()
-        focusWatcher.onFocusPossiblyChanged = { [weak self] in
-            self?.pollFreeFocus()
+        focusWatcher.onFocusPossiblyChanged = { [weak self] cheap in
+            self?.pollFreeFocus(cheap: cheap)
         }
         applyDictationMode(DictationMode.current)
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
@@ -172,7 +194,8 @@ final class PttCoordinator {
             NSLog("Typwrtr: Free armed")
         } else {
             freeController.disarm()
-            stopFreeMic(abandon: true)
+            escapedFocus = nil
+            stopFreeMic(abandon: true, reason: "disarmed")
             NSLog("Typwrtr: Free disarmed")
         }
         menu.setFreeArmed(armed)
@@ -190,46 +213,58 @@ final class PttCoordinator {
         }
     }
 
-    private func pollFreeFocus() {
+    /// `cheap`: a 100 ms watcher tick. While waiting for a field it skips the full
+    /// probe when the focused element is the one last probed (pip spam, cost).
+    private func pollFreeFocus(cheap: Bool = false) {
         if freeSuspendedByPtt || phase != .idle {
             return
         }
 
         guard freeController.isArmed() else {
-            focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.disarmed)
             menu.setFreeListeningIcon(false)
             return
         }
 
         if !AXIsProcessTrusted() {
-            focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.unavailableExplained)
             menu.setFocusDictationStatus("Needs Accessibility")
             if freeMicOpen {
-                stopFreeMic(abandon: true)
+                stopFreeMic(abandon: true, reason: "ax-untrusted")
             }
             return
         }
 
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
-        // Already listening in the same app: do not re-probe AX (stops pip spam).
+        if escapeStillHolds(frontPid: frontPid) {
+            menu.setFreeListeningIcon(false)
+            return
+        }
+
+        // Already listening in the same app: skip the full probe (pip spam) unless the
+        // focused element changed. Without this check, leaving the field for another
+        // part of the same app kept the mic and bar open (dogfood 2026-10-18).
         if freeMicOpen,
            latchedFocus == .textField,
-           frontPid != nil,
+           let frontPid,
            frontPid == latchedFocusPid
         {
-            focusWatcher.quietWhileListening = true
-            menu.setFreeListeningIcon(true)
-            menu.setFreeAvailability(.listening)
+            if !focusMovedWithinApp(pid: frontPid) {
+                menu.setFreeListeningIcon(true)
+                menu.setFreeAvailability(.listening)
+                return
+            }
+            CaptureLog.note("focus moved within app; re-probing")
+        }
+
+        if cheap, !freeMicOpen, let frontPid, waitingFocusUnchanged(pid: frontPid) {
             return
         }
 
         // Left the target app while listening — stop mic without a full probe first.
         if freeMicOpen, frontPid != latchedFocusPid {
-            stopFreeMic(abandon: true)
-            focusWatcher.quietWhileListening = false
+            stopFreeMic(abandon: true, reason: "left-app")
         }
 
         let focus = resolveFocus()
@@ -246,20 +281,91 @@ final class PttCoordinator {
             if !freeMicOpen {
                 startFreeMic()
             }
-            focusWatcher.quietWhileListening = freeMicOpen
             if freeMicOpen {
                 menu.setFreeListeningIcon(true)
             }
         } else if freeMicOpen {
-            stopFreeMic(abandon: true)
-            focusWatcher.quietWhileListening = false
+            stopFreeMic(abandon: true, reason: "not-text-field")
             menu.setFreeListeningIcon(false)
         } else {
-            focusWatcher.quietWhileListening = false
             if phase == .idle {
                 menu.setFreeListeningIcon(false)
             }
         }
+    }
+
+    /// Q46, Focus Dictation: Esc ends the listen and hides the bar. Esc itself still
+    /// reaches the app. The same field does not reopen until focus moves elsewhere.
+    private func escapePressed() {
+        guard freeMicOpen, phase == .idle, let pid = latchedFocusPid else { return }
+        escapedFocus = (pid, latchedElement)
+        stopFreeMic(abandon: true, reason: "esc")
+        menu.setFreeListeningIcon(false)
+    }
+
+    /// A click after Esc is intent: back into the same field, or into another one.
+    /// Clear the hold; the next 100 ms tick probes and relistens if it is a field.
+    private func clearEscapeHoldOnClick() {
+        guard escapedFocus != nil else { return }
+        escapedFocus = nil
+        lastProbe = nil
+        CaptureLog.note("focus esc hold cleared (click)")
+    }
+
+    /// True until focus actually leaves text fields after Esc. Element identity alone
+    /// cannot tell: Electron (Claude) hands out a new element for the same composer,
+    /// which cleared the hold the instant Esc was pressed (dogfood 2026-10-18). So a
+    /// changed element is classified, and only a non-text focus, an app switch, or
+    /// disarming clears it. An unreadable element counts as unchanged.
+    /// Keyboard moves (Tab into another field) stay held; a click clears it.
+    private func escapeStillHolds(frontPid: pid_t?) -> Bool {
+        guard let escaped = escapedFocus else { return false }
+        if let frontPid, frontPid == escaped.pid {
+            guard let element = escaped.element,
+                  let current = FocusProbe.focusedElement(pid: frontPid)
+            else { return true }
+            if CFEqual(element, current) { return true }
+            if FocusProbe.probe().kind == .textField {
+                escapedFocus = (frontPid, current)
+                return true
+            }
+        }
+        escapedFocus = nil
+        CaptureLog.note("focus esc hold cleared")
+        return false
+    }
+
+    /// Waiting for a field: is focus still on the element the last full probe saw?
+    /// An unreadable element counts as unchanged; the ~3 s full probe catches up.
+    private func waitingFocusUnchanged(pid: pid_t) -> Bool {
+        guard let last = lastProbe, last.pid == pid else { return false }
+        guard let current = FocusProbe.focusedElement(pid: pid) else { return true }
+        guard let element = last.element else { return false }
+        return CFEqual(element, current)
+    }
+
+    /// Cheap check: has the focused element changed since the probe that opened the
+    /// mic? An unreadable element counts as unchanged, so a flaky AX read cannot
+    /// cut a phrase off.
+    private func focusMovedWithinApp(pid: pid_t) -> Bool {
+        guard let latched = latchedElement else { return false }
+        let started = DispatchTime.now().uptimeNanoseconds
+        let current = FocusProbe.focusedElement(pid: pid)
+        noteFocusCheckCost(nanos: DispatchTime.now().uptimeNanoseconds - started)
+        guard let current else { return false }
+        return !CFEqual(latched, current)
+    }
+
+    /// Cost of the 100 ms focus check, logged every 50 calls (~5 s): max and mean.
+    private var focusCheckNanos: [UInt64] = []
+    private func noteFocusCheckCost(nanos: UInt64) {
+        focusCheckNanos.append(nanos)
+        guard focusCheckNanos.count >= 50 else { return }
+        let maxMs = Double(focusCheckNanos.max() ?? 0) / 1e6
+        let meanMs = Double(focusCheckNanos.reduce(0, +)) / Double(focusCheckNanos.count) / 1e6
+        CaptureLog.note(String(format: "focus check calls=%d max_ms=%.2f mean_ms=%.2f",
+                               focusCheckNanos.count, maxMs, meanMs))
+        focusCheckNanos.removeAll(keepingCapacity: true)
     }
 
     /// Prefer live AX probe; if the menu-bar agent briefly steals key window, keep
@@ -267,8 +373,12 @@ final class PttCoordinator {
     private func resolveFocus() -> FocusKind? {
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let probed = FocusProbe.probe()
+        if let frontPid {
+            lastProbe = (frontPid, probed.element)
+        }
         if let live = probed.kind {
             latchedFocus = live
+            latchedElement = probed.element
             latchedFocusPid = frontPid
             latchedFocusAt = Date()
             return live
@@ -302,6 +412,7 @@ final class PttCoordinator {
             freeMicOpen = true
             insertTarget = NSWorkspace.shared.frontmostApplication
             menu.setFreeListeningIcon(true)
+            showListeningIndicator()
             startAudioPump(.focus)
             NSLog("Typwrtr: Free mic open (Earshot focus listen)")
             CaptureLog.note("focus listen started (earshot)")
@@ -313,8 +424,9 @@ final class PttCoordinator {
         }
     }
 
-    private func stopFreeMic(abandon: Bool) {
+    private func stopFreeMic(abandon: Bool, reason: String) {
         guard freeMicOpen else { return }
+        CaptureLog.note("focus listen stopped reason=\(reason) abandon=\(abandon ? 1 : 0)")
         stopAudioPump()
         let captured = mic.stop()
         freeMicOpen = false
@@ -338,11 +450,25 @@ final class PttCoordinator {
             enqueueFreeSegment()
         }
         menu.setFreeListeningIcon(false)
+        listeningIndicator.hide()
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
+    }
+
+    /// Level bar on the dictated-into app's screen while the mic is open (Q40).
+    private func showListeningIndicator() {
+        listeningIndicator.show(appPid: insertTarget?.processIdentifier ?? 0) { [weak self] in
+            self?.mic.recentRms ?? 0
+        }
     }
 
     private func startAudioPump(_ kind: AudioPumpKind) {
         stopAudioPump()
+        // The old pump has drained (stopAudioPump syncs the queue), so this is race-free.
+        focusProbe.removeAll(keepingCapacity: true)
+        focusProbeDone = kind != .focus
+        focusProbeStartedAt = Date()
+        focusStatsSamples.removeAll(keepingCapacity: true)
+        focusStatsAt = Date()
         audioPumpKind = kind
         let timer = DispatchSource.makeTimerSource(queue: audioPumpQueue)
         timer.schedule(deadline: .now(), repeating: 0.08, leeway: .milliseconds(10))
@@ -373,6 +499,8 @@ final class PttCoordinator {
 
     private func processFreeAudio() {
         let chunk = mic.drain()
+        probeFocusInput(chunk)
+        defer { logFocusStats(chunk) }
         do {
             let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
             switch event {
@@ -391,6 +519,53 @@ final class PttCoordinator {
             NSLog("Typwrtr: Focus push failed: %@", "\(error)")
             CaptureLog.note("focus push failed")
         }
+    }
+
+    /// Q43: a Focus listen whose first ~2 s carry no signal ends and disarms, so the
+    /// next focus does not reopen a dead mic. Runs on the audio pump queue.
+    private func probeFocusInput(_ chunk: [Float]) {
+        guard !focusProbeDone else { return }
+        focusProbe.append(contentsOf: chunk)
+        // The pump ticks even when the device delivers nothing, so the clock also
+        // ends the probe: a stalled mic judges on what little arrived (empty = dead).
+        let full = focusProbe.count >= Int(deadInputProbeSamples())
+        guard full || Date().timeIntervalSince(focusProbeStartedAt) >= 2.5 else { return }
+        focusProbeDone = true
+        let dead = isDeadInput(samples: focusProbe)
+        CaptureLog.note(String(
+            format: "focus probe input %.1f dBFS over %d samples dead=%d",
+            inputLevelDbfs(samples: focusProbe), focusProbe.count, dead ? 1 : 0
+        ))
+        focusProbe.removeAll()
+        guard dead else { return }
+        NSLog("Typwrtr: Focus Dictation saw no microphone input; disarming")
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.freeMicOpen else { return }
+            self.stopFreeMic(abandon: true, reason: "dead-mic")
+            self.setFreeArmed(false)
+            self.listeningIndicator.flash(Self.noInputMessage)
+        }
+    }
+
+    private static let noInputMessage = "No microphone input"
+
+    /// Every ~2 s while Focus listens: input level and how many frames scored as
+    /// speech. A run of `above>0` windows after the speaker stopped means the room
+    /// keeps resetting the 1.5 s silence run; no lines at all means the pump stopped.
+    private func logFocusStats(_ chunk: [Float]) {
+        focusStatsSamples.append(contentsOf: chunk)
+        guard Date().timeIntervalSince(focusStatsAt) >= 2 else { return }
+        focusStatsAt = Date()
+        let stats = session.takeStreamVadStats()
+        CaptureLog.note(String(
+            format: "focus vad frames=%d above=%d peak=%.2f speaking=%d input=%.1f dBFS samples=%d resume=1:%d 2:%d 3-7:%d 8+:%d",
+            stats?.frames ?? 0, stats?.aboveThreshold ?? 0, stats?.peak ?? 0,
+            (stats?.speaking ?? false) ? 1 : 0,
+            inputLevelDbfs(samples: focusStatsSamples), focusStatsSamples.count,
+            stats?.resumeRun1 ?? 0, stats?.resumeRun2 ?? 0,
+            stats?.resumeRun3To7 ?? 0, stats?.resumeRun8Plus ?? 0
+        ))
+        focusStatsSamples.removeAll(keepingCapacity: true)
     }
 
     private func enqueueFreeSegment() {
@@ -568,7 +743,7 @@ final class PttCoordinator {
 
         // Q13 3b: temporary Free suspend for this PTT capture (do not disarm).
         freeSuspendedByPtt = true
-        stopFreeMic(abandon: true)
+        stopFreeMic(abandon: true, reason: "ptt")
         session.finishStreamListen()
 
         if DictationMode.current.isStreamingPtt {
@@ -584,14 +759,17 @@ final class PttCoordinator {
         insertTarget = NSWorkspace.shared.frontmostApplication
         menu.setCanUndo(false)
         menu.setStatus(.recording)
+        pttStartedAt = Date()
         do {
             try session.startPtt()
             try mic.start()
+            showListeningIndicator()
             refreshStatus()
         } catch {
             phase = .idle
             freeSuspendedByPtt = false
             _ = mic.stop()
+            listeningIndicator.hide()
             try? session.cancel()
             refreshStatus()
             menu.showError("PTT start failed: \(error.localizedDescription)")
@@ -610,6 +788,7 @@ final class PttCoordinator {
         do {
             try session.startStreamListen()
             try mic.start()
+            showListeningIndicator()
             startAudioPump(.stream)
             refreshStatus()
             NSLog("Typwrtr: streaming PTT started (Earshot live endpoint)")
@@ -620,6 +799,7 @@ final class PttCoordinator {
             freeSuspendedByPtt = false
             session.finishStreamListen()
             _ = mic.stop()
+            listeningIndicator.hide()
             refreshStatus()
             menu.showError("PTT start failed: \(error.localizedDescription)")
             pollFreeFocus()
@@ -639,6 +819,24 @@ final class PttCoordinator {
     private func endBatchPtt() {
         phase = .finishing
         let captured = mic.stop()
+        // Q43: a hold long enough to say something, with no signal at all.
+        let heldLongEnough = Date().timeIntervalSince(pttStartedAt) >= 0.5
+        let dead = heldLongEnough && isDeadInput(samples: captured.samples)
+        CaptureLog.note(String(
+            format: "ptt input %.1f dBFS over %d samples dead=%d",
+            inputLevelDbfs(samples: captured.samples), captured.samples.count, dead ? 1 : 0
+        ))
+        if dead {
+            NSLog("Typwrtr: PTT saw no microphone input")
+            listeningIndicator.flash(Self.noInputMessage)
+            phase = .idle
+            freeSuspendedByPtt = false
+            try? session.cancel()
+            refreshStatus()
+            pollFreeFocus()
+            return
+        }
+        listeningIndicator.showProcessing()
         menu.setStatus(.processing)
         let trace = LatencyLog.isEnabled
             ? LatencyLog.Trace(path: "ptt", trigger: "release")
@@ -668,6 +866,7 @@ final class PttCoordinator {
             } catch {
                 trace?.finishWithoutInsert(outcome: "error")
                 DispatchQueue.main.async {
+                    self.listeningIndicator.hide()
                     self.phase = .idle
                     self.freeSuspendedByPtt = false
                     try? self.session.cancel()
@@ -693,6 +892,7 @@ final class PttCoordinator {
         )
         menu.setLastText(text)
         NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
+        listeningIndicator.hide()
         restoreInsertTargetFocus()
         trace?.markInsertStart()
         let result = inserter.insert(text, into: insertTarget)
@@ -739,6 +939,7 @@ final class PttCoordinator {
     private func endStreamingPtt() {
         stopAudioPump()
         let captured = mic.stop()
+        listeningIndicator.showProcessing()
         streamingPttActive = false
         streamReleasePending = true
         do {
@@ -928,6 +1129,7 @@ final class PttCoordinator {
         session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
+        listeningIndicator.hide()
         refreshStatus()
         NSLog("Typwrtr: streaming PTT idle")
         if pttHeld {

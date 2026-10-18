@@ -422,15 +422,36 @@ RustBuffer uniffi_typwrtr_core_fn_method_pttsession_stop_stream_listen(void*_Non
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_stream_segment(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_STREAM_VAD_STATS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_STREAM_VAD_STATS
+RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_stream_vad_stats(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_METHOD_PTTSESSION_TAKE_UNDO_PAYLOAD
 RustBuffer uniffi_typwrtr_core_fn_method_pttsession_take_undo_payload(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_DEAD_INPUT_PROBE_SAMPLES
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_DEAD_INPUT_PROBE_SAMPLES
+uint64_t uniffi_typwrtr_core_fn_func_dead_input_probe_samples(RustCallStatus *_Nonnull out_status
+    
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 double uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds(RustCallStatus *_Nonnull out_status
     
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_INPUT_LEVEL_DBFS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_INPUT_LEVEL_DBFS
+double uniffi_typwrtr_core_fn_func_input_level_dbfs(RustBuffer samples, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
+int8_t uniffi_typwrtr_core_fn_func_is_dead_input(RustBuffer samples, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
@@ -755,9 +776,27 @@ void ffi_typwrtr_core_rust_future_free_void(uint64_t handle
 void ffi_typwrtr_core_rust_future_complete_void(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_DEAD_INPUT_PROBE_SAMPLES
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_DEAD_INPUT_PROBE_SAMPLES
+uint16_t uniffi_typwrtr_core_checksum_func_dead_input_probe_samples(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 uint16_t uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_INPUT_LEVEL_DBFS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_INPUT_LEVEL_DBFS
+uint16_t uniffi_typwrtr_core_checksum_func_input_level_dbfs(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DEAD_INPUT
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DEAD_INPUT
+uint16_t uniffi_typwrtr_core_checksum_func_is_dead_input(void
     
 );
 #endif
@@ -926,6 +965,12 @@ uint16_t uniffi_typwrtr_core_checksum_method_pttsession_stop_stream_listen(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_SEGMENT
 uint16_t uniffi_typwrtr_core_checksum_method_pttsession_take_stream_segment(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_VAD_STATS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_METHOD_PTTSESSION_TAKE_STREAM_VAD_STATS
+uint16_t uniffi_typwrtr_core_checksum_method_pttsession_take_stream_vad_stats(void
     
 );
 #endif

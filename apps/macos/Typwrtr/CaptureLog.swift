@@ -15,7 +15,7 @@ import os
 /// Enabled when `LatencyLog.isEnabled` is on (Release dogfood) or in Xcode
 /// Debug builds. Read with:
 ///
-///     log show --predicate 'subsystem == "app.typwrtr.macos.menuextra"' --last 30m
+///     /usr/bin/log show --predicate 'subsystem == "app.typwrtr.macos.menuextra"' --last 30m
 enum CaptureLog {
     private static let log = Logger(
         subsystem: "app.typwrtr.macos.menuextra",
@@ -38,7 +38,7 @@ enum CaptureLog {
         let pushedSeconds = Double(metrics.pushedSamples) / rate
         let speechSeconds = Double(metrics.speechSamples) / rate
         let trimmedSeconds = max(0, pushedSeconds - speechSeconds)
-        log.info(
+        log.notice(
             """
             capture path=\(path, privacy: .public) \
             pushed=\(pushedSeconds, format: .fixed(precision: 2), privacy: .public)s \
@@ -53,7 +53,7 @@ enum CaptureLog {
     static func endpoint(reason: String, samples: Int, sampleRate: Double = 16_000) {
         guard isActive else { return }
         let seconds = sampleRate > 0 ? Double(samples) / sampleRate : 0
-        log.info(
+        log.notice(
             """
             endpoint reason=\(reason, privacy: .public) \
             samples=\(samples, privacy: .public) \
@@ -64,13 +64,13 @@ enum CaptureLog {
 
     static func note(_ message: String) {
         guard isActive else { return }
-        log.info("\(message, privacy: .public)")
+        log.notice("\(message, privacy: .public)")
     }
 
     /// Insert outcome without the transcript (char count only).
     static func insert(path: String, outcome: String, chars: Int) {
         guard isActive else { return }
-        log.info(
+        log.notice(
             """
             insert path=\(path, privacy: .public) \
             outcome=\(outcome, privacy: .public) \

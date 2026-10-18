@@ -81,13 +81,8 @@ for dd in "$HOME/Library/Developer/Xcode/DerivedData"/Typwrtr-*; do
   hide_from_spotlight "$dd"
 done
 shopt -u nullglob
-
-# Extra belt: mark leftover Typwrtr.app bundles themselves as never-indexed.
-while IFS= read -r extra; do
-  [[ -d "$extra" && "$extra" != "$DEST" ]] || continue
-  touch "$extra/.metadata_never_index"
-done < <(find "$ROOT/apps/macos/DerivedData" "$HOME/Library/Developer/Xcode/DerivedData" \
-  -name Typwrtr.app -type d 2>/dev/null || true)
+# Never touch inside Typwrtr.app itself: a file in the bundle root makes the
+# next build's codesign fail with "unsealed contents present in the bundle root".
 
 # Drop the old user-level install so Launch Services has one path.
 if [[ "$DEST" == /Applications/Typwrtr.app && -d "$HOME/Applications/Typwrtr.app" ]]; then

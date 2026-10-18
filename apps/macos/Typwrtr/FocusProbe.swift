@@ -25,6 +25,14 @@ enum FocusProbe {
     struct ProbeResult {
         var kind: FocusKind?
         var detail: String
+        var element: AXUIElement?
+    }
+
+    /// The app's focused element, one attribute read, no classification. Used while
+    /// listening to notice a focus move inside the same app without a full probe.
+    static func focusedElement(pid: pid_t) -> AXUIElement? {
+        let appEl = AXUIElementCreateApplication(pid)
+        return copyAXElement(appEl, kAXFocusedUIElementAttribute as String) ?? focusedViaWindow(appEl)
     }
 
     static func current() -> FocusKind? { probe().kind }
@@ -39,6 +47,10 @@ enum FocusProbe {
             let result = ProbeResult(kind: nil, detail: "ax-untrusted front=\(frontName)")
             writeDebug(result.detail)
             return result
+        }
+
+        if let front, front.processIdentifier != getpid() {
+            enableElectronAccessibility(pid: front.processIdentifier)
         }
 
         if let appEl = focusedApplicationElement() {
@@ -68,6 +80,18 @@ enum FocusProbe {
         return result
     }
 
+    private static var accessibilityRequested = Set<pid_t>()
+
+    /// Electron apps (Claude, Discord, Cursor, Slack…) expose no AX tree until a
+    /// client sets `AXManualAccessibility`. Without it the probe saw `via=none`
+    /// for Discord while trusted. Native apps reject the attribute harmlessly.
+    /// Not `AXEnhancedUserInterface`: that one breaks window managers' animations.
+    private static func enableElectronAccessibility(pid: pid_t) {
+        guard accessibilityRequested.insert(pid).inserted else { return }
+        let appEl = AXUIElementCreateApplication(pid)
+        _ = AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+
     /// Focused element only — no window-wide AXChildren walk.
     private static func resolve(
         from appEl: AXUIElement,
@@ -92,7 +116,8 @@ enum FocusProbe {
         let desc = stringAttribute(element, kAXRoleDescriptionAttribute as String) ?? ""
         let result = ProbeResult(
             kind: kind,
-            detail: "via=\(via) role=\(role) desc=\(desc) kind=\(label(kind)) front=\(front)"
+            detail: "via=\(via) role=\(role) desc=\(desc) kind=\(label(kind)) front=\(front)",
+            element: element
         )
         writeDebug(result.detail)
         logOnce(result.detail, result.detail)

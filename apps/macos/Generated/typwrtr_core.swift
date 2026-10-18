@@ -825,6 +825,11 @@ public protocol PttSessionProtocol: AnyObject, Sendable {
     func takeStreamSegment() throws  -> String
     
     /**
+     * Frame stats since the last call; `None` when no listen is open.
+     */
+    func takeStreamVadStats()  -> FfiStreamVadStats?
+    
+    /**
      * Take the undo payload (clears the text buffer).
      */
     func takeUndoPayload()  -> String?
@@ -1133,6 +1138,16 @@ open func takeStreamSegment()throws  -> String  {
 }
     
     /**
+     * Frame stats since the last call; `None` when no listen is open.
+     */
+open func takeStreamVadStats() -> FfiStreamVadStats?  {
+    return try!  FfiConverterOptionTypeFfiStreamVadStats.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_method_pttsession_take_stream_vad_stats(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
      * Take the undo payload (clears the text buffer).
      */
 open func takeUndoPayload() -> String?  {
@@ -1407,6 +1422,157 @@ public func FfiConverterTypeFfiDictionarySnapshot_lift(_ buf: RustBuffer) throws
 #endif
 public func FfiConverterTypeFfiDictionarySnapshot_lower(_ value: FfiDictionarySnapshot) -> RustBuffer {
     return FfiConverterTypeFfiDictionarySnapshot.lower(value)
+}
+
+
+/**
+ * Live endpoint frame stats since the last take (capture logs; Q27 numbers only).
+ */
+public struct FfiStreamVadStats {
+    /**
+     * Frames scored.
+     */
+    public var frames: UInt32
+    /**
+     * Frames at or above the live endpoint threshold.
+     */
+    public var aboveThreshold: UInt32
+    /**
+     * Highest speech probability seen.
+     */
+    public var peak: Float
+    /**
+     * Whether an utterance is open.
+     */
+    public var speaking: Bool
+    /**
+     * While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+     */
+    public var resumeRun1: UInt32
+    public var resumeRun2: UInt32
+    public var resumeRun3To7: UInt32
+    public var resumeRun8Plus: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Frames scored.
+         */frames: UInt32, 
+        /**
+         * Frames at or above the live endpoint threshold.
+         */aboveThreshold: UInt32, 
+        /**
+         * Highest speech probability seen.
+         */peak: Float, 
+        /**
+         * Whether an utterance is open.
+         */speaking: Bool, 
+        /**
+         * While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+         */resumeRun1: UInt32, resumeRun2: UInt32, resumeRun3To7: UInt32, resumeRun8Plus: UInt32) {
+        self.frames = frames
+        self.aboveThreshold = aboveThreshold
+        self.peak = peak
+        self.speaking = speaking
+        self.resumeRun1 = resumeRun1
+        self.resumeRun2 = resumeRun2
+        self.resumeRun3To7 = resumeRun3To7
+        self.resumeRun8Plus = resumeRun8Plus
+    }
+}
+
+#if compiler(>=6)
+extension FfiStreamVadStats: Sendable {}
+#endif
+
+
+extension FfiStreamVadStats: Equatable, Hashable {
+    public static func ==(lhs: FfiStreamVadStats, rhs: FfiStreamVadStats) -> Bool {
+        if lhs.frames != rhs.frames {
+            return false
+        }
+        if lhs.aboveThreshold != rhs.aboveThreshold {
+            return false
+        }
+        if lhs.peak != rhs.peak {
+            return false
+        }
+        if lhs.speaking != rhs.speaking {
+            return false
+        }
+        if lhs.resumeRun1 != rhs.resumeRun1 {
+            return false
+        }
+        if lhs.resumeRun2 != rhs.resumeRun2 {
+            return false
+        }
+        if lhs.resumeRun3To7 != rhs.resumeRun3To7 {
+            return false
+        }
+        if lhs.resumeRun8Plus != rhs.resumeRun8Plus {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(frames)
+        hasher.combine(aboveThreshold)
+        hasher.combine(peak)
+        hasher.combine(speaking)
+        hasher.combine(resumeRun1)
+        hasher.combine(resumeRun2)
+        hasher.combine(resumeRun3To7)
+        hasher.combine(resumeRun8Plus)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiStreamVadStats: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiStreamVadStats {
+        return
+            try FfiStreamVadStats(
+                frames: FfiConverterUInt32.read(from: &buf), 
+                aboveThreshold: FfiConverterUInt32.read(from: &buf), 
+                peak: FfiConverterFloat.read(from: &buf), 
+                speaking: FfiConverterBool.read(from: &buf), 
+                resumeRun1: FfiConverterUInt32.read(from: &buf), 
+                resumeRun2: FfiConverterUInt32.read(from: &buf), 
+                resumeRun3To7: FfiConverterUInt32.read(from: &buf), 
+                resumeRun8Plus: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiStreamVadStats, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.frames, into: &buf)
+        FfiConverterUInt32.write(value.aboveThreshold, into: &buf)
+        FfiConverterFloat.write(value.peak, into: &buf)
+        FfiConverterBool.write(value.speaking, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun1, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun2, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun3To7, into: &buf)
+        FfiConverterUInt32.write(value.resumeRun8Plus, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStreamVadStats_lift(_ buf: RustBuffer) throws -> FfiStreamVadStats {
+    return try FfiConverterTypeFfiStreamVadStats.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStreamVadStats_lower(_ value: FfiStreamVadStats) -> RustBuffer {
+    return FfiConverterTypeFfiStreamVadStats.lower(value)
 }
 
 
@@ -2115,6 +2281,30 @@ fileprivate struct FfiConverterOptionTypeFfiCaptureMetrics: FfiConverterRustBuff
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeFfiStreamVadStats: FfiConverterRustBuffer {
+    typealias SwiftType = FfiStreamVadStats?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeFfiStreamVadStats.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeFfiStreamVadStats.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
     typealias SwiftType = [Float]
 
@@ -2187,11 +2377,40 @@ fileprivate struct FfiConverterSequenceTypeFfiTermEntry: FfiConverterRustBuffer 
     }
 }
 /**
+ * Samples hands-free / Focus Dictation collect before the Q43 check (~2 s @ 16 kHz).
+ */
+public func deadInputProbeSamples() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_dead_input_probe_samples($0
+    )
+})
+}
+/**
  * Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
  */
 public func focusDictationSilenceSeconds() -> Double  {
     return try!  FfiConverterDouble.lift(try! rustCall() {
     uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds($0
+    )
+})
+}
+/**
+ * RMS level in dBFS, for capture logs that calibrate the Q43 cutoff.
+ */
+public func inputLevelDbfs(samples: [Float]) -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_input_level_dbfs(
+        FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+/**
+ * Whether a capture carries no microphone signal (Q43; not the same as no speech).
+ */
+public func isDeadInput(samples: [Float]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_is_dead_input(
+        FfiConverterSequenceFloat.lower(samples),$0
     )
 })
 }
@@ -2291,7 +2510,16 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_typwrtr_core_checksum_func_dead_input_probe_samples() != 5830) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds() != 52781) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_input_level_dbfs() != 28771) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_is_dead_input() != 16877) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_load_term_dictionary() != 42573) {
@@ -2376,6 +2604,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_take_stream_segment() != 24571) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_method_pttsession_take_stream_vad_stats() != 26177) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_method_pttsession_take_undo_payload() != 32124) {

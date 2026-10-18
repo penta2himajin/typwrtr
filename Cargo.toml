@@ -14,3 +14,8 @@ euhadra = { version = "0.3.0", default-features = false, features = [
     "vad",
 ] }
 
+# rustc 1.96's default release strip leaves a dylib that Xcode 27.1's ld
+# rejects ("mis-aligned LINKEDIT string pool"). Debug and strip=none link fine.
+[profile.release]
+strip = "none"
+

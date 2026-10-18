@@ -13,6 +13,7 @@ mod endpoint;
 mod engine;
 mod ffi;
 mod free_mode;
+mod input_level;
 mod paths;
 mod session;
 mod stream_endpoint;
@@ -34,6 +35,7 @@ pub use ffi::{
     FfiStatus, FfiStreamVadEvent, FfiTermEntry, PttSession,
 };
 pub use free_mode::{FocusKind, FreeArmState, FreeAvailability, FreeController};
+pub use input_level::{is_dead_input, DEAD_INPUT_PROBE_SAMPLES, DEAD_INPUT_RMS};
 pub use paths::{
     resolve_whisper_from_env, resolve_whisper_paths, whisper_language_tag, whisper_model_path,
 };

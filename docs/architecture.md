@@ -105,8 +105,11 @@ adapter.
   error variant: Swift's existing empty-text branch already covers Q24 for both
   paths, and euhadra makes no distinction between "detector found no speech" and
   "adapter returned nothing" anyway (both are `NoSpeech`).
-- A dead microphone would therefore also be silent. That is what the Q27
-  measurement is for: pushed samples against detected speech duration shows it.
+- A dead microphone would therefore also be silent. Since 2026-10-18 the shell
+  tells them apart by *signal level*, not the detector: core `is_dead_input`
+  (RMS ≤ −80 dBFS, or nothing delivered) drives the "No microphone input" notice
+  ([`ux-decisions.md`](./ux-decisions.md) Q43). Capture logs record the level in
+  dBFS so the cutoff can be calibrated on real devices.
 - `Dictated::speech_samples` **clamps segment bounds to the buffer and merges
   overlaps**. Bounds carry `speech_pad` either side, so on a capture that is
   speech end to end they extend past the audio; summing lengths reported 1.15×

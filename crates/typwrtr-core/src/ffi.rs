@@ -24,6 +24,24 @@ pub enum FfiStreamVadEvent {
     SegmentEnded,
 }
 
+/// Live endpoint frame stats since the last take (capture logs; Q27 numbers only).
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiStreamVadStats {
+    /// Frames scored.
+    pub frames: u32,
+    /// Frames at or above the live endpoint threshold.
+    pub above_threshold: u32,
+    /// Highest speech probability seen.
+    pub peak: f32,
+    /// Whether an utterance is open.
+    pub speaking: bool,
+    /// While open, above-threshold bursts after a ~320 ms pause, by length in frames.
+    pub resume_run1: u32,
+    pub resume_run2: u32,
+    pub resume_run3_to7: u32,
+    pub resume_run8_plus: u32,
+}
+
 impl From<StreamVadEvent> for FfiStreamVadEvent {
     fn from(value: StreamVadEvent) -> Self {
         match value {
@@ -223,6 +241,24 @@ pub fn speech_start_keep_len(buffer_len: u64, pad_samples: u64) -> u64 {
 #[uniffi::export]
 pub fn speech_start_pad_samples() -> u64 {
     crate::endpoint::SPEECH_START_PAD_SAMPLES as u64
+}
+
+/// Whether a capture carries no microphone signal (Q43; not the same as no speech).
+#[uniffi::export]
+pub fn is_dead_input(samples: Vec<f32>) -> bool {
+    crate::input_level::is_dead_input(&samples)
+}
+
+/// RMS level in dBFS, for capture logs that calibrate the Q43 cutoff.
+#[uniffi::export]
+pub fn input_level_dbfs(samples: Vec<f32>) -> f64 {
+    crate::input_level::input_level_dbfs(&samples)
+}
+
+/// Samples hands-free / Focus Dictation collect before the Q43 check (~2 s @ 16 kHz).
+#[uniffi::export]
+pub fn dead_input_probe_samples() -> u64 {
+    crate::input_level::DEAD_INPUT_PROBE_SAMPLES as u64
 }
 
 /// FFI-visible error.
@@ -468,6 +504,22 @@ impl PttSession {
             .push(&samples, sample_rate)
             .map(Into::into)
             .map_err(|msg| FfiError::Message { msg })
+    }
+
+    /// Frame stats since the last call; `None` when no listen is open.
+    pub fn take_stream_vad_stats(&self) -> Option<FfiStreamVadStats> {
+        let mut slot = self.stream.lock().ok()?;
+        let stats = slot.as_mut()?.take_stats();
+        Some(FfiStreamVadStats {
+            frames: stats.frames,
+            above_threshold: stats.above_threshold,
+            peak: stats.peak,
+            speaking: stats.speaking,
+            resume_run1: stats.resume.run1,
+            resume_run2: stats.resume.run2,
+            resume_run3_to7: stats.resume.run3_to_7,
+            resume_run8_plus: stats.resume.run8_plus,
+        })
     }
 
     /// End the listen. Flushes only if an utterance is still open.

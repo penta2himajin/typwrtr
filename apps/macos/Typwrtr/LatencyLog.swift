@@ -11,7 +11,7 @@ import os
 ///
 /// Read with:
 ///
-///     log show --predicate 'subsystem == "app.typwrtr.macos.menuextra" AND category == "latency"' --last 30m
+///     /usr/bin/log show --predicate 'subsystem == "app.typwrtr.macos.menuextra" AND category == "latency"' --last 30m
 enum LatencyLog {
     static let userDefaultsKey = "typwrtr.latencyLogging"
 
@@ -125,7 +125,7 @@ enum LatencyLog {
         let insertMs = ms(from: insertStartNs, to: insertEndNs)
         let method = insertMethod ?? "none"
 
-        log.info(
+        log.notice(
             """
             latency id=\(id, privacy: .public) \
             path=\(path, privacy: .public) \
