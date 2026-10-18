@@ -75,7 +75,7 @@ adapter.
 - **Batch PTT speech gate (2026-10-18).** The same 0.2 also *opens* segments
   on room tone: a silent ⌃⇧D hold kept 1.10 s of a 3.30 s capture as speech
   and Parakeet-ja inserted 「うん。」 ([`ux-decisions.md`](./ux-decisions.md)
-  Q49). Streaming PTT and Focus Dictation never hit this — the live
+  Q49). Hands-free and Focus Dictation never hit this — the live
   endpointer only hands over windows it opened at 0.42 — so `stop_ptt` now
   calls `DictationEngine::dictate_batch`, which runs `segment_buffer` with the
   live config (`live_config`, 0.42, `min_speech` 120 ms) first and returns
@@ -128,15 +128,18 @@ a **synchronous** Free lifecycle (see §4) — deliberately no callback interfac
 no async, because incremental output is deferred, and `Segmenter::push` is itself
 synchronous. Swift becomes a pump: hand over samples, act on the returned event.
 
-**Streaming PTT + Focus Dictation (2026-08-11):** Stage 2 surface is live for
-**Push to talk (streaming)** and **Focus Dictation** (`start_stream_listen` /
-`start_focus_listen` / `push_stream_pcm_f32` / `take_stream_segment` /
-`stop_stream_listen`). Live endpointing is **`EarshotVad` + `Segmenter`** with
+**Hands-free + Focus Dictation (2026-08-11; hands-free replaced streaming PTT
+2026-10-18, Q44):** Stage 2 surface is live for **hands-free** and **Focus
+Dictation**, both via `start_focus_listen` / `push_stream_pcm_f32` /
+`take_stream_segment` / `stop_stream_listen`. The shell keeps the one-key timers;
+the tap / double-tap / idle thresholds are core `gesture.rs` (300 ms / 400 ms /
+20 s). `start_stream_listen` (700 ms) is now unused by the shell; it and its tests
+stay until removal is decided. Live endpointing is **`EarshotVad` + `Segmenter`** with
 threshold **0.42** (measured −45 dBFS room tone peaked ~0.37, which reset the
 rlx-vad 0.35 silence run; euhadra’s 0.2 WER calibration under-closed on laptop
 room tone in dogfood). Dictate trim still uses backend
 default 0.2; batch PTT borrows the live 0.42 criterion only as a has-speech
-gate (see above). Silence budgets: streaming ≈ **700 ms**, Focus Dictation **1500 ms**
+gate (see above). Silence budget: hands-free and Focus Dictation **1500 ms**
 (Q25). CaptureLog: `earshot-silence` / `earshot-release`. `SilenceVad.swift` is
 deleted. Do not replace live Earshot with EnergyVad without an explicit product
 decision.
@@ -216,8 +219,8 @@ Focus Dictation reuses the stream-listen surface with a longer silence budget:
 | `take_stream_segment() -> Result<String, FfiError>` | Transcribe the closed segment and return cleaned text. Blocking — Swift calls it off the main queue |
 | `stop_stream_listen()` / `finish_stream_listen()` | Close or drop the listening period |
 
-Streaming PTT uses `start_stream_listen()` (700 ms silence) with the same push /
-take / stop methods. Names `start_free` / `push_free_pcm` from earlier drafts are
+Hands-free uses the same `start_focus_listen()` surface (Q45). `start_stream_listen()`
+(700 ms) remains in core, unused since streaming PTT was removed. Names `start_free` / `push_free_pcm` from earlier drafts are
 folded into this shared surface.
 
 ## 5. Model acquisition
