@@ -500,6 +500,11 @@ int8_t uniffi_typwrtr_core_fn_func_should_accept_stream_result(RustBuffer text, 
 int8_t uniffi_typwrtr_core_fn_func_should_flush_stream_on_release(int8_t saw_speech_since_endpoint, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SINGLE_TAP_ACTION
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SINGLE_TAP_ACTION
+RustBuffer uniffi_typwrtr_core_fn_func_single_tap_action(int8_t focus_listening, int8_t focus_held, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_KEEP_LEN
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_SPEECH_START_KEEP_LEN
 uint64_t uniffi_typwrtr_core_fn_func_speech_start_keep_len(uint64_t buffer_len, uint64_t pad_samples, RustCallStatus *_Nonnull out_status
@@ -871,6 +876,12 @@ uint16_t uniffi_typwrtr_core_checksum_func_should_accept_stream_result(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SHOULD_FLUSH_STREAM_ON_RELEASE
 uint16_t uniffi_typwrtr_core_checksum_func_should_flush_stream_on_release(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SINGLE_TAP_ACTION
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_SINGLE_TAP_ACTION
+uint16_t uniffi_typwrtr_core_checksum_func_single_tap_action(void
     
 );
 #endif

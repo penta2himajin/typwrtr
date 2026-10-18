@@ -27,6 +27,30 @@ pub fn hands_free_idle_expired(idle_ms: u64) -> bool {
     idle_ms >= HANDS_FREE_IDLE_END_MS
 }
 
+/// What a lone short tap does once the double-tap window passes (Q46).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SingleTap {
+    /// Focus Dictation was listening: stop it and hold, as Esc does.
+    StopFocus,
+    /// Focus Dictation was held after Esc or a tap: listen again.
+    ResumeFocus,
+    /// Focus Dictation had nothing to toggle: process the capture as batch PTT.
+    BatchPtt,
+}
+
+/// Decide a lone tap from Focus Dictation's state at key-down, which the shell must
+/// record then: PTT closes the Focus mic on key-down, before the press is known to
+/// be a tap.
+pub fn single_tap_action(focus_listening: bool, focus_held: bool) -> SingleTap {
+    if focus_listening {
+        SingleTap::StopFocus
+    } else if focus_held {
+        SingleTap::ResumeFocus
+    } else {
+        SingleTap::BatchPtt
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -50,6 +74,15 @@ mod tests {
     fn hands_free_ends_after_20s_without_speech() {
         assert!(!hands_free_idle_expired(19_999));
         assert!(hands_free_idle_expired(20_000));
+    }
+
+    #[test]
+    fn a_single_tap_toggles_focus_dictation_or_falls_back_to_batch_ptt() {
+        assert_eq!(single_tap_action(true, false), SingleTap::StopFocus);
+        assert_eq!(single_tap_action(false, true), SingleTap::ResumeFocus);
+        assert_eq!(single_tap_action(false, false), SingleTap::BatchPtt);
+        // An open mic is what the user sees, so stopping it wins.
+        assert_eq!(single_tap_action(true, true), SingleTap::StopFocus);
     }
 
     #[test]

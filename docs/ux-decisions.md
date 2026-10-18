@@ -275,7 +275,9 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
     −120 dBFS. The cutoff keeps 30 dB above it for mics that gate to a low floor.
 - **Q44 — One key.** Hold = PTT, which inserts once on release (batch; streaming PTT is
   removed). Double-tap within 0.4 s = hands-free. A press shorter than 0.3 s waits up to
-  0.4 s for a second press; longer presses start PTT immediately. The Settings mode
+  0.4 s for a second press; longer presses start PTT immediately. A lone short tap
+  toggles Focus listening when Focus Dictation is armed on a text field (Q46), and
+  is batch PTT otherwise. The Settings mode
   radios go; Settings → Mode keeps only the hotkey. Focus Dictation stays an armed
   toggle in the menu bar (Q4–Q5, Q13 unchanged). Its shortcut is
   [#4](https://github.com/penta2himajin/typwrtr/issues/4), and a single key such as Fn is
@@ -289,12 +291,22 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
 - **Q46 — Esc cancels.** Esc is swallowed only while the mic is open or processing, and
   discards what is in flight. Hands-free: drop the open segment and end.
   Already-inserted text stays; ⌃⇧Z removes it.
-  - **Focus Dictation (revised 2026-10-18):** Esc is *not* swallowed. Apps use it to
-    leave a field, and dictation should end with that, as it does everywhere else.
-    Typwrtr ends the listen, drops the open segment and hides the bar, and stays
-    armed. The same field does not reopen the mic on its own. Listening resumes on a
-    click (back into the field, or into another one), or once focus leaves text fields
-    and lands on one again (checked every 100 ms).
+  - **Focus Dictation (revised again 2026-10-18):** Esc is swallowed while the mic is
+    open (bar visible). Passing it through stopped the conversation in apps such as
+    Claude, which use Esc for more than leaving a field. Typwrtr ends the listen, drops
+    the open segment, hides the bar, and stays armed. It never moves or clears the
+    field's focus. Once the bar is hidden, Esc reaches the app again, so a second Esc
+    does what the app expects. The same field does not reopen the mic on its own.
+    Listening resumes on a single tap of the PTT key, on a click (back into the field,
+    or into another one), or once focus leaves text fields and lands on one again
+    (checked every 100 ms).
+  - **Single tap toggles Focus listening.** While Focus Dictation is armed on a text
+    field, a lone short tap of the PTT key stops listening (as Esc does) when the bar
+    is up, and resumes it when Esc or a tap stopped it. The tap's own audio is
+    discarded. It counts as a lone tap only after the 400 ms double-tap window (Q44),
+    so the toggle lands ~0.4 s after the tap. With nothing to toggle (Focus disarmed,
+    or no field focused), the tap is batch PTT as before. Esc during that window
+    cancels the tap and leaves Focus stopped.
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.
@@ -351,7 +363,7 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
 | Q43 | Dead mic → "No microphone input" in the bar (PTT: whole capture; hands-free/Focus: first ~2s, then end) |
 | Q44 | One key: hold = PTT (batch only), double-tap = hands-free; mode radios removed |
 | Q45 | Hands-free: no focus gate; inserts per 1.5s pause; ends on key / Esc / app switch (drops open segment) / 20s silence |
-| Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z). Focus: Esc passes through, ends the listen until focus moves |
+| Q46 | Esc cancels while mic open or processing; inserted text stays (⌃⇧Z). Focus: Esc swallowed while the bar is up, ends the listen; a lone tap of the key toggles listening |
 | Q47 | No sounds, no audio ducking, no history, no paste-last |
 | Q48 | Wizard teaches hold / double-tap / ⌃⇧Z / Esc on one screen |
 | Q49 | Batch PTT requires the live speech-start criterion before ASR; quiet single vowels may drop silently |

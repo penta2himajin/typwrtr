@@ -279,6 +279,28 @@ pub fn double_tap_window_seconds() -> f64 {
     crate::gesture::DOUBLE_TAP_WINDOW_MS as f64 / 1000.0
 }
 
+/// What a lone short tap does once the double-tap window passes (Q46).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiSingleTap {
+    /// Focus Dictation was listening: stop it and hold, as Esc does.
+    StopFocus,
+    /// Focus Dictation was held after Esc or a tap: listen again.
+    ResumeFocus,
+    /// Nothing to toggle: process the capture as batch PTT.
+    BatchPtt,
+}
+
+/// Decide a lone tap from Focus Dictation's state at key-down (Q46).
+#[uniffi::export]
+pub fn single_tap_action(focus_listening: bool, focus_held: bool) -> FfiSingleTap {
+    use crate::gesture::SingleTap;
+    match crate::gesture::single_tap_action(focus_listening, focus_held) {
+        SingleTap::StopFocus => FfiSingleTap::StopFocus,
+        SingleTap::ResumeFocus => FfiSingleTap::ResumeFocus,
+        SingleTap::BatchPtt => FfiSingleTap::BatchPtt,
+    }
+}
+
 /// Whether hands-free has gone `idle_ms` without speech and should end (Q45).
 #[uniffi::export]
 pub fn hands_free_idle_expired(idle_ms: u64) -> bool {

@@ -127,6 +127,7 @@ final class PttCoordinator {
         hotkey.shouldSwallowEscape = { [weak self] in
             guard let self else { return false }
             return self.pendingTap != nil || self.handsFreeCancelable || self.batchPttCancelable
+                || self.focusEscapable
         }
         hotkey.onMouseDown = { [weak self] in
             self?.clearEscapeHoldOnClick()
@@ -356,8 +357,13 @@ final class PttCoordinator {
         }
     }
 
-    /// Q46, Focus Dictation: Esc ends the listen and hides the bar. Esc itself still
-    /// reaches the app. The same field does not reopen until focus moves elsewhere.
+    /// Q46, Focus Dictation: Esc is swallowed while the mic is open, ends the listen
+    /// and hides the bar. Focus stays put, and the next Esc reaches the app. The same
+    /// field does not reopen until a click, a tap of the key, or focus moving elsewhere.
+    private var focusEscapable: Bool {
+        freeMicOpen && phase == .idle && latchedFocusPid != nil
+    }
+
     private func escapePressed() {
         if pendingTap != nil {
             cancelPendingTap()
@@ -371,7 +377,7 @@ final class PttCoordinator {
             cancelBatchPtt()
             return
         }
-        guard freeMicOpen, phase == .idle, let pid = latchedFocusPid else { return }
+        guard focusEscapable, let pid = latchedFocusPid else { return }
         escapedFocus = (pid, latchedElement)
         stopFreeMic(abandon: true, reason: "esc")
         menu.setFreeListeningIcon(false)
@@ -381,9 +387,13 @@ final class PttCoordinator {
     /// Clear the hold; the next 100 ms tick probes and relistens if it is a field.
     private func clearEscapeHoldOnClick() {
         guard escapedFocus != nil else { return }
+        clearEscapeHold(reason: "click")
+    }
+
+    private func clearEscapeHold(reason: String) {
         escapedFocus = nil
         lastProbe = nil
-        CaptureLog.note("focus esc hold cleared (click)")
+        CaptureLog.note("focus esc hold cleared (\(reason))")
     }
 
     /// True until focus actually leaves text fields after Esc. Element identity alone
@@ -819,6 +829,18 @@ final class PttCoordinator {
     /// The PTT chord is physically down (between key-down and key-up callbacks).
     private var chordHeld = false
 
+    /// Focus Dictation at the key-down that started this batch capture (Q46). PTT
+    /// closes the Focus mic at once, so a lone tap decides from this 400 ms later.
+    private var focusAtPress: (listening: Bool, held: Bool, pid: pid_t?, element: AXUIElement?) =
+        (false, false, nil, nil)
+
+    /// A press cancelled with Esc stops Focus Dictation too: hold it as Esc would,
+    /// or the next 100 ms tick reopens the mic the user just tried to silence.
+    private func holdFocusAfterCancelledPress() {
+        guard focusAtPress.listening || focusAtPress.held, let pid = focusAtPress.pid else { return }
+        escapedFocus = (pid, focusAtPress.element)
+    }
+
     private func pttKeyDown() {
         chordHeld = true
         if handsFreeActive {
@@ -856,6 +878,7 @@ final class PttCoordinator {
         pendingTap = nil
         CaptureLog.note("ptt cancelled (esc) phase=pending-tap")
         try? session.cancel()
+        holdFocusAfterCancelledPress()
         phase = .idle
         freeSuspendedByPtt = false
         refreshStatus()
@@ -883,6 +906,12 @@ final class PttCoordinator {
         }
         micAuthorized = true
 
+        focusAtPress = (
+            freeMicOpen && phase == .idle,
+            escapedFocus != nil,
+            escapedFocus?.pid ?? latchedFocusPid,
+            escapedFocus?.element ?? latchedElement
+        )
         // Q13 3b: temporary Free suspend for this PTT capture (do not disarm).
         freeSuspendedByPtt = true
         stopFreeMic(abandon: true, reason: "ptt")
@@ -903,6 +932,7 @@ final class PttCoordinator {
     private func cancelBatchPtt() {
         CaptureLog.note("ptt cancelled (esc) phase=\(phase == .recording ? "recording" : "processing")")
         listeningIndicator.hide()
+        holdFocusAfterCancelledPress()
         if phase == .recording {
             _ = mic.stop()
             try? session.cancel()
@@ -986,20 +1016,45 @@ final class PttCoordinator {
         let held = Date().timeIntervalSince(pttStartedAt)
         let captured = mic.stop()
         // Q44: a short press may be the first tap of a double-tap. Hold its capture
-        // for the window, then process it as batch PTT if no second press came.
+        // for the window; if no second press came it toggles Focus Dictation (Q46)
+        // or, with nothing to toggle, is processed as batch PTT.
         if isPossibleFirstTap(heldMs: UInt64(max(0, held) * 1000)) {
             phase = .finishing
             listeningIndicator.hide()
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.pendingTap != nil else { return }
                 self.pendingTap = nil
-                self.endBatchPtt(captured: captured, held: held)
+                self.endSingleTap(captured: captured, held: held)
             }
             pendingTap = (Date(), work)
             DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapWindowSeconds(), execute: work)
             return
         }
         endBatchPtt(captured: captured, held: held)
+    }
+
+    /// Q46: a lone tap stops or resumes Focus Dictation. Its own audio is discarded.
+    private func endSingleTap(captured: (samples: [Float], sampleRate: UInt32), held: TimeInterval) {
+        let action = singleTapAction(
+            focusListening: focusAtPress.listening,
+            focusHeld: focusAtPress.held
+        )
+        switch action {
+        case .batchPtt:
+            endBatchPtt(captured: captured, held: held)
+            return
+        case .stopFocus:
+            holdFocusAfterCancelledPress()
+            CaptureLog.note("focus listen stopped (tap)")
+        case .resumeFocus:
+            clearEscapeHold(reason: "tap")
+        }
+        try? session.cancel()
+        phase = .idle
+        freeSuspendedByPtt = false
+        menu.setCanUndo(session.lastText() != nil)
+        refreshStatus()
+        pollFreeFocus()
     }
 
     private func endBatchPtt(captured: (samples: [Float], sampleRate: UInt32), held: TimeInterval) {
