@@ -231,6 +231,12 @@ pub fn is_dead_input(samples: Vec<f32>) -> bool {
     crate::input_level::is_dead_input(&samples)
 }
 
+/// RMS level in dBFS, for capture logs that calibrate the Q43 cutoff.
+#[uniffi::export]
+pub fn input_level_dbfs(samples: Vec<f32>) -> f64 {
+    crate::input_level::input_level_dbfs(&samples)
+}
+
 /// Samples hands-free / Focus Dictation collect before the Q43 check (~2 s @ 16 kHz).
 #[uniffi::export]
 pub fn dead_input_probe_samples() -> u64 {

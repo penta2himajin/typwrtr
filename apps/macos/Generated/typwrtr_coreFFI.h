@@ -439,6 +439,11 @@ double uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds(RustCallStatu
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_INPUT_LEVEL_DBFS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_INPUT_LEVEL_DBFS
+double uniffi_typwrtr_core_fn_func_input_level_dbfs(RustBuffer samples, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
 int8_t uniffi_typwrtr_core_fn_func_is_dead_input(RustBuffer samples, RustCallStatus *_Nonnull out_status
@@ -775,6 +780,12 @@ uint16_t uniffi_typwrtr_core_checksum_func_dead_input_probe_samples(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 uint16_t uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_INPUT_LEVEL_DBFS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_INPUT_LEVEL_DBFS
+uint16_t uniffi_typwrtr_core_checksum_func_input_level_dbfs(void
     
 );
 #endif

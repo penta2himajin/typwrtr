@@ -13,11 +13,20 @@ pub const DEAD_INPUT_PROBE_SAMPLES: usize = 32_000;
 /// True when `samples` carry no microphone signal. An empty capture counts as
 /// dead: a mic that delivers nothing is the worst case, not a pass.
 pub fn is_dead_input(samples: &[f32]) -> bool {
+    samples.is_empty() || rms(samples) <= f64::from(DEAD_INPUT_RMS)
+}
+
+/// RMS level in dBFS for capture logs (Q27: numbers only). Floors at −120.
+pub fn input_level_dbfs(samples: &[f32]) -> f64 {
     if samples.is_empty() {
-        return true;
+        return -120.0;
     }
+    (20.0 * rms(samples).log10()).max(-120.0)
+}
+
+fn rms(samples: &[f32]) -> f64 {
     let energy: f64 = samples.iter().map(|&s| f64::from(s) * f64::from(s)).sum();
-    (energy / samples.len() as f64).sqrt() <= f64::from(DEAD_INPUT_RMS)
+    (energy / samples.len() as f64).sqrt()
 }
 
 #[cfg(test)]
@@ -50,6 +59,24 @@ mod tests {
     #[test]
     fn speech_level_is_alive() {
         assert!(!is_dead_input(&tone(0.2, 16_000)));
+    }
+
+    #[test]
+    fn dbfs_of_digital_silence_and_empty_floors() {
+        assert_eq!(input_level_dbfs(&[]), -120.0);
+        assert_eq!(input_level_dbfs(&[0.0; 100]), -120.0);
+    }
+
+    #[test]
+    fn dbfs_of_a_known_sine() {
+        // Full-scale sine: RMS 1/√2 → −3.01 dBFS.
+        let level = input_level_dbfs(&tone(1.0, 16_000));
+        assert!((level + 3.01).abs() < 0.05, "{level}");
+    }
+
+    #[test]
+    fn dead_cutoff_is_minus_60_dbfs() {
+        assert!((20.0 * f64::from(DEAD_INPUT_RMS).log10() + 60.0).abs() < 1e-6);
     }
 
     #[test]

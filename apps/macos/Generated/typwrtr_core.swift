@@ -2205,6 +2205,16 @@ public func focusDictationSilenceSeconds() -> Double  {
 })
 }
 /**
+ * RMS level in dBFS, for capture logs that calibrate the Q43 cutoff.
+ */
+public func inputLevelDbfs(samples: [Float]) -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_input_level_dbfs(
+        FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+/**
  * Whether a capture carries no microphone signal (Q43; not the same as no speech).
  */
 public func isDeadInput(samples: [Float]) -> Bool  {
@@ -2314,6 +2324,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds() != 52781) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_input_level_dbfs() != 28771) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_is_dead_input() != 16877) {

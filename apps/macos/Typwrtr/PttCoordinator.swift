@@ -33,6 +33,7 @@ final class PttCoordinator {
     /// First ~2 s of a Focus listen, checked once for a dead mic (Q43). Audio pump queue only.
     private var focusProbe: [Float] = []
     private var focusProbeDone = true
+    private var focusProbeStartedAt = Date.distantPast
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -361,6 +362,7 @@ final class PttCoordinator {
         // The old pump has drained (stopAudioPump syncs the queue), so this is race-free.
         focusProbe.removeAll(keepingCapacity: true)
         focusProbeDone = kind != .focus
+        focusProbeStartedAt = Date()
         audioPumpKind = kind
         let timer = DispatchSource.makeTimerSource(queue: audioPumpQueue)
         timer.schedule(deadline: .now(), repeating: 0.08, leeway: .milliseconds(10))
@@ -417,9 +419,16 @@ final class PttCoordinator {
     private func probeFocusInput(_ chunk: [Float]) {
         guard !focusProbeDone else { return }
         focusProbe.append(contentsOf: chunk)
-        guard focusProbe.count >= Int(deadInputProbeSamples()) else { return }
+        // The pump ticks even when the device delivers nothing, so the clock also
+        // ends the probe: a stalled mic judges on what little arrived (empty = dead).
+        let full = focusProbe.count >= Int(deadInputProbeSamples())
+        guard full || Date().timeIntervalSince(focusProbeStartedAt) >= 2.5 else { return }
         focusProbeDone = true
         let dead = isDeadInput(samples: focusProbe)
+        CaptureLog.note(String(
+            format: "focus probe input %.1f dBFS over %d samples dead=%d",
+            inputLevelDbfs(samples: focusProbe), focusProbe.count, dead ? 1 : 0
+        ))
         focusProbe.removeAll()
         guard dead else { return }
         NSLog("Typwrtr: Focus Dictation saw no microphone input; disarming")
@@ -684,7 +693,13 @@ final class PttCoordinator {
         phase = .finishing
         let captured = mic.stop()
         // Q43: a hold long enough to say something, with no signal at all.
-        if Date().timeIntervalSince(pttStartedAt) >= 0.5, isDeadInput(samples: captured.samples) {
+        let heldLongEnough = Date().timeIntervalSince(pttStartedAt) >= 0.5
+        let dead = heldLongEnough && isDeadInput(samples: captured.samples)
+        CaptureLog.note(String(
+            format: "ptt input %.1f dBFS over %d samples dead=%d",
+            inputLevelDbfs(samples: captured.samples), captured.samples.count, dead ? 1 : 0
+        ))
+        if dead {
             NSLog("Typwrtr: PTT saw no microphone input")
             listeningIndicator.flash(Self.noInputMessage)
             phase = .idle
