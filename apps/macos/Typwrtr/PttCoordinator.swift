@@ -283,10 +283,24 @@ final class PttCoordinator {
     /// mic? An unreadable element counts as unchanged, so a flaky AX read cannot
     /// cut a phrase off.
     private func focusMovedWithinApp(pid: pid_t) -> Bool {
-        guard let latched = latchedElement,
-              let current = FocusProbe.focusedElement(pid: pid)
-        else { return false }
+        guard let latched = latchedElement else { return false }
+        let started = DispatchTime.now().uptimeNanoseconds
+        let current = FocusProbe.focusedElement(pid: pid)
+        noteFocusCheckCost(nanos: DispatchTime.now().uptimeNanoseconds - started)
+        guard let current else { return false }
         return !CFEqual(latched, current)
+    }
+
+    /// Cost of the 200 ms focus check, logged every 25 calls (~5 s): max and mean.
+    private var focusCheckNanos: [UInt64] = []
+    private func noteFocusCheckCost(nanos: UInt64) {
+        focusCheckNanos.append(nanos)
+        guard focusCheckNanos.count >= 25 else { return }
+        let maxMs = Double(focusCheckNanos.max() ?? 0) / 1e6
+        let meanMs = Double(focusCheckNanos.reduce(0, +)) / Double(focusCheckNanos.count) / 1e6
+        CaptureLog.note(String(format: "focus check calls=%d max_ms=%.2f mean_ms=%.2f",
+                               focusCheckNanos.count, maxMs, meanMs))
+        focusCheckNanos.removeAll(keepingCapacity: true)
     }
 
     /// Prefer live AX probe; if the menu-bar agent briefly steals key window, keep
