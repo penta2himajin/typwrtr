@@ -305,8 +305,9 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
     is up, and resumes it when Esc or a tap stopped it. The tap's own audio is
     discarded. It counts as a lone tap only after the 400 ms double-tap window (Q44),
     so the toggle lands ~0.4 s after the tap. With nothing to toggle (Focus disarmed,
-    or no field focused), the tap is batch PTT as before. Esc during that window
-    cancels the tap and leaves Focus stopped.
+    or no field focused), the tap is batch PTT as before. Esc that cancels a press
+    begun over a listening field (in that window, or while holding or processing
+    PTT) leaves Focus stopped, as Esc on the bar would.
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.
