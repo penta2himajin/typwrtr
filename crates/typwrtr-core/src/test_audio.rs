@@ -72,3 +72,27 @@ pub(crate) fn voiced_padded_with_silence(speech: f32, pad: f32) -> Vec<f32> {
     out.extend(std::iter::repeat_n(0.0, pad_samples));
     out
 }
+
+/// Add desk-tap transients to `samples`: a decaying 300 Hz burst every 0.7 s.
+///
+/// Over −49 dBFS noise these score 0.5–0.66 under Earshot and, at the 0.2
+/// calibration, held a dictate segment open across the whole buffer.
+pub(crate) fn with_desk_taps(mut samples: Vec<f32>) -> Vec<f32> {
+    let step = (0.7 * RATE as f32) as usize;
+    let mut at = step / 2;
+    while at < samples.len() {
+        for (k, s) in samples[at..].iter_mut().take(800).enumerate() {
+            let t = k as f32 / RATE as f32;
+            *s += 0.1 * (-t * 120.0).exp() * (2.0 * std::f32::consts::PI * 300.0 * t).sin();
+        }
+        at += step;
+    }
+    samples
+}
+
+/// Scale `samples` to `dbfs` RMS.
+pub(crate) fn at_dbfs(samples: Vec<f32>, dbfs: f32) -> Vec<f32> {
+    let rms = (samples.iter().map(|x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
+    let gain = 10f32.powf(dbfs / 20.0) / rms;
+    samples.into_iter().map(|x| x * gain).collect()
+}

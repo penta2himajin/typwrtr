@@ -202,7 +202,7 @@ impl Session {
         let chunks = std::mem::take(&mut self.chunks);
         let pushed_samples = chunks.iter().map(|c| c.samples.len() as u64).sum();
         let sample_rate = chunks.first().map(|c| c.sample_rate).unwrap_or(0);
-        match engine.dictate(&chunks).await {
+        match engine.dictate_batch(&chunks).await {
             Ok(dictated) => {
                 self.last_metrics = Some(CaptureMetrics {
                     pushed_samples,
