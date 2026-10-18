@@ -273,6 +273,12 @@ pub fn is_double_tap(gap_ms: u64) -> bool {
     crate::gesture::is_double_tap(gap_ms)
 }
 
+/// Seconds a press must last before it is a hold, not a possible first tap (Q44).
+#[uniffi::export]
+pub fn tap_max_seconds() -> f64 {
+    crate::gesture::TAP_MAX_MS as f64 / 1000.0
+}
+
 /// Seconds the shell waits for a second press after a short tap (Q44).
 #[uniffi::export]
 pub fn double_tap_window_seconds() -> f64 {
