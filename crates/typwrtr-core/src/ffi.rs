@@ -261,6 +261,30 @@ pub fn dead_input_probe_samples() -> u64 {
     crate::input_level::DEAD_INPUT_PROBE_SAMPLES as u64
 }
 
+/// Whether a PTT press held `held_ms` may be the first tap of a double-tap (Q44).
+#[uniffi::export]
+pub fn is_possible_first_tap(held_ms: u64) -> bool {
+    crate::gesture::is_possible_first_tap(held_ms)
+}
+
+/// Whether a second press `gap_ms` after a short tap's release is a double-tap (Q44).
+#[uniffi::export]
+pub fn is_double_tap(gap_ms: u64) -> bool {
+    crate::gesture::is_double_tap(gap_ms)
+}
+
+/// Seconds the shell waits for a second press after a short tap (Q44).
+#[uniffi::export]
+pub fn double_tap_window_seconds() -> f64 {
+    crate::gesture::DOUBLE_TAP_WINDOW_MS as f64 / 1000.0
+}
+
+/// Whether hands-free has gone `idle_ms` without speech and should end (Q45).
+#[uniffi::export]
+pub fn hands_free_idle_expired(idle_ms: u64) -> bool {
+    crate::gesture::hands_free_idle_expired(idle_ms)
+}
+
 /// FFI-visible error.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Error, thiserror::Error)]
 pub enum FfiError {

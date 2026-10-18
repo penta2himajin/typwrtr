@@ -438,10 +438,21 @@ uint64_t uniffi_typwrtr_core_fn_func_dead_input_probe_samples(RustCallStatus *_N
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_DOUBLE_TAP_WINDOW_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_DOUBLE_TAP_WINDOW_SECONDS
+double uniffi_typwrtr_core_fn_func_double_tap_window_seconds(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 double uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds(RustCallStatus *_Nonnull out_status
     
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_HANDS_FREE_IDLE_EXPIRED
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_HANDS_FREE_IDLE_EXPIRED
+int8_t uniffi_typwrtr_core_fn_func_hands_free_idle_expired(uint64_t idle_ms, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_INPUT_LEVEL_DBFS
@@ -452,6 +463,16 @@ double uniffi_typwrtr_core_fn_func_input_level_dbfs(RustBuffer samples, RustCall
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DEAD_INPUT
 int8_t uniffi_typwrtr_core_fn_func_is_dead_input(RustBuffer samples, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DOUBLE_TAP
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_DOUBLE_TAP
+int8_t uniffi_typwrtr_core_fn_func_is_double_tap(uint64_t gap_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_POSSIBLE_FIRST_TAP
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_IS_POSSIBLE_FIRST_TAP
+int8_t uniffi_typwrtr_core_fn_func_is_possible_first_tap(uint64_t held_ms, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_LOAD_TERM_DICTIONARY
@@ -782,9 +803,21 @@ uint16_t uniffi_typwrtr_core_checksum_func_dead_input_probe_samples(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_DOUBLE_TAP_WINDOW_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_DOUBLE_TAP_WINDOW_SECONDS
+uint16_t uniffi_typwrtr_core_checksum_func_double_tap_window_seconds(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_FOCUS_DICTATION_SILENCE_SECONDS
 uint16_t uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_HANDS_FREE_IDLE_EXPIRED
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_HANDS_FREE_IDLE_EXPIRED
+uint16_t uniffi_typwrtr_core_checksum_func_hands_free_idle_expired(void
     
 );
 #endif
@@ -797,6 +830,18 @@ uint16_t uniffi_typwrtr_core_checksum_func_input_level_dbfs(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DEAD_INPUT
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DEAD_INPUT
 uint16_t uniffi_typwrtr_core_checksum_func_is_dead_input(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DOUBLE_TAP
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_DOUBLE_TAP
+uint16_t uniffi_typwrtr_core_checksum_func_is_double_tap(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_POSSIBLE_FIRST_TAP
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_IS_POSSIBLE_FIRST_TAP
+uint16_t uniffi_typwrtr_core_checksum_func_is_possible_first_tap(void
     
 );
 #endif
