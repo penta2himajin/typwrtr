@@ -118,17 +118,11 @@ final class PttCoordinator {
         menu.onFreeArmChanged = { [weak self] armed in
             self?.setFreeArmed(armed)
         }
-        menu.onDictationModeChanged = { [weak self] mode in
-            self?.applyDictationMode(mode)
-        }
         SetupDialog.onLanguageChanged = { [weak self] language in
             self?.applyLanguage(language)
         }
         SetupDialog.onDictionaryChanged = { [weak self] in
             self?.applyLanguage(AppLanguage.current)
-        }
-        SetupDialog.onDictationModeChanged = { [weak self] mode in
-            self?.applyDictationMode(mode)
         }
         SetupDialog.onPttHotkeyChanged = { [weak self] hotkey in
             self?.applyPttHotkey(hotkey)
@@ -142,7 +136,7 @@ final class PttCoordinator {
         focusWatcher.onFocusPossiblyChanged = { [weak self] cheap in
             self?.pollFreeFocus(cheap: cheap)
         }
-        applyDictationMode(DictationMode.current)
+        setFreeArmed(MenuBarModel.freeArmedPreference)
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
     }
 
@@ -181,13 +175,7 @@ final class PttCoordinator {
     }
 
     private func syncFreeArmFromDefaults() {
-        applyDictationMode(DictationMode.current)
-    }
-
-    private func applyDictationMode(_ mode: DictationMode) {
-        DictationMode.current = mode
-        setFreeArmed(mode.isFocusDictation)
-        NSLog("Typwrtr: dictation mode=%@", mode.rawValue)
+        setFreeArmed(MenuBarModel.freeArmedPreference)
     }
 
     private func setFreeArmed(_ armed: Bool) {
@@ -753,11 +741,7 @@ final class PttCoordinator {
         stopFreeMic(abandon: true, reason: "ptt")
         session.finishStreamListen()
 
-        if DictationMode.current.isStreamingPtt {
-            beginStreamingPtt()
-        } else {
-            beginBatchPtt()
-        }
+        beginBatchPtt()
     }
 
     /// Q46: Esc cancels batch PTT while it records or processes, and is swallowed so

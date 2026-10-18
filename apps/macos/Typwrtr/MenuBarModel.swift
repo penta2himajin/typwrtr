@@ -31,25 +31,17 @@ final class MenuBarModel: ObservableObject {
 
     static let freeArmedKey = "typwrtr.freeArmed"
 
-    /// Legacy boolean mirror of Focus Dictation; prefer ``DictationMode.current``.
+    /// Whether Focus Dictation is armed. The old Settings modes (Q44 removed them)
+    /// always mirrored into this key, so it needs no migration.
     static var freeArmedPreference: Bool {
-        get { DictationMode.current.isFocusDictation }
-        set {
-            // Only flip Focus Dictation on/off; do not clobber streaming from this setter.
-            if newValue {
-                DictationMode.current = .focusDictation
-            } else if DictationMode.current.isFocusDictation {
-                DictationMode.current = .pushToTalk
-            }
-        }
+        get { UserDefaults.standard.bool(forKey: freeArmedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: freeArmedKey) }
     }
 
     /// Set by PttCoordinator.
     var onUndoRequested: (() -> Void)?
     var onLanguageSelected: ((AppLanguage) -> Void)?
     var onFreeArmChanged: ((Bool) -> Void)?
-    /// Called when Settings (or menu) changes the listening mode.
-    var onDictationModeChanged: ((DictationMode) -> Void)?
 
     func setFreeArmed(_ armed: Bool) {
         let apply = {
@@ -86,16 +78,11 @@ final class MenuBarModel: ObservableObject {
         }
     }
 
-    func setDictationMode(_ mode: DictationMode) {
-        DictationMode.current = mode
-        setFreeArmed(mode.isFocusDictation)
-        onDictationModeChanged?(mode)
-        onFreeArmChanged?(mode.isFocusDictation)
-    }
-
+    /// The menu toggle is the one place Focus Dictation is armed (Q44, R3-Q6).
     func setFocusDictationEnabled(_ enabled: Bool) {
-        // Menu toggle only arms/disarms Focus Dictation; streaming stays in Settings.
-        setDictationMode(enabled ? .focusDictation : .pushToTalk)
+        Self.freeArmedPreference = enabled
+        setFreeArmed(enabled)
+        onFreeArmChanged?(enabled)
     }
 
     func setFreeAvailability(_ availability: FreeAvailability) {
