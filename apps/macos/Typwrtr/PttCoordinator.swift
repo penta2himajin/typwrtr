@@ -49,6 +49,8 @@ final class PttCoordinator {
     private var latchedElement: AXUIElement?
     /// Field the user left with Esc (Q46): no relisten until focus moves off it.
     private var escapedFocus: (pid: pid_t, element: AXUIElement?)?
+    /// Element the last full probe saw, so 100 ms waiting ticks can skip re-probing.
+    private var lastProbe: (pid: pid_t, element: AXUIElement?)?
     private var latchedFocusAt: Date?
     /// Drop Focus pastes whose listen generation no longer matches (user left the field).
     private var freeInsertGeneration: UInt64 = 0
@@ -131,8 +133,8 @@ final class PttCoordinator {
         menu.setCanUndo(session.lastText() != nil)
         menu.setPttHotkey(PttHotkey.current)
         hotkey.start()
-        focusWatcher.onFocusPossiblyChanged = { [weak self] in
-            self?.pollFreeFocus()
+        focusWatcher.onFocusPossiblyChanged = { [weak self] cheap in
+            self?.pollFreeFocus(cheap: cheap)
         }
         applyDictationMode(DictationMode.current)
         NSLog("Typwrtr: PTT coordinator started, backend=%@", backend.debugLabel)
@@ -208,20 +210,20 @@ final class PttCoordinator {
         }
     }
 
-    private func pollFreeFocus() {
+    /// `cheap`: a 100 ms watcher tick. While waiting for a field it skips the full
+    /// probe when the focused element is the one last probed (pip spam, cost).
+    private func pollFreeFocus(cheap: Bool = false) {
         if freeSuspendedByPtt || phase != .idle {
             return
         }
 
         guard freeController.isArmed() else {
-            focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.disarmed)
             menu.setFreeListeningIcon(false)
             return
         }
 
         if !AXIsProcessTrusted() {
-            focusWatcher.quietWhileListening = false
             menu.setFreeAvailability(.unavailableExplained)
             menu.setFocusDictationStatus("Needs Accessibility")
             if freeMicOpen {
@@ -233,7 +235,6 @@ final class PttCoordinator {
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         if escapeStillHolds(frontPid: frontPid) {
-            focusWatcher.quietWhileListening = true
             menu.setFreeListeningIcon(false)
             return
         }
@@ -247,7 +248,6 @@ final class PttCoordinator {
            frontPid == latchedFocusPid
         {
             if !focusMovedWithinApp(pid: frontPid) {
-                focusWatcher.quietWhileListening = true
                 menu.setFreeListeningIcon(true)
                 menu.setFreeAvailability(.listening)
                 return
@@ -255,10 +255,13 @@ final class PttCoordinator {
             CaptureLog.note("focus moved within app; re-probing")
         }
 
+        if cheap, !freeMicOpen, let frontPid, waitingFocusUnchanged(pid: frontPid) {
+            return
+        }
+
         // Left the target app while listening — stop mic without a full probe first.
         if freeMicOpen, frontPid != latchedFocusPid {
             stopFreeMic(abandon: true, reason: "left-app")
-            focusWatcher.quietWhileListening = false
         }
 
         let focus = resolveFocus()
@@ -275,16 +278,13 @@ final class PttCoordinator {
             if !freeMicOpen {
                 startFreeMic()
             }
-            focusWatcher.quietWhileListening = freeMicOpen
             if freeMicOpen {
                 menu.setFreeListeningIcon(true)
             }
         } else if freeMicOpen {
             stopFreeMic(abandon: true, reason: "not-text-field")
-            focusWatcher.quietWhileListening = false
             menu.setFreeListeningIcon(false)
         } else {
-            focusWatcher.quietWhileListening = false
             if phase == .idle {
                 menu.setFreeListeningIcon(false)
             }
@@ -297,7 +297,6 @@ final class PttCoordinator {
         guard freeMicOpen, phase == .idle, let pid = latchedFocusPid else { return }
         escapedFocus = (pid, latchedElement)
         stopFreeMic(abandon: true, reason: "esc")
-        focusWatcher.quietWhileListening = true
         menu.setFreeListeningIcon(false)
     }
 
@@ -323,6 +322,15 @@ final class PttCoordinator {
         escapedFocus = nil
         CaptureLog.note("focus esc hold cleared")
         return false
+    }
+
+    /// Waiting for a field: is focus still on the element the last full probe saw?
+    /// An unreadable element counts as unchanged; the ~3 s full probe catches up.
+    private func waitingFocusUnchanged(pid: pid_t) -> Bool {
+        guard let last = lastProbe, last.pid == pid else { return false }
+        guard let current = FocusProbe.focusedElement(pid: pid) else { return true }
+        guard let element = last.element else { return false }
+        return CFEqual(element, current)
     }
 
     /// Cheap check: has the focused element changed since the probe that opened the
@@ -354,6 +362,9 @@ final class PttCoordinator {
     private func resolveFocus() -> FocusKind? {
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let probed = FocusProbe.probe()
+        if let frontPid {
+            lastProbe = (frontPid, probed.element)
+        }
         if let live = probed.kind {
             latchedFocus = live
             latchedElement = probed.element
