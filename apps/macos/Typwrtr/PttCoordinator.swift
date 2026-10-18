@@ -91,6 +91,7 @@ final class PttCoordinator {
         loadSession(AppLanguage.current)
 
         mic.requestPermission { [weak self] granted in
+            if granted { self?.mic.prepare() }
             DispatchQueue.main.async {
                 self?.micAuthorized = granted
                 if !granted {

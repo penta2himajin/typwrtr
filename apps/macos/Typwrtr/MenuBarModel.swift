@@ -24,6 +24,10 @@ final class MenuBarModel: ObservableObject {
     /// Secondary line below the Focus Dictation toggle; hidden while off.
     @Published var focusDictationStatus: String?
     @Published var latencyLoggingEnabled = LatencyLog.isEnabled
+    /// Debug A/B for echo cancellation; applied on the next mic start.
+    @Published var voiceProcessingEnabled = MicCapture.voiceProcessingEnabled {
+        didSet { MicCapture.voiceProcessingEnabled = voiceProcessingEnabled }
+    }
 
     private var idleToolTip: String {
         "Typwrtr — idle (hold \(pttHotkey.displaySymbol))"

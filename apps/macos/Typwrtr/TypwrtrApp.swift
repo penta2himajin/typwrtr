@@ -45,6 +45,7 @@ struct TypwrtrApp: App {
                         set: { menu.setLatencyLoggingEnabled($0) }
                     )
                 )
+                Toggle("Echo cancellation", isOn: $menu.voiceProcessingEnabled)
                 Text(menu.lastCaptureTitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
