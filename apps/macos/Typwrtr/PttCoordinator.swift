@@ -301,8 +301,13 @@ final class PttCoordinator {
         menu.setFreeListeningIcon(false)
     }
 
-    /// True while focus is still on the field left with Esc. Any other element, an
-    /// app switch, or disarming clears it. An unreadable element counts as unchanged.
+    /// True until focus actually leaves text fields after Esc. Element identity alone
+    /// cannot tell: Electron (Claude) hands out a new element for the same composer,
+    /// which cleared the hold the instant Esc was pressed (dogfood 2026-10-18). So a
+    /// changed element is classified, and only a non-text focus, an app switch, or
+    /// disarming clears it. An unreadable element counts as unchanged.
+    /// ponytail: moving straight to a *different* text field in the same app also
+    /// stays held; focus must pass through a non-text element first.
     private func escapeStillHolds(frontPid: pid_t?) -> Bool {
         guard let escaped = escapedFocus else { return false }
         if let frontPid, frontPid == escaped.pid {
@@ -310,6 +315,10 @@ final class PttCoordinator {
                   let current = FocusProbe.focusedElement(pid: frontPid)
             else { return true }
             if CFEqual(element, current) { return true }
+            if FocusProbe.probe().kind == .textField {
+                escapedFocus = (frontPid, current)
+                return true
+            }
         }
         escapedFocus = nil
         CaptureLog.note("focus esc hold cleared")
