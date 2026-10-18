@@ -68,10 +68,10 @@ Enable **Debug → Latency logs** in the menu bar (persists across relaunches; d
 
 ```bash
 # All Typwrtr os_log (capture + latency when enabled)
-log show --predicate 'subsystem == "app.typwrtr.macos.menuextra"' --last 30m
+/usr/bin/log show --predicate 'subsystem == "app.typwrtr.macos.menuextra"' --last 30m
 
 # Latency lines only
-log show --predicate 'subsystem == "app.typwrtr.macos.menuextra" AND category == "latency"' --last 30m
+/usr/bin/log show --predicate 'subsystem == "app.typwrtr.macos.menuextra" AND category == "latency"' --last 30m
 ```
 
 Look for `latency id=… total_ms=… asr_ms=… insert_ms=… insert_via=…`.
