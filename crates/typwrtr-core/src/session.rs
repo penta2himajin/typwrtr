@@ -349,11 +349,11 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    use euhadra::mock::MockAsr;
+    use euhadra::mock::{MockAsr, RecordingAsr};
     use euhadra::types::Language;
 
     use crate::engine::DictationEngine;
-    use crate::test_audio::{chunk, voiced_chunk};
+    use crate::test_audio::{chunk, room_tone, voiced_chunk};
 
     #[test]
     fn ptt_happy_path_status_transitions() {
@@ -445,6 +445,22 @@ mod tests {
         assert_eq!(s.status(), SessionStatus::Idle);
         assert_eq!(s.last_text(), None);
         assert!(s.last_error().is_none());
+    }
+
+    /// Q49: a silent batch hold over room tone must not reach ASR — the
+    /// dogfood capture that inserted 「うん。」 went through here.
+    #[tokio::test]
+    async fn stop_ptt_on_room_tone_never_calls_the_adapter() {
+        let asr = RecordingAsr::new(["うん。"]);
+        let calls = asr.calls();
+        let engine = Arc::new(DictationEngine::new(Language::Japanese, asr).unwrap());
+        let mut s = Session::with_engine(engine);
+        s.start_ptt().unwrap();
+        s.push_audio(chunk(room_tone(3.3))).unwrap();
+
+        assert_eq!(s.stop_ptt().await.unwrap(), "");
+        assert!(calls.lock().unwrap().is_empty(), "room tone reached ASR");
+        assert_eq!(s.last_metrics().unwrap().speech_samples, 0);
     }
 
     #[test]

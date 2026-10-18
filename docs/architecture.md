@@ -75,7 +75,7 @@ adapter.
 - **Batch PTT speech gate (2026-10-18).** The same 0.2 also *opens* segments
   on room tone: a silent ⌃⇧D hold kept 1.10 s of a 3.30 s capture as speech
   and Parakeet-ja inserted 「うん。」 ([`ux-decisions.md`](./ux-decisions.md)
-  Q40). Streaming PTT and Focus Dictation never hit this — the live
+  Q49). Streaming PTT and Focus Dictation never hit this — the live
   endpointer only hands over windows it opened at 0.42 — so `stop_ptt` now
   calls `DictationEngine::dictate_batch`, which runs `segment_buffer` with the
   live config (`live_config`, 0.42, `min_speech` 120 ms) first and returns

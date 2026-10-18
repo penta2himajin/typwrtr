@@ -264,7 +264,7 @@ impl DictationEngine {
     /// Streaming PTT and Focus Dictation only hand over windows the live
     /// endpointer opened at its 0.42 cutoff. Batch PTT had no such check, and
     /// the trim pass at Earshot's 0.2 calibration opens on room tone: a silent
-    /// hold inserted 「うん。」 (dogfood 2026-10-18, Q23/Q24/Q40). Raising the
+    /// hold inserted 「うん。」 (dogfood 2026-10-18, Q23/Q24/Q49). Raising the
     /// trim threshold instead cost ja CER, so opening and trimming stay apart.
     ///
     /// Not on the streaming path: a cold second pass dropped 2 of 146 windows
@@ -486,7 +486,8 @@ mod tests {
     }
 
     /// The speech gate must not swallow a short reply like 「はい」 — under
-    /// Q24 a dropped one vanishes without any message.
+    /// Q24 a dropped one vanishes without any message. 0.25 s at the room's
+    /// own level: still kept at 0.42, dropped at a 0.7 gate.
     #[tokio::test]
     async fn a_short_quiet_reply_over_room_tone_still_reaches_the_adapter() {
         let asr = RecordingAsr::new(["はい"]);
@@ -494,7 +495,7 @@ mod tests {
         let engine = DictationEngine::new(Language::Japanese, asr).unwrap();
 
         let mut samples = room_tone(1.0);
-        samples.extend(at_dbfs(voiced_samples(0.35), -40.0));
+        samples.extend(at_dbfs(voiced_samples(0.25), -45.0));
         samples.extend(room_tone(1.0));
         let dictated = engine.dictate_batch(&[chunk(samples)]).await.unwrap();
         assert!(dictated.text.contains("はい"), "got: {}", dictated.text);
