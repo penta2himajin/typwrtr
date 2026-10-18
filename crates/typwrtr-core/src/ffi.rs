@@ -367,24 +367,6 @@ impl PttSession {
         ptt_session_from_engine(engine)
     }
 
-    /// Build a session using euhadra `FluidAudioAdapter` (Parakeet-ja on CoreML / ANE)
-    /// from a downloaded `.mlmodelc` pack. macOS only. Blocking: the first load
-    /// compiles for the Neural Engine, so call it off the main thread.
-    #[cfg(target_os = "macos")]
-    #[uniffi::constructor]
-    pub fn with_fluid_audio_ja(
-        language: FfiLanguage,
-        model_dir: String,
-    ) -> Result<Arc<Self>, FfiError> {
-        let engine =
-            DictationEngine::with_fluidaudio_ja(language.into(), model_dir).map_err(|e| {
-                FfiError::Message {
-                    msg: e.message().to_string(),
-                }
-            })?;
-        ptt_session_from_engine(engine)
-    }
-
     /// Build Parakeet-ja from `TYPWRTR_PARAKEET_JA_DIR` / conventional paths.
     #[uniffi::constructor]
     pub fn with_parakeet_ja_from_env(language: FfiLanguage) -> Result<Arc<Self>, FfiError> {
@@ -606,6 +588,29 @@ impl PttSession {
         if let Ok(mut slot) = self.stream.lock() {
             *slot = None;
         }
+    }
+}
+
+// uniffi::export does not carry a per-method #[cfg] into its scaffolding (the Linux CI
+// build failed on it), so the macOS-only constructor lives in its own gated block.
+#[cfg(target_os = "macos")]
+#[uniffi::export]
+impl PttSession {
+    /// Build a session using euhadra `FluidAudioAdapter` (Parakeet-ja on CoreML / ANE)
+    /// from a downloaded `.mlmodelc` pack. macOS only. Blocking: the first load
+    /// compiles for the Neural Engine, so call it off the main thread.
+    #[uniffi::constructor]
+    pub fn with_fluid_audio_ja(
+        language: FfiLanguage,
+        model_dir: String,
+    ) -> Result<Arc<Self>, FfiError> {
+        let engine =
+            DictationEngine::with_fluidaudio_ja(language.into(), model_dir).map_err(|e| {
+                FfiError::Message {
+                    msg: e.message().to_string(),
+                }
+            })?;
+        ptt_session_from_engine(engine)
     }
 }
 
