@@ -1201,7 +1201,10 @@ final class PttCoordinator {
         )
         menu.setLastText(text)
         NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
-        listeningIndicator.hide()
+        let handBack = handsBarBack
+        if !handBack {
+            listeningIndicator.hide()
+        }
         restoreInsertTargetFocus()
         trace?.markInsertStart()
         let result = inserter.insert(text, into: insertTarget)
@@ -1218,9 +1221,27 @@ final class PttCoordinator {
         }
         if pttHeld {
             beginPtt()
+        } else if handBack {
+            handBarBackToFocus()
         } else {
             pollFreeFocus()
         }
+    }
+
+    /// Q41 / Q46: a hold or hands-free that began over a listening Focus field gives
+    /// the bar back to Focus Dictation when it ends, instead of hiding it in between.
+    private var handsBarBack: Bool {
+        focusAtPress.listening && !pttHeld
+    }
+
+    /// Focus reopens and takes the bar; if it does not (focus moved, disarmed), the
+    /// bar goes, so it never lingers.
+    private func handBarBackToFocus() {
+        pollFreeFocus()
+        if !freeMicOpen {
+            listeningIndicator.hide()
+        }
+        CaptureLog.note("bar handed back to focus=\(freeMicOpen ? 1 : 0)")
     }
 
     /// Hands-free idle tracking (audio pump queue only).
@@ -1490,11 +1511,17 @@ final class PttCoordinator {
         session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
-        listeningIndicator.hide()
+        // Esc / app switch / dead mic already hid the bar (cancelHandsFree).
+        let handBack = handsBarBack
+        if !handBack {
+            listeningIndicator.hide()
+        }
         refreshStatus()
         CaptureLog.note("hands-free idle")
         if pttHeld {
             beginPtt()
+        } else if handBack {
+            handBarBackToFocus()
         } else {
             pollFreeFocus()
         }

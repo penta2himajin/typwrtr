@@ -261,7 +261,9 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
   hides on insert. The bar is already up while recording, so a short processing time
   moves the hide from release to insert rather than causing a flash. In hands-free the
   bar shows levels for as long as the mic is open; the wave appears only for the last
-  segment after the mic closes.
+  segment after the mic closes. Exception (2026-10-18): a hold or hands-free that began
+  while Focus Dictation was listening hands the bar back to Focus instead of hiding it
+  (Q46).
 - **Q42 — No idle bar, no controls.** The menu-bar icon shows idle; the key and Esc
   are the controls. Keeps Q40's click-through bar.
 - **Q43 — Dead mic is not silence.** Q24 still holds for a capture with no speech.
@@ -317,8 +319,12 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
     - Bar hidden (held): a tap shows it at the decision; a hold shows it once the
       press reaches 300 ms; a double-tap shows it at the second press.
     - Focus off or no field focused: unchanged, the bar shows at key-down.
-    - After a hold, Q41 still applies: wave, hidden on insert. Focus then reopens on
-      its own if it was listening, so the bar shows again.
+    - After a hold or hands-free that began while Focus was listening, the wave (Q41)
+      runs until the insert, and then the bar goes straight back to Focus levels as
+      Focus reopens, without hiding in between. If Focus does not reopen (focus moved
+      off text fields, or Focus was disarmed), the bar hides then, so it never lingers.
+      Plain PTT, presses from the held state, and Esc / app switch / dead mic still
+      hide it as before.
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.
