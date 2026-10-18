@@ -26,6 +26,10 @@ final class PttCoordinator {
     // ponytail: serial, so a switch during a cold ja load waits for it rather than
     // compiling into the same ANE cache twice. Cancel the stale load if that wait matters.
     private let sessionLoadQueue = DispatchQueue(label: "app.typwrtr.session-load", qos: .userInitiated)
+    /// Main-run-loop tick while a load runs, so the capture log shows the main thread
+    /// stayed free (`scripts/check-cold-load.sh`). A blocked main thread logs no ticks.
+    private var loadHeartbeat: Timer?
+    private var loadHeartbeatTicks = 0
     private var phase: Phase = .idle
     private var micAuthorized = false
     /// Frontmost app at PTT-down / Free segment start — restore before paste.
@@ -192,10 +196,20 @@ final class PttCoordinator {
         menu.setLanguage(language)
         menu.setBackendDebug("Backend: loading…")
         refreshStatus()
+        startLoadHeartbeat()
+        let started = Date()
         sessionLoadQueue.async { [weak self] in
             let made = SessionFactory.makeSession(language: language)
             DispatchQueue.main.async {
                 guard let self, generation == self.sessionLoadGeneration else { return }
+                self.loadHeartbeat?.invalidate()
+                self.loadHeartbeat = nil
+                CaptureLog.note(String(
+                    format: "asr load done language=%@ ms=%.0f heartbeats=%d",
+                    language.rawValue,
+                    Date().timeIntervalSince(started) * 1000,
+                    self.loadHeartbeatTicks
+                ))
                 self.session = made.0
                 self.backend = made.1
                 self.sessionLoading = false
@@ -209,6 +223,19 @@ final class PttCoordinator {
                 self.pollFreeFocus()
             }
         }
+    }
+
+    private func startLoadHeartbeat() {
+        loadHeartbeat?.invalidate()
+        loadHeartbeatTicks = 0
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.loadHeartbeatTicks += 1
+            CaptureLog.note("asr load heartbeat n=\(self.loadHeartbeatTicks)")
+        }
+        // .common: keeps ticking while the menu is open (event tracking mode).
+        RunLoop.main.add(timer, forMode: .common)
+        loadHeartbeat = timer
     }
 
     private func applyBackendToMenu() {

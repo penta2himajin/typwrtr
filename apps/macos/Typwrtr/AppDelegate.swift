@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let coordinator = PttCoordinator(menu: MenuBarModel.shared)
         self.coordinator = coordinator
         coordinator.start()
+        CaptureLog.note("app ready")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             MenuBarModel.shared.presentSetupIfNeeded()
