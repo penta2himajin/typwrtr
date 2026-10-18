@@ -41,6 +41,10 @@ enum FocusProbe {
             return result
         }
 
+        if let front, front.processIdentifier != getpid() {
+            enableElectronAccessibility(pid: front.processIdentifier)
+        }
+
         if let appEl = focusedApplicationElement() {
             if let result = resolve(from: appEl, via: "focusedApp", front: frontName) {
                 return result
@@ -66,6 +70,18 @@ enum FocusProbe {
         writeDebug(result.detail)
         logOnce(result.detail, result.detail)
         return result
+    }
+
+    private static var accessibilityRequested = Set<pid_t>()
+
+    /// Electron apps (Claude, Discord, Cursor, Slack…) expose no AX tree until a
+    /// client sets `AXManualAccessibility`. Without it the probe saw `via=none`
+    /// for Discord while trusted. Native apps reject the attribute harmlessly.
+    /// Not `AXEnhancedUserInterface`: that one breaks window managers' animations.
+    private static func enableElectronAccessibility(pid: pid_t) {
+        guard accessibilityRequested.insert(pid).inserted else { return }
+        let appEl = AXUIElementCreateApplication(pid)
+        _ = AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     }
 
     /// Focused element only — no window-wide AXChildren walk.
