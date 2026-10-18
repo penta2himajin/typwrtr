@@ -11,10 +11,14 @@ final class HotkeyMonitor {
     var onPttDown: (() -> Void)?
     var onPttUp: (() -> Void)?
     var onUndo: (() -> Void)?
-    /// Esc key-down, observed only: the event still reaches the focused app.
+    /// Esc key-down. Reaches the focused app unless ``shouldSwallowEscape`` says
+    /// otherwise (Q46: swallowed only while PTT records or processes).
     /// ponytail: tap and NSEvent paths only; the Carbon fallback cannot observe a
-    /// key without swallowing it, so Esc is not seen there.
+    /// key without swallowing it, so Esc is not seen there. The NSEvent fallback
+    /// observes but can never swallow.
     var onEscape: (() -> Void)?
+    /// Asked on the main thread inside the tap callback, so it must be cheap.
+    var shouldSwallowEscape: (() -> Bool)?
     /// Any left / right mouse-down, observed only (Focus Dictation clears its Esc hold).
     var onMouseDown: (() -> Void)?
 
@@ -447,10 +451,13 @@ final class HotkeyMonitor {
 
         switch type {
         case .keyDown where keyCode == Int64(kVK_Escape):
+            let swallow = shouldSwallowEscape?() ?? false
             if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
                 DispatchQueue.main.async { [weak self] in self?.onEscape?() }
             }
-            return Unmanaged.passUnretained(event)
+            return swallow ? nil : Unmanaged.passUnretained(event)
+        case .keyUp where keyCode == Int64(kVK_Escape) && (shouldSwallowEscape?() ?? false):
+            return nil
         case .keyDown where isZ && chordMods:
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
             if !isRepeat {

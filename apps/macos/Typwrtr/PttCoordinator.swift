@@ -100,6 +100,9 @@ final class PttCoordinator {
         hotkey.onEscape = { [weak self] in
             self?.escapePressed()
         }
+        hotkey.shouldSwallowEscape = { [weak self] in
+            self?.batchPttCancelable ?? false
+        }
         hotkey.onMouseDown = { [weak self] in
             self?.clearEscapeHoldOnClick()
         }
@@ -297,6 +300,10 @@ final class PttCoordinator {
     /// Q46, Focus Dictation: Esc ends the listen and hides the bar. Esc itself still
     /// reaches the app. The same field does not reopen until focus moves elsewhere.
     private func escapePressed() {
+        if batchPttCancelable {
+            cancelBatchPtt()
+            return
+        }
         guard freeMicOpen, phase == .idle, let pid = latchedFocusPid else { return }
         escapedFocus = (pid, latchedElement)
         stopFreeMic(abandon: true, reason: "esc")
@@ -753,6 +760,31 @@ final class PttCoordinator {
         }
     }
 
+    /// Q46: Esc cancels batch PTT while it records or processes, and is swallowed so
+    /// the app under it never sees that Esc. Streaming PTT is removed in the next PR.
+    private var batchPttCancelable: Bool {
+        !streamingPttActive && (phase == .recording || phase == .finishing) && !batchPttDiscarded
+    }
+
+    /// Set while a cancelled capture is still being processed; its result is dropped.
+    private var batchPttDiscarded = false
+
+    private func cancelBatchPtt() {
+        CaptureLog.note("ptt cancelled (esc) phase=\(phase == .recording ? "recording" : "processing")")
+        listeningIndicator.hide()
+        if phase == .recording {
+            _ = mic.stop()
+            try? session.cancel()
+            phase = .idle
+            freeSuspendedByPtt = false
+            refreshStatus()
+            return
+        }
+        // Processing runs off the main queue and owns the session until it returns;
+        // finishBatchPtt drops the result.
+        batchPttDiscarded = true
+    }
+
     private func beginBatchPtt() {
         phase = .recording
         streamingPttActive = false
@@ -871,7 +903,12 @@ final class PttCoordinator {
                     self.freeSuspendedByPtt = false
                     try? self.session.cancel()
                     self.refreshStatus()
-                    self.menu.showError("PTT failed: \(error)")
+                    // A capture cancelled with Esc fails quietly: the user already gave up on it.
+                    if self.batchPttDiscarded {
+                        self.batchPttDiscarded = false
+                    } else {
+                        self.menu.showError("PTT failed: \(error)")
+                    }
                     if self.pttHeld {
                         self.beginPtt()
                     } else {
@@ -886,6 +923,14 @@ final class PttCoordinator {
         phase = .idle
         freeSuspendedByPtt = false
         refreshStatus()
+        if batchPttDiscarded {
+            batchPttDiscarded = false
+            // Nothing was inserted, so Undo must have nothing to reverse.
+            session.clearBuffer()
+            trace?.finishWithoutInsert(outcome: "cancelled")
+            if pttHeld { beginPtt() } else { pollFreeFocus() }
+            return
+        }
         menu.setLastCapture(
             samples: mic.lastSampleCount,
             sampleRate: mic.lastSampleRate
