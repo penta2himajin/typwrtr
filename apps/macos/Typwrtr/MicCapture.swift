@@ -27,6 +27,16 @@ final class MicCapture {
     private var converter: AVAudioConverter?
     private let targetSampleRate: Double = 16_000
 
+    static let voiceProcessingKey = "typwrtr.voiceProcessing"
+
+    /// Echo cancellation via macOS voice processing. Debug menu A/B only, off by
+    /// default: while it is enabled, other apps capturing the mic without voice
+    /// processing read ~33 dB quieter (architecture.md decision log, 2026-10-18).
+    static var voiceProcessingEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: voiceProcessingKey) }
+        set { UserDefaults.standard.set(newValue, forKey: voiceProcessingKey) }
+    }
+
     /// Last successful capture size (for dogfood visibility).
     private(set) var lastSampleCount: Int = 0
     private(set) var lastSampleRate: UInt32 = 16_000
@@ -58,6 +68,45 @@ final class MicCapture {
         }
     }
 
+    /// Switching voice processing takes ~1 s, so do it once off the main thread
+    /// before the first capture rather than on the PTT press.
+    func prepare() {
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            lock.lock()
+            defer { lock.unlock() }
+            if !running { applyVoiceProcessing() }
+        }
+    }
+
+    /// Caller holds `lock` with the engine stopped.
+    private func applyVoiceProcessing() {
+        let input = engine.inputNode
+        let want = Self.voiceProcessingEnabled
+        guard input.isVoiceProcessingEnabled != want else { return }
+        let began = DispatchTime.now().uptimeNanoseconds
+        do {
+            try input.setVoiceProcessingEnabled(want)
+        } catch {
+            CaptureLog.note("voice processing \(want ? "on" : "off") failed: \(error.localizedDescription)")
+            return
+        }
+        if want {
+            // ux-decisions Q47: never duck the music the user is playing.
+            input.voiceProcessingOtherAudioDuckingConfiguration = .init(
+                enableAdvancedDucking: false,
+                duckingLevel: .min
+            )
+        }
+        let format = input.outputFormat(forBus: 0)
+        CaptureLog.note(String(
+            format: "voice processing %@ ms=%llu format=%.0fHz ch=%u",
+            want ? "on" : "off",
+            (DispatchTime.now().uptimeNanoseconds - began) / 1_000_000,
+            format.sampleRate,
+            format.channelCount
+        ))
+    }
+
     func start() throws {
         lock.lock()
         defer { lock.unlock() }
@@ -66,6 +115,7 @@ final class MicCapture {
         buffer.removeAll(keepingCapacity: true)
         latestRms = 0
 
+        applyVoiceProcessing()
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
@@ -82,6 +132,11 @@ final class MicCapture {
         }
 
         converter = AVAudioConverter(from: inputFormat, to: targetFormat)
+        // Voice processing reports 9 identical channels; the default downmix of
+        // those to mono is silence, so take the first.
+        if inputFormat.channelCount > 1 {
+            converter?.channelMap = [0]
+        }
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] pcm, _ in
             self?.append(pcm: pcm, targetFormat: targetFormat)
