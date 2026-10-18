@@ -11,36 +11,79 @@ final class ListeningIndicator {
     private var appPid: pid_t = 0
     private var level: () -> Float = { 0 }
     private var smoothed: [CGFloat] = []
+    private var mode: Mode = .level
+    private var wavePhase: CGFloat = 0
+    /// Bumped on every show / hide so a stale message timer cannot hide a newer bar.
+    private var generation = 0
 
+    private enum Mode {
+        case level
+        case processing
+        case message
+    }
+
+    /// Mic open: live level bars.
     func show(appPid: pid_t, level: @escaping () -> Float) {
-        let present = {
+        onMain {
+            self.generation += 1
             self.appPid = appPid
             self.level = level
+            self.mode = .level
             self.smoothed = Array(repeating: Self.restingLevel, count: Self.barCount)
-            let panel = self.ensurePanel()
-            self.place(panel)
-            panel.orderFrontRegardless()
-            self.startTimer()
+            self.present(message: nil)
         }
-        if Thread.isMainThread {
-            present()
-        } else {
-            DispatchQueue.main.async(execute: present)
+    }
+
+    /// Mic closed, waiting for insert (Q41): the same bar, as a text-free wave.
+    /// No-op when the bar is not up, so a path that never showed it stays quiet.
+    func showProcessing() {
+        onMain {
+            guard let panel = self.panel, panel.isVisible, self.mode == .level else { return }
+            self.level = { 0 }
+            self.mode = .processing
+            self.wavePhase = 0
+        }
+    }
+
+    /// Short notice in the bar, then hide (Q43). Replaces whatever the bar showed.
+    func flash(_ text: String, seconds: TimeInterval = 2) {
+        onMain {
+            self.generation += 1
+            let shown = self.generation
+            self.level = { 0 }
+            self.mode = .message
+            self.present(message: text)
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+                if self.generation == shown { self.hide() }
+            }
         }
     }
 
     func hide() {
-        let dismiss = {
+        onMain {
+            self.generation += 1
             self.timer?.invalidate()
             self.timer = nil
             self.level = { 0 }
+            self.mode = .level
             self.panel?.orderOut(nil)
         }
+    }
+
+    private func onMain(_ work: @escaping () -> Void) {
         if Thread.isMainThread {
-            dismiss()
+            work()
         } else {
-            DispatchQueue.main.async(execute: dismiss)
+            DispatchQueue.main.async(execute: work)
         }
+    }
+
+    private func present(message: String?) {
+        let panel = ensurePanel()
+        bars?.message = message
+        place(panel)
+        panel.orderFrontRegardless()
+        startTimer()
     }
 
     private func ensurePanel() -> NSPanel {
@@ -83,7 +126,26 @@ final class ListeningIndicator {
     private func tick() {
         guard let panel, panel.isVisible else { return }
         place(panel)
-        ingest(level())
+        switch mode {
+        case .level:
+            ingest(level())
+        case .processing:
+            wavePhase += 0.35
+            bars?.levels = Self.wave(phase: wavePhase)
+        case .message:
+            break
+        }
+    }
+
+    /// One soft bump travelling left to right across resting bars.
+    private static func wave(phase: CGFloat) -> [CGFloat] {
+        let span = CGFloat(barCount) + 4
+        let center = phase.truncatingRemainder(dividingBy: span) - 2
+        return (0..<barCount).map { index in
+            let distance = abs(CGFloat(index) - center)
+            let bump = max(0, 1 - distance / 2.5)
+            return restingLevel + 0.4 * bump * bump
+        }
     }
 
     private func ingest(_ rms: Float) {
@@ -113,7 +175,8 @@ final class ListeningIndicator {
         let screen = screenForApp() ?? NSScreen.main ?? NSScreen.screens.first
         guard let screen else { return }
         let visible = screen.visibleFrame
-        let size = NSSize(width: Self.panelWidth, height: Self.panelHeight)
+        let width = bars?.message.map { Self.messageWidth($0) } ?? Self.panelWidth
+        let size = NSSize(width: width, height: Self.panelHeight)
         let origin = NSPoint(
             x: visible.midX - size.width / 2,
             y: visible.minY + 16
@@ -180,6 +243,11 @@ final class ListeningIndicator {
         return rect
     }
 
+    private static func messageWidth(_ text: String) -> CGFloat {
+        let textWidth = (text as NSString).size(withAttributes: [.font: LevelBarsView.messageFont]).width
+        return max(panelWidth, ceil(textWidth) + 32)
+    }
+
     private static let barCount = 9
     private static let restingLevel: CGFloat = 0.12
     private static let panelWidth: CGFloat = 132
@@ -192,7 +260,12 @@ private final class ClickThroughPanel: NSPanel {
 }
 
 private final class LevelBarsView: NSView {
+    static let messageFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+
     var levels: [CGFloat] = [] {
+        didSet { needsDisplay = true }
+    }
+    var message: String? {
         didSet { needsDisplay = true }
     }
 
@@ -206,6 +279,17 @@ private final class LevelBarsView: NSView {
         )
         NSColor.black.withAlphaComponent(0.82).setFill()
         pill.fill()
+
+        if let message {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: Self.messageFont,
+                .foregroundColor: NSColor.white.withAlphaComponent(0.92),
+            ]
+            let size = (message as NSString).size(withAttributes: attributes)
+            let origin = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+            (message as NSString).draw(at: origin, withAttributes: attributes)
+            return
+        }
 
         guard !levels.isEmpty else { return }
         let barWidth: CGFloat = 3

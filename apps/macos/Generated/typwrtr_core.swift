@@ -2187,11 +2187,30 @@ fileprivate struct FfiConverterSequenceTypeFfiTermEntry: FfiConverterRustBuffer 
     }
 }
 /**
+ * Samples hands-free / Focus Dictation collect before the Q43 check (~2 s @ 16 kHz).
+ */
+public func deadInputProbeSamples() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_dead_input_probe_samples($0
+    )
+})
+}
+/**
  * Silence seconds that end a Focus Dictation / Free segment (Q25: 1.5s).
  */
 public func focusDictationSilenceSeconds() -> Double  {
     return try!  FfiConverterDouble.lift(try! rustCall() {
     uniffi_typwrtr_core_fn_func_focus_dictation_silence_seconds($0
+    )
+})
+}
+/**
+ * Whether a capture carries no microphone signal (Q43; not the same as no speech).
+ */
+public func isDeadInput(samples: [Float]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_is_dead_input(
+        FfiConverterSequenceFloat.lower(samples),$0
     )
 })
 }
@@ -2291,7 +2310,13 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_typwrtr_core_checksum_func_dead_input_probe_samples() != 5830) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_typwrtr_core_checksum_func_focus_dictation_silence_seconds() != 52781) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_is_dead_input() != 16877) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_load_term_dictionary() != 42573) {

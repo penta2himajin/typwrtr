@@ -225,6 +225,18 @@ pub fn speech_start_pad_samples() -> u64 {
     crate::endpoint::SPEECH_START_PAD_SAMPLES as u64
 }
 
+/// Whether a capture carries no microphone signal (Q43; not the same as no speech).
+#[uniffi::export]
+pub fn is_dead_input(samples: Vec<f32>) -> bool {
+    crate::input_level::is_dead_input(&samples)
+}
+
+/// Samples hands-free / Focus Dictation collect before the Q43 check (~2 s @ 16 kHz).
+#[uniffi::export]
+pub fn dead_input_probe_samples() -> u64 {
+    crate::input_level::DEAD_INPUT_PROBE_SAMPLES as u64
+}
+
 /// FFI-visible error.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Error, thiserror::Error)]
 pub enum FfiError {

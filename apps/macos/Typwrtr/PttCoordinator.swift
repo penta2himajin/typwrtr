@@ -28,6 +28,11 @@ final class PttCoordinator {
     private var freeInFlight = 0
     private var focusWatcher = FocusWatcher()
     private let listeningIndicator = ListeningIndicator()
+    /// Batch PTT key-down time, so a quick tap is not judged a dead mic (Q43).
+    private var pttStartedAt = Date.distantPast
+    /// First ~2 s of a Focus listen, checked once for a dead mic (Q43). Audio pump queue only.
+    private var focusProbe: [Float] = []
+    private var focusProbeDone = true
     /// Drains mic / VAD on a dedicated queue so main-thread insert cannot stall endpointing.
     private let audioPumpQueue = DispatchQueue(label: "app.typwrtr.audio-pump")
     private var audioPumpTimer: DispatchSourceTimer?
@@ -353,6 +358,9 @@ final class PttCoordinator {
 
     private func startAudioPump(_ kind: AudioPumpKind) {
         stopAudioPump()
+        // The old pump has drained (stopAudioPump syncs the queue), so this is race-free.
+        focusProbe.removeAll(keepingCapacity: true)
+        focusProbeDone = kind != .focus
         audioPumpKind = kind
         let timer = DispatchSource.makeTimerSource(queue: audioPumpQueue)
         timer.schedule(deadline: .now(), repeating: 0.08, leeway: .milliseconds(10))
@@ -383,6 +391,7 @@ final class PttCoordinator {
 
     private func processFreeAudio() {
         let chunk = mic.drain()
+        probeFocusInput(chunk)
         do {
             let event = try session.pushStreamPcmF32(samples: chunk, sampleRate: 16_000)
             switch event {
@@ -402,6 +411,26 @@ final class PttCoordinator {
             CaptureLog.note("focus push failed")
         }
     }
+
+    /// Q43: a Focus listen whose first ~2 s carry no signal ends and disarms, so the
+    /// next focus does not reopen a dead mic. Runs on the audio pump queue.
+    private func probeFocusInput(_ chunk: [Float]) {
+        guard !focusProbeDone else { return }
+        focusProbe.append(contentsOf: chunk)
+        guard focusProbe.count >= Int(deadInputProbeSamples()) else { return }
+        focusProbeDone = true
+        let dead = isDeadInput(samples: focusProbe)
+        focusProbe.removeAll()
+        guard dead else { return }
+        NSLog("Typwrtr: Focus Dictation saw no microphone input; disarming")
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.freeMicOpen else { return }
+            self.setFreeArmed(false)
+            self.listeningIndicator.flash(Self.noInputMessage)
+        }
+    }
+
+    private static let noInputMessage = "No microphone input"
 
     private func enqueueFreeSegment() {
         if freeDrainScheduled {
@@ -594,6 +623,7 @@ final class PttCoordinator {
         insertTarget = NSWorkspace.shared.frontmostApplication
         menu.setCanUndo(false)
         menu.setStatus(.recording)
+        pttStartedAt = Date()
         do {
             try session.startPtt()
             try mic.start()
@@ -653,7 +683,18 @@ final class PttCoordinator {
     private func endBatchPtt() {
         phase = .finishing
         let captured = mic.stop()
-        listeningIndicator.hide()
+        // Q43: a hold long enough to say something, with no signal at all.
+        if Date().timeIntervalSince(pttStartedAt) >= 0.5, isDeadInput(samples: captured.samples) {
+            NSLog("Typwrtr: PTT saw no microphone input")
+            listeningIndicator.flash(Self.noInputMessage)
+            phase = .idle
+            freeSuspendedByPtt = false
+            try? session.cancel()
+            refreshStatus()
+            pollFreeFocus()
+            return
+        }
+        listeningIndicator.showProcessing()
         menu.setStatus(.processing)
         let trace = LatencyLog.isEnabled
             ? LatencyLog.Trace(path: "ptt", trigger: "release")
@@ -683,6 +724,7 @@ final class PttCoordinator {
             } catch {
                 trace?.finishWithoutInsert(outcome: "error")
                 DispatchQueue.main.async {
+                    self.listeningIndicator.hide()
                     self.phase = .idle
                     self.freeSuspendedByPtt = false
                     try? self.session.cancel()
@@ -708,6 +750,7 @@ final class PttCoordinator {
         )
         menu.setLastText(text)
         NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
+        listeningIndicator.hide()
         restoreInsertTargetFocus()
         trace?.markInsertStart()
         let result = inserter.insert(text, into: insertTarget)
@@ -754,7 +797,7 @@ final class PttCoordinator {
     private func endStreamingPtt() {
         stopAudioPump()
         let captured = mic.stop()
-        listeningIndicator.hide()
+        listeningIndicator.showProcessing()
         streamingPttActive = false
         streamReleasePending = true
         do {
@@ -944,6 +987,7 @@ final class PttCoordinator {
         session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
+        listeningIndicator.hide()
         refreshStatus()
         NSLog("Typwrtr: streaming PTT idle")
         if pttHeld {
