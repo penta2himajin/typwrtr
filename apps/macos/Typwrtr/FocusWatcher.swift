@@ -6,17 +6,21 @@ import Foundation
 ///
 /// Avoids AXObserver on `FocusedUIElementChanged` — Electron apps (Cursor) fire
 /// that constantly and each follow-up AX probe makes the assistive “pip” sound.
-/// We only react to app activation plus a slow backup while **not** already listening.
+/// We react to app activation plus a backup timer: a full probe every ~3 s while
+/// waiting for a field, and a cheap focused-element comparison every 1 s while
+/// listening (a move inside the same app must close the mic, Q4).
 final class FocusWatcher {
     var onFocusPossiblyChanged: (() -> Void)?
 
-    /// When true, skip backup probes (mic already open for a text field).
+    /// True while the mic is open: ticks every second so the coordinator can compare
+    /// the focused element; otherwise only every third tick runs a full probe.
     var quietWhileListening = false
 
     private var workspaceObserver: NSObjectProtocol?
     private var backupTimer: Timer?
     private var debounceWork: DispatchWorkItem?
     private var running = false
+    private var tick = 0
 
     func start() {
         guard !running else { return }
@@ -30,10 +34,11 @@ final class FocusWatcher {
             self?.emitDebounced(delay: 0.15)
         }
 
-        // Slow backup only when waiting for a field — not while already listening.
         backupTimer?.invalidate()
-        let timer = Timer(timeInterval: 2.5, repeats: true) { [weak self] _ in
-            guard let self, self.running, !self.quietWhileListening else { return }
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self, self.running else { return }
+            self.tick += 1
+            guard self.quietWhileListening || self.tick % 3 == 0 else { return }
             self.emitDebounced(delay: 0)
         }
         RunLoop.main.add(timer, forMode: .common)

@@ -25,6 +25,14 @@ enum FocusProbe {
     struct ProbeResult {
         var kind: FocusKind?
         var detail: String
+        var element: AXUIElement?
+    }
+
+    /// The app's focused element, one attribute read, no classification. Used while
+    /// listening to notice a focus move inside the same app without a full probe.
+    static func focusedElement(pid: pid_t) -> AXUIElement? {
+        let appEl = AXUIElementCreateApplication(pid)
+        return copyAXElement(appEl, kAXFocusedUIElementAttribute as String) ?? focusedViaWindow(appEl)
     }
 
     static func current() -> FocusKind? { probe().kind }
@@ -108,7 +116,8 @@ enum FocusProbe {
         let desc = stringAttribute(element, kAXRoleDescriptionAttribute as String) ?? ""
         let result = ProbeResult(
             kind: kind,
-            detail: "via=\(via) role=\(role) desc=\(desc) kind=\(label(kind)) front=\(front)"
+            detail: "via=\(via) role=\(role) desc=\(desc) kind=\(label(kind)) front=\(front)",
+            element: element
         )
         writeDebug(result.detail)
         logOnce(result.detail, result.detail)

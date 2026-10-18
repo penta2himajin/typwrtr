@@ -45,6 +45,8 @@ final class PttCoordinator {
     /// Latched focus so opening the menu bar does not drop Free listening.
     private var latchedFocus: FocusKind?
     private var latchedFocusPid: pid_t?
+    /// Element the latched probe saw; compared each second while listening.
+    private var latchedElement: AXUIElement?
     private var latchedFocusAt: Date?
     /// Drop Focus pastes whose listen generation no longer matches (user left the field).
     private var freeInsertGeneration: UInt64 = 0
@@ -224,17 +226,21 @@ final class PttCoordinator {
 
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
-        // Already listening in the same app: do not re-probe AX (stops pip spam).
+        // Already listening in the same app: skip the full probe (pip spam) unless the
+        // focused element changed. Without this check, leaving the field for another
+        // part of the same app kept the mic and bar open (dogfood 2026-10-18).
         if freeMicOpen,
            latchedFocus == .textField,
-           frontPid != nil,
+           let frontPid,
            frontPid == latchedFocusPid
         {
-            focusWatcher.quietWhileListening = true
-            menu.setFreeListeningIcon(true)
-            menu.setFreeAvailability(.listening)
-            CaptureLog.note("focus poll skipped probe (listening, same app)")
-            return
+            if !focusMovedWithinApp(pid: frontPid) {
+                focusWatcher.quietWhileListening = true
+                menu.setFreeListeningIcon(true)
+                menu.setFreeAvailability(.listening)
+                return
+            }
+            CaptureLog.note("focus moved within app; re-probing")
         }
 
         // Left the target app while listening — stop mic without a full probe first.
@@ -273,6 +279,16 @@ final class PttCoordinator {
         }
     }
 
+    /// Cheap check: has the focused element changed since the probe that opened the
+    /// mic? An unreadable element counts as unchanged, so a flaky AX read cannot
+    /// cut a phrase off.
+    private func focusMovedWithinApp(pid: pid_t) -> Bool {
+        guard let latched = latchedElement,
+              let current = FocusProbe.focusedElement(pid: pid)
+        else { return false }
+        return !CFEqual(latched, current)
+    }
+
     /// Prefer live AX probe; if the menu-bar agent briefly steals key window, keep
     /// the last text-field focus for the same frontmost app (~2s).
     private func resolveFocus() -> FocusKind? {
@@ -280,6 +296,7 @@ final class PttCoordinator {
         let probed = FocusProbe.probe()
         if let live = probed.kind {
             latchedFocus = live
+            latchedElement = probed.element
             latchedFocusPid = frontPid
             latchedFocusAt = Date()
             return live
