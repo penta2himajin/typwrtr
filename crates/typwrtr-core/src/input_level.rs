@@ -4,8 +4,13 @@
 //! detector. A muted or dead input delivers digital zero or close to it, far
 //! below measured room tone (−45 dBFS), so a plain RMS cutoff separates them.
 
-/// RMS at or below this is no input: −60 dBFS, 15 dB under measured room tone.
-pub const DEAD_INPUT_RMS: f32 = 0.001;
+/// RMS at or below this is no input: −80 dBFS.
+///
+/// Measured on the built-in mic (2026-10-18): live silence −44 to −50.5 dBFS,
+/// input volume 0 → −120 dBFS (digital zero). −60 caught mute too but sat only
+/// 10 dB under live silence, so a gating mic idling near −70 would read as dead
+/// and disarm Focus Dictation mid-use; −80 keeps 30 dB / 40 dB either side.
+pub const DEAD_INPUT_RMS: f32 = 0.000_1;
 
 /// Samples hands-free / Focus Dictation wait for before judging (~2 s @ 16 kHz).
 pub const DEAD_INPUT_PROBE_SAMPLES: usize = 32_000;
@@ -75,8 +80,15 @@ mod tests {
     }
 
     #[test]
-    fn dead_cutoff_is_minus_60_dbfs() {
-        assert!((20.0 * f64::from(DEAD_INPUT_RMS).log10() + 60.0).abs() < 1e-6);
+    fn dead_cutoff_is_minus_80_dbfs() {
+        assert!((20.0 * f64::from(DEAD_INPUT_RMS).log10() + 80.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn quiet_gated_mic_is_alive() {
+        // A mic that gates to a low floor between words must not read as muted.
+        let rms = 10f32.powf(-70.0 / 20.0);
+        assert!(!is_dead_input(&tone(rms * 2f32.sqrt(), 16_000)));
     }
 
     #[test]

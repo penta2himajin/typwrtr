@@ -79,7 +79,7 @@ adapter.
   "adapter returned nothing" anyway (both are `NoSpeech`).
 - A dead microphone would therefore also be silent. Since 2026-10-18 the shell
   tells them apart by *signal level*, not the detector: core `is_dead_input`
-  (RMS ≤ −60 dBFS, or nothing delivered) drives the "No microphone input" notice
+  (RMS ≤ −80 dBFS, or nothing delivered) drives the "No microphone input" notice
   ([`ux-decisions.md`](./ux-decisions.md) Q43). Capture logs record the level in
   dBFS so the cutoff can be calibrated on real devices.
 - `Dictated::speech_samples` **clamps segment bounds to the buffer and merges

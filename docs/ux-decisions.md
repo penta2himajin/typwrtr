@@ -262,8 +262,9 @@ third lands, the three Settings modes in §4 still describe the build.
   - PTT: judged over the whole capture.
   - Hands-free / Focus Dictation: judged over the first ~2 s after the mic opens, then
     the listening ends (Focus Dictation disarms, so it does not reopen on the next focus).
-  - "Near zero" sits well below measured room tone (−45 dBFS, §4); the exact cutoff lives
-    in core next to the test that pins it.
+  - "Near zero" is **−80 dBFS** RMS (core `DEAD_INPUT_RMS`, pinned by tests). Measured
+    2026-10-18 on the built-in mic: live silence −44 to −50.5 dBFS, input volume 0 →
+    −120 dBFS. The cutoff keeps 30 dB above it for mics that gate to a low floor.
 - **Q44 — One key.** Hold = PTT, which inserts once on release (batch; streaming PTT is
   removed). Double-tap within 0.4 s = hands-free. A press shorter than 0.3 s waits up to
   0.4 s for a second press; longer presses start PTT immediately. The Settings mode
