@@ -11,7 +11,7 @@ use euhadra::parakeet::ParakeetAdapter;
 use euhadra::prelude::*;
 use euhadra::sensevoice::SenseVoiceAdapter;
 use euhadra::traits::AsrAdapter;
-use euhadra::vad::{EarshotVad, SegmenterConfig};
+use euhadra::vad::{segment_buffer, EarshotVad, SegmenterConfig};
 use euhadra::whisper_local::WhisperLocal;
 
 use crate::dictionary::{self, StoredTerm};
@@ -22,6 +22,7 @@ use crate::paths::{
     resolve_sensevoice_from_env, resolve_whisper_from_env, resolve_whisper_paths,
     whisper_language_tag,
 };
+use crate::stream_endpoint::{live_config, StreamListenMode};
 
 /// Errors while building or running the dictation pipeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -258,6 +259,25 @@ impl DictationEngine {
         self.language
     }
 
+    /// Batch PTT: [`dictate`](Self::dictate) behind the live speech-start check.
+    ///
+    /// Streaming PTT and Focus Dictation only hand over windows the live
+    /// endpointer opened at its 0.42 cutoff. Batch PTT had no such check, and
+    /// the trim pass at Earshot's 0.2 calibration opens on room tone: a silent
+    /// hold inserted 「うん。」 (dogfood 2026-10-18, Q23/Q24/Q49). Raising the
+    /// trim threshold instead cost ja CER, so opening and trimming stay apart.
+    ///
+    /// Not on the streaming path: a cold second pass dropped 2 of 146 windows
+    /// the live endpointer had accepted (architecture.md).
+    // ponytail: second Earshot pass (~1 ms per 3 s capture); drop it once
+    // euhadra's Segmenter takes separate open / keep thresholds (euhadra#176).
+    pub async fn dictate_batch(&self, audio: &[AudioChunk]) -> Result<Dictated, EngineError> {
+        if !opens_live_segment(audio) {
+            return Err(EngineError::no_speech());
+        }
+        self.dictate(audio).await
+    }
+
     /// Run a complete utterance through ASR + cleanup.
     pub async fn dictate(&self, audio: &[AudioChunk]) -> Result<Dictated, EngineError> {
         let result = self.pipeline.transcribe(audio).await?;
@@ -268,6 +288,20 @@ impl DictationEngine {
             speech_segments: result.diagnostics.speech_segments.len() as u32,
         })
     }
+}
+
+/// Whether the live endpointer's speech-start criterion fires anywhere in `audio`.
+///
+/// A gate that cannot run (wrong rate) must not hide speech, so it passes and
+/// the pipeline decides.
+fn opens_live_segment(audio: &[AudioChunk]) -> bool {
+    let rate = audio.first().map_or(16_000, |c| c.sample_rate);
+    let samples: Vec<f32> = audio
+        .iter()
+        .flat_map(|c| c.samples.iter().copied())
+        .collect();
+    let config = live_config(StreamListenMode::Streaming);
+    segment_buffer(&EarshotVad::new(), &samples, rate, &config).map_or(true, |s| !s.is_empty())
 }
 
 /// Samples covered by the detected utterances, as a fraction of the recording.
@@ -307,7 +341,10 @@ mod tests {
     use super::*;
     use euhadra::mock::{MockAsr, RecordingAsr};
 
-    use crate::test_audio::{chunk, voiced_chunk, voiced_padded_with_silence, voiced_samples};
+    use crate::test_audio::{
+        at_dbfs, chunk, room_tone, voiced_chunk, voiced_padded_with_silence, voiced_samples,
+        with_desk_taps,
+    };
 
     #[tokio::test]
     async fn english_mock_pipeline_removes_filler_and_self_repair() {
@@ -418,6 +455,51 @@ mod tests {
             .await
             .expect_err("silence must not produce a transcript");
         assert!(err.is_no_speech(), "got: {err}");
+    }
+
+    /// Room tone is not speech. At Earshot's 0.2 calibration a −45 dBFS floor
+    /// opened a segment, and a batch PTT hold with nothing said inserted 「うん。」
+    /// (dogfood 2026-10-18: 3.30s pushed, 1.10s kept as speech). Q23/Q24.
+    #[tokio::test]
+    async fn room_tone_without_speech_never_reaches_the_asr_adapter() {
+        for (name, samples) in [
+            ("room tone", room_tone(3.3)),
+            (
+                "room tone + desk taps",
+                with_desk_taps(at_dbfs(room_tone(3.3), -49.0)),
+            ),
+        ] {
+            let asr = RecordingAsr::new(["うん。"]);
+            let calls = asr.calls();
+            let engine = DictationEngine::new(Language::Japanese, asr).unwrap();
+
+            let result = engine.dictate_batch(&[chunk(samples)]).await;
+            assert!(
+                matches!(&result, Err(e) if e.is_no_speech()),
+                "{name}: expected no speech, got {result:?}"
+            );
+            assert!(
+                calls.lock().unwrap().is_empty(),
+                "{name}: room tone reached the adapter"
+            );
+        }
+    }
+
+    /// The speech gate must not swallow a short reply like 「はい」 — under
+    /// Q24 a dropped one vanishes without any message. 0.25 s at the room's
+    /// own level: still kept at 0.42, dropped at a 0.7 gate.
+    #[tokio::test]
+    async fn a_short_quiet_reply_over_room_tone_still_reaches_the_adapter() {
+        let asr = RecordingAsr::new(["はい"]);
+        let calls = asr.calls();
+        let engine = DictationEngine::new(Language::Japanese, asr).unwrap();
+
+        let mut samples = room_tone(1.0);
+        samples.extend(at_dbfs(voiced_samples(0.25), -45.0));
+        samples.extend(room_tone(1.0));
+        let dictated = engine.dictate_batch(&[chunk(samples)]).await.unwrap();
+        assert!(dictated.text.contains("はい"), "got: {}", dictated.text);
+        assert_eq!(calls.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

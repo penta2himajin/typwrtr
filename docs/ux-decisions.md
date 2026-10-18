@@ -54,7 +54,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 - **3b — temporary override:** PTT on the focused field cancels/suspends Free listening for that capture and runs one PTT session.  
 - Does **not** permanently disarm Free. Arming state stays as the user set it.
 
-### Silence handling & segment end (Q23–Q26)
+### Silence handling & segment end (Q23–Q26, Q49)
 
 Decided 2026-08-09, once euhadra 0.3.0 made voice activity detection available.
 Applies to **both** PTT and Free: the two paths share one pipeline.
@@ -92,6 +92,15 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   is force-segmented after 30s with no pause. Previously such an utterance
   produced a single insert, and the buffer grew without bound. The cap is
   accepted; the granularity change is the visible cost.
+
+- **Q49 — Batch PTT needs the same evidence of speech as streaming.** Decided
+  2026-10-18 after a silent ⌃⇧D hold inserted 「うん。」: the dictate trim's
+  0.2 cutoff opened on room tone, so Q23/Q24 did not hold on batch PTT.
+  Batch PTT now checks for the live endpointer's speech start (Earshot 0.42
+  for 120 ms) before ASR, and a hold without it returns to idle silently per
+  Q24. **Visible cost:** a very quiet single vowel can now be dropped without a
+  message (synthetic replies: 146/148 kept; the two misses were 「あ」 at
+  −40 dBFS). Numbers: [`architecture.md`](./architecture.md) §3.
 
 ## 3. Hotkey (Q15)
 
@@ -281,6 +290,7 @@ them.
 | Q37 | Empty dictionary still on the pipeline |
 | Q38 | Dogfood ships Settings CRUD with the wiring |
 | Q39 | No import/export UI this phase |
+| Q49 | Batch PTT requires the live speech-start criterion before ASR; quiet single vowels may drop silently |
 
 ## 13. Deferred (explicit non-decisions)
 

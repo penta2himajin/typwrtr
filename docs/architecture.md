@@ -69,6 +69,34 @@ adapter.
 - `SegmenterConfig::threshold` stays `None` so the backend calibrates it.
   `EarshotVad` wants 0.2; euhadra measured `EnergyVad`'s 0.5 applied to it as
   **worse than no detector at all**. Do not hardcode a threshold here.
+  Re-measured 2026-10-18 (FLEURS ja, Parakeet-ja, 5 s of −45 dBFS either
+  side): on the 26 audible clips CER is 0.0616 at 0.2 and 0.0878 at 0.42
+  (clean 0.0850), so a stricter **trim** gives back what the detector gained.
+- **Batch PTT speech gate (2026-10-18).** The same 0.2 also *opens* segments
+  on room tone: a silent ⌃⇧D hold kept 1.10 s of a 3.30 s capture as speech
+  and Parakeet-ja inserted 「うん。」 ([`ux-decisions.md`](./ux-decisions.md)
+  Q49). Streaming PTT and Focus Dictation never hit this — the live
+  endpointer only hands over windows it opened at 0.42 — so `stop_ptt` now
+  calls `DictationEngine::dictate_batch`, which runs `segment_buffer` with the
+  live config (`live_config`, 0.42, `min_speech` 120 ms) first and returns
+  `NoSpeech` without calling the adapter when nothing opens. Trimming is
+  unchanged, so wherever the gate passes the transcript equals the 0.2 result.
+  - Noise-only (54 synthetic 3.3 s fixtures: white / brown −40…−55 dBFS, desk
+    taps over −49): **41/54** open at 0.2; **0/54** pass the gate. Raising
+    `min_speech` alone does not separate them (0.2 at 400 ms still 5/54; noise
+    runs ≥ 0.2 reach 52 frames).
+  - Recall: macOS `say` replies (ja はい/うん/えっ/いいえ/あ × 5 voices, en
+    yes/no/ok/hi × 3, at −32 and −40 dBFS over room tone) **146/148** — both
+    misses are one voice's 「あ」 at −40 dBFS. FLEURS ja: 26/26 audible clips
+    pass; 1 of the 4 buried ones (−63 dBFS, SNR −18 dB) does not.
+  - Not on the streaming path: a cold second pass over the windows
+    `StreamListen` had closed dropped 2 of 146.
+  - Cost: ~1.1 ms per 3.3 s capture, ~10 ms per 30 s (release build).
+  - Residual: synthetic taps form runs of ≤ 5 frames at 0.42; real spikes
+    peak 0.47–0.61 and their run lengths are still being measured
+    (euhadra#174). A burst of ≥ 8 frames would still open the gate.
+  - Remove the gate once euhadra splits the open threshold from the keep
+    threshold (euhadra#176).
 - `min_silence` = 1500ms for Focus Dictation / Free pipeline dictate to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25). Streaming PTT live endpointing uses euhadra `SegmenterConfig::default()` (700ms) via `StreamListen`, not the shell energy timer.
 - A capture with no speech now yields `PipelineError::NoSpeech` where an ASR
   hallucination used to be returned. The core turns that into an **empty
@@ -104,7 +132,8 @@ synchronous. Swift becomes a pump: hand over samples, act on the returned event.
 threshold **0.42** (measured −45 dBFS room tone peaked ~0.37, which reset the
 rlx-vad 0.35 silence run; euhadra’s 0.2 WER calibration under-closed on laptop
 room tone in dogfood). Dictate trim still uses backend
-default 0.2. Silence budgets: streaming ≈ **700 ms**, Focus Dictation **1500 ms**
+default 0.2; batch PTT borrows the live 0.42 criterion only as a has-speech
+gate (see above). Silence budgets: streaming ≈ **700 ms**, Focus Dictation **1500 ms**
 (Q25). CaptureLog: `earshot-silence` / `earshot-release`. `SilenceVad.swift` is
 deleted. Do not replace live Earshot with EnergyVad without an explicit product
 decision.
@@ -259,3 +288,4 @@ Workspace `Cargo.toml` already declares `license = "MIT OR Apache-2.0"`.
 | 2026-08-09 | Endpointing reads the segmenter **synchronously**; `Session::partials` and callback interfaces deferred. |
 | 2026-08-09 | Segmenter used for endpointing only; the pipeline's own detector does the trimming (one pipeline config for both paths). |
 | 2026-08-10 | **User term dictionary:** `TermDictionary` only; speaker-owned JSON per language; Settings CRUD rebuilds the engine; after punctuation; no import UI; phoneme/contextual rewrite deferred to euhadra. |
+| 2026-10-18 | **Batch PTT speech gate:** `dictate_batch` requires the live speech-start criterion (0.42, 120 ms) before the pipeline; trim stays 0.2 (0.42 trim cost ja CER 0.0616 → 0.0878). Interim until euhadra#176. |
