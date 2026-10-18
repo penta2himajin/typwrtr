@@ -2638,6 +2638,15 @@ public func streamingPttSilenceSeconds() -> Double  {
 })
 }
 /**
+ * Seconds a press must last before it is a hold, not a possible first tap (Q44).
+ */
+public func tapMaxSeconds() -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_typwrtr_core_fn_func_tap_max_seconds($0
+    )
+})
+}
+/**
  * Absolute path of the JSON file for `language` (hand-edit / debug).
  */
 public func termDictionaryPath(language: FfiLanguage) -> String  {
@@ -2709,6 +2718,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_streaming_ptt_silence_seconds() != 52162) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_typwrtr_core_checksum_func_tap_max_seconds() != 33404) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_typwrtr_core_checksum_func_term_dictionary_path() != 51010) {

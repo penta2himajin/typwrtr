@@ -22,12 +22,16 @@ final class ListeningIndicator {
         case message
     }
 
-    /// Mic open: live level bars.
+    /// Mic open: live level bars. Already showing levels: only the source changes,
+    /// so a hand-over between listens (Focus → PTT / hands-free) does not flicker.
     func show(appPid: pid_t, level: @escaping () -> Float) {
         onMain {
             self.generation += 1
-            self.appPid = appPid
             self.level = level
+            if self.panel?.isVisible == true, self.mode == .level, self.appPid == appPid {
+                return
+            }
+            self.appPid = appPid
             self.mode = .level
             self.smoothed = Array(repeating: Self.restingLevel, count: Self.barCount)
             self.present(message: nil)

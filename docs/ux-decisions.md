@@ -25,7 +25,7 @@ Windows later: same idea (UI Automation + clipboard), not a TSF IME-first design
 - Ideal presentation varies by user type; **do not auto-detect user type**.  
 - **PTT feedback: menu bar icon** (idle / recording / processing / error) **plus the Q40 level bar while the key is held**, which stays through processing (Q41).  
 - No partial-transcript HUD in MVP (see §11).  
-- **While the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen, in **all three modes** — PTT batch and streaming while the key is held, Focus Dictation while its mic is open. Level bars only — no transcript and no controls. After release it stays up through processing with a wave (Q41) and disappears on insert. Hidden while Focus Dictation is armed but waiting for a field. The menu-bar icon still changes. (2026-10-18: extended from Focus Dictation only to PTT, matching Aqua Voice / Typeless-style hold feedback.)  
+- **While the mic is open (Q40):** a non-activating bar at the bottom center of the dictated-into app’s screen, in **all three modes** — PTT batch and streaming while the key is held, Focus Dictation while its mic is open. Level bars only — no transcript and no controls. After release it stays up through processing with a wave (Q41) and disappears on insert. Hidden while Focus Dictation is armed but waiting for a field. A PTT-key press over a Focus field changes the bar only once the press is classified (Q46). The menu-bar icon still changes. (2026-10-18: extended from Focus Dictation only to PTT, matching Aqua Voice / Typeless-style hold feedback.)  
 - Richer HUD / partial display may be added later as options.
 
 ## 2. Activation modes (Q3, Q5, Q12, Q13, Q19)
@@ -261,7 +261,9 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
   hides on insert. The bar is already up while recording, so a short processing time
   moves the hide from release to insert rather than causing a flash. In hands-free the
   bar shows levels for as long as the mic is open; the wave appears only for the last
-  segment after the mic closes.
+  segment after the mic closes. Exception (2026-10-18): a hold or hands-free that began
+  while Focus Dictation was listening hands the bar back to Focus instead of hiding it
+  (Q46).
 - **Q42 — No idle bar, no controls.** The menu-bar icon shows idle; the key and Esc
   are the controls. Keeps Q40's click-through bar.
 - **Q43 — Dead mic is not silence.** Q24 still holds for a capture with no speech.
@@ -308,6 +310,21 @@ three PRs tracked by [#6](https://github.com/penta2himajin/typwrtr/issues/6).
     or no field focused), the tap is batch PTT as before. Esc that cancels a press
     begun over a listening field (in that window, or while holding or processing
     PTT) leaves Focus stopped, as Esc on the bar would.
+  - **The bar changes once per press (2026-10-18).** While Focus Dictation is armed on
+    a text field, a press of the PTT key leaves the bar as it was until the press is
+    classified, then changes it once. Hiding it at key-down and showing it again for
+    PTT made it flicker on every toggle.
+    - Bar up (listening): a hold keeps it up and it shows the PTT capture's level; a
+      tap hides it at the 400 ms decision; a double-tap keeps it up for hands-free.
+    - Bar hidden (held): a tap shows it at the decision; a hold shows it once the
+      press reaches 300 ms; a double-tap shows it at the second press.
+    - Focus off or no field focused: unchanged, the bar shows at key-down.
+    - After a hold or hands-free that began while Focus was listening, the wave (Q41)
+      runs until the insert, and then the bar goes straight back to Focus levels as
+      Focus reopens, without hiding in between. If Focus does not reopen (focus moved
+      off text fields, or Focus was disarmed), the bar hides then, so it never lingers.
+      Plain PTT, presses from the held state, and Esc / app switch / dead mic still
+      hide it as before.
 - **Q47 — Not added:** start/stop sounds, ducking other audio, history, and a
   paste-last hotkey. The bar carries state, §7 plus ⌃⇧Z cover recovery, and §10 keeps
   retention minimal. Revisit on dogfood evidence.

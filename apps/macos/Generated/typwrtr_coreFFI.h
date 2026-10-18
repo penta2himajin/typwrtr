@@ -522,6 +522,12 @@ double uniffi_typwrtr_core_fn_func_streaming_ptt_silence_seconds(RustCallStatus 
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TAP_MAX_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TAP_MAX_SECONDS
+double uniffi_typwrtr_core_fn_func_tap_max_seconds(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TERM_DICTIONARY_PATH
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_FN_FUNC_TERM_DICTIONARY_PATH
 RustBuffer uniffi_typwrtr_core_fn_func_term_dictionary_path(RustBuffer language, RustCallStatus *_Nonnull out_status
@@ -900,6 +906,12 @@ uint16_t uniffi_typwrtr_core_checksum_func_speech_start_pad_samples(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_STREAMING_PTT_SILENCE_SECONDS
 #define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_STREAMING_PTT_SILENCE_SECONDS
 uint16_t uniffi_typwrtr_core_checksum_func_streaming_ptt_silence_seconds(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_TAP_MAX_SECONDS
+#define UNIFFI_FFIDEF_UNIFFI_TYPWRTR_CORE_CHECKSUM_FUNC_TAP_MAX_SECONDS
+uint16_t uniffi_typwrtr_core_checksum_func_tap_max_seconds(void
     
 );
 #endif
