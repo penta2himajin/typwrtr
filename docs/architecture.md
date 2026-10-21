@@ -75,8 +75,9 @@ adapter.
 - **Batch PTT speech gate (2026-10-18).** The same 0.2 also *opens* segments
   on room tone: a silent ⌃⇧D hold kept 1.10 s of a 3.30 s capture as speech
   and Parakeet-ja inserted 「うん。」 ([`ux-decisions.md`](./ux-decisions.md)
-  Q49). Hands-free and Focus Dictation never hit this — the live
-  endpointer only hands over windows it opened at 0.42 — so `stop_ptt` now
+  Q49). Hands-free and Focus Dictation do not hit *this* case — the live
+  endpointer only hands over windows it opened at 0.42 — but see the
+  periodic-noise residual below. `stop_ptt` now
   calls `DictationEngine::dictate_batch`, which runs `segment_buffer` with the
   live config (`live_config`, 0.42, `min_speech` 120 ms) first and returns
   `NoSpeech` without calling the adapter when nothing opens. Trimming is
@@ -97,6 +98,20 @@ adapter.
     (euhadra#174). A burst of ≥ 8 frames would still open the gate.
   - Remove the gate once euhadra splits the open threshold from the keep
     threshold (euhadra#176).
+- **Periodic noise opens the live path (2026-10-18, open).** A silent
+  hands-free listen inserted 「うん。」: the window opened on ~8 frames at 0.42
+  (`speechStarted` → `earshot-silence` 1.6 s, 1.5 s of it the close budget).
+  Probe through `StreamListen::start_focus()` over −45 dBFS room tone:
+  broadband bursts open 1/90, clicks 0/36, but periodic sounds open even at
+  −45 dBFS (decaying tones 52/120, squeaks 11/18, macOS alert sounds 168/249),
+  some with the dogfood shape (peak 0.53–0.60 over 8–11 frames). Earshot's
+  score does not separate them from short replies: the quietest 「あ」 peak at
+  0.48–0.61 and run 7–9 frames. Longer `min_speech` (13 frames: replies
+  135/148, tones 34/120), a per-window frame floor (16: 139/148, 44/120) or a
+  higher open threshold (0.5: 137/148, 42/120) each drop replies before they
+  remove the noise, so **Typwrtr adds no rule**. Upstream: euhadra#178 (a
+  backend that rejects periodic non-speech, or ASR confidence so a short
+  low-confidence 「うん。」 can be dropped). Probe and full table in the issue.
 - `min_silence` = 1500ms for Focus Dictation / Free pipeline dictate to match today's behaviour ([`ux-decisions.md`](./ux-decisions.md) Q25). Streaming PTT live endpointing uses euhadra `SegmenterConfig::default()` (700ms) via `StreamListen`, not the shell energy timer.
 - A capture with no speech now yields `PipelineError::NoSpeech` where an ASR
   hallucination used to be returned. The core turns that into an **empty
@@ -299,3 +314,4 @@ Workspace `Cargo.toml` already declares `license = "MIT OR Apache-2.0"`.
 | 2026-08-10 | **User term dictionary:** `TermDictionary` only; speaker-owned JSON per language; Settings CRUD rebuilds the engine; after punctuation; no import UI; phoneme/contextual rewrite deferred to euhadra. |
 | 2026-10-18 | **Echo cancellation (macOS voice processing): Debug toggle only, off by default.** `MicCapture` can enable `setVoiceProcessingEnabled(true)` (ducking `.min`, advanced ducking off). Voice processing reports 9 identical channels at 48 kHz, and the default 9→1 downmix is pure silence, so the converter takes channel 0. Measured with a standalone probe that mirrors `MicCapture` (built-in mic and speakers, output volume 50; n = 2–3 per row): mic start → first buffer is 152–167 ms either way (`jacquard measure`, n = 20 each), but enabling costs 0.9–1.1 s and disabling 0.4–0.7 s, so it must be held from launch. Quiet room −57…−59 → −66…−67 dBFS, Earshot peak ≤ 0.31 either way, so 0.42 and the −80 dBFS dead-mic cutoff still hold. Speaker playback (TTS news, Korean speech, synthetic music) is attenuated by 26–33 dB, and the played content is no longer transcribed, but a residual in the first ~2.5 s and on transients still opens the gate: 8 of 8 captures inserted text with it off (full sentences) and 8 of 8 with it on (「ピッ。」-style fragments). Adaptation does not carry across stop/start. **Why not on:** while any process holds voice processing, another app capturing the mic *without* it reads −59 → −92 dBFS (recovers to −58 when released; reproduced twice), and enabling interrupts other apps' running capture. Apps that use voice processing themselves are unaffected (−64…−66 dBFS). Ducking is unresolved: music heard by a non-VP capture fell to −69 (`.min`) and −87 dBFS (default), which mixes up ducking with the input attenuation above. Probe and scripts are in the session notes, not the repo. |
 | 2026-10-18 | **Batch PTT speech gate:** `dictate_batch` requires the live speech-start criterion (0.42, 120 ms) before the pipeline; trim stays 0.2 (0.42 trim cost ja CER 0.0616 → 0.0878). Interim until euhadra#176. |
+| 2026-10-18 | **Live-path periodic noise:** no Typwrtr rule — `min_speech`, a per-window frame floor and a higher open threshold all drop short replies (「あ」) before they remove the noise. Waiting on euhadra#178. |

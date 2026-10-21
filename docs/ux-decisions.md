@@ -102,6 +102,10 @@ Applies to **both** PTT and Free: the two paths share one pipeline.
   Q24. **Visible cost:** a very quiet single vowel can now be dropped without a
   message (synthetic replies: 146/148 kept; the two misses were 「あ」 at
   −40 dBFS). Numbers: [`architecture.md`](./architecture.md) §3.
+  - **Known gap (2026-10-18):** hands-free and Focus Dictation can still
+    insert 「うん。」 on short periodic noise (a tone, a squeak, an alert
+    sound). No Typwrtr rule separates it from a quiet 「あ」, so behaviour is
+    unchanged until euhadra#178; see [`architecture.md`](./architecture.md) §3.
 
 ## 3. Hotkey (Q15)
 
