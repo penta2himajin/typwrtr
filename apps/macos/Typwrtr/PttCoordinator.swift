@@ -526,7 +526,8 @@ final class PttCoordinator {
         }
     }
 
-    private func stopFreeMic(abandon: Bool, reason: String) {
+    /// `keepBar`: a PTT press hands the bar over instead of hiding it (no flicker).
+    private func stopFreeMic(abandon: Bool, reason: String, keepBar: Bool = false) {
         guard freeMicOpen else { return }
         CaptureLog.note("focus listen stopped reason=\(reason) abandon=\(abandon ? 1 : 0)")
         stopAudioPump()
@@ -552,7 +553,9 @@ final class PttCoordinator {
             enqueueFreeSegment()
         }
         menu.setFreeListeningIcon(false)
-        listeningIndicator.hide()
+        if !keepBar {
+            listeningIndicator.hide()
+        }
         NSLog("Typwrtr: Free mic closed (abandon=%d)", abandon ? 1 : 0)
     }
 
@@ -893,6 +896,7 @@ final class PttCoordinator {
         CaptureLog.note("ptt cancelled (esc) phase=pending-tap")
         try? session.cancel()
         holdFocusAfterCancelledPress()
+        listeningIndicator.hide()
         phase = .idle
         freeSuspendedByPtt = false
         refreshStatus()
@@ -930,10 +934,25 @@ final class PttCoordinator {
         CaptureLog.note("ptt press focus=\(pressFocus)")
         // Q13 3b: temporary Free suspend for this PTT capture (do not disarm).
         freeSuspendedByPtt = true
-        stopFreeMic(abandon: true, reason: "ptt")
+        stopFreeMic(abandon: true, reason: "ptt", keepBar: true)
         session.finishStreamListen()
 
         beginBatchPtt()
+    }
+
+    /// Focus Dictation is armed on a field: the bar keeps its state until the press is
+    /// classified (tap / double-tap / hold), then changes once. Listening: it stays up
+    /// as the PTT bar. Held: it appears only once the press becomes a hold.
+    private var pressDefersBar: Bool {
+        focusAtPress.listening || focusAtPress.held
+    }
+
+    /// Shows the PTT bar once a press from the held state outlasts a tap.
+    private var holdBarWork: DispatchWorkItem?
+
+    private func cancelHoldBar() {
+        holdBarWork?.cancel()
+        holdBarWork = nil
     }
 
     /// Q46: Esc cancels batch PTT while it records or processes, and is swallowed so
@@ -947,6 +966,7 @@ final class PttCoordinator {
 
     private func cancelBatchPtt() {
         CaptureLog.note("ptt cancelled (esc) phase=\(phase == .recording ? "recording" : "processing")")
+        cancelHoldBar()
         listeningIndicator.hide()
         holdFocusAfterCancelledPress()
         if phase == .recording {
@@ -972,11 +992,25 @@ final class PttCoordinator {
         do {
             try session.startPtt()
             try mic.start()
-            showListeningIndicator()
+            if !focusAtPress.held {
+                // Not held: no bar yet (plain PTT), or the Focus bar is already up and
+                // this only hands it the PTT capture's level.
+                showListeningIndicator()
+            } else {
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self, self.phase == .recording, !self.handsFreeActive else { return }
+                    self.holdBarWork = nil
+                    CaptureLog.note("press classified: hold")
+                    self.showListeningIndicator()
+                }
+                holdBarWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + tapMaxSeconds(), execute: work)
+            }
             refreshStatus()
         } catch {
             phase = .idle
             freeSuspendedByPtt = false
+            cancelHoldBar()
             _ = mic.stop()
             listeningIndicator.hide()
             try? session.cancel()
@@ -1031,12 +1065,16 @@ final class PttCoordinator {
         guard phase == .recording else { return }
         let held = Date().timeIntervalSince(pttStartedAt)
         let captured = mic.stop()
+        cancelHoldBar()
         // Q44: a short press may be the first tap of a double-tap. Hold its capture
         // for the window; if no second press came it toggles Focus Dictation (Q46)
         // or, with nothing to toggle, is processed as batch PTT.
         if isPossibleFirstTap(heldMs: UInt64(max(0, held) * 1000)) {
             phase = .finishing
-            listeningIndicator.hide()
+            // Over a Focus field the bar waits for the single-tap decision.
+            if !pressDefersBar {
+                listeningIndicator.hide()
+            }
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.pendingTap != nil else { return }
                 self.pendingTap = nil
@@ -1063,6 +1101,7 @@ final class PttCoordinator {
         case .stopFocus:
             CaptureLog.note("single tap: focus toggle stop")
             holdFocusAfterCancelledPress()
+            listeningIndicator.hide()
         case .resumeFocus:
             CaptureLog.note("single tap: focus toggle resume")
             clearEscapeHold(reason: "tap")
@@ -1163,7 +1202,10 @@ final class PttCoordinator {
         )
         menu.setLastText(text)
         NSLog("Typwrtr: recognized text (%d chars): %@", text.count, text)
-        listeningIndicator.hide()
+        let handBack = handsBarBack
+        if !handBack {
+            listeningIndicator.hide()
+        }
         restoreInsertTargetFocus()
         trace?.markInsertStart()
         let result = inserter.insert(text, into: insertTarget)
@@ -1180,9 +1222,27 @@ final class PttCoordinator {
         }
         if pttHeld {
             beginPtt()
+        } else if handBack {
+            handBarBackToFocus()
         } else {
             pollFreeFocus()
         }
+    }
+
+    /// Q41 / Q46: a hold or hands-free that began over a listening Focus field gives
+    /// the bar back to Focus Dictation when it ends, instead of hiding it in between.
+    private var handsBarBack: Bool {
+        focusAtPress.listening && !pttHeld
+    }
+
+    /// Focus reopens and takes the bar; if it does not (focus moved, disarmed), the
+    /// bar goes, so it never lingers.
+    private func handBarBackToFocus() {
+        pollFreeFocus()
+        if !freeMicOpen {
+            listeningIndicator.hide()
+        }
+        CaptureLog.note("bar handed back to focus=\(freeMicOpen ? 1 : 0)")
     }
 
     /// Hands-free idle tracking (audio pump queue only).
@@ -1452,11 +1512,17 @@ final class PttCoordinator {
         session.finishStreamListen()
         phase = .idle
         freeSuspendedByPtt = false
-        listeningIndicator.hide()
+        // Esc / app switch / dead mic already hid the bar (cancelHandsFree).
+        let handBack = handsBarBack
+        if !handBack {
+            listeningIndicator.hide()
+        }
         refreshStatus()
         CaptureLog.note("hands-free idle")
         if pttHeld {
             beginPtt()
+        } else if handBack {
+            handBarBackToFocus()
         } else {
             pollFreeFocus()
         }
